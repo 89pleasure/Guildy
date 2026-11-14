@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.8.2
+
+- Fixed: a Lua error on WoW Forever ("attempt to compare a secret string value" in Game/Stats.lua) when
+  Guildy read a member while the game kept their character ID secret, in instances for example.
+- Fixed: "Invite to group" did nothing but raise an error, since WoW Forever does not let addons invite.
+  It now puts "/invite Name-Realm" in the chat box; press Enter to send the invite.
+- Hall of Fame: "Gold from auctions" and "Most expensive auction sold" carry a note. WoW Forever counts
+  both far too low (a Blizzard bug); Guildy shows them as the game reports them.
+
 ## 1.8.1
 
 - New look for the member tooltip: Guildy's own dark panel with the gold border, like the item tooltips
