@@ -205,12 +205,26 @@ local function BlizzardBusy()
   return false
 end
 
+-- Whether two GUIDs are the same character. On Forever a GUID can be a secret value (in instances,
+-- for example), and comparing one from addon code throws ("attempt to compare a secret string
+-- value"): a secret never counts as the same.
+local function SameGuid(a, b)
+  return a ~= nil and b ~= nil and not ns.IsSecret(a) and not ns.IsSecret(b) and a == b
+end
+
+-- Whether an event's GUID rules out the one asked for: only a known, different GUID does (none or a
+-- secret one cannot be checked and is taken as the answer, as before secret values existed)
+local function OtherGuid(eventGuid, asked)
+  if eventGuid == nil or asked == nil or ns.IsSecret(eventGuid) or ns.IsSecret(asked) then return false end
+  return eventGuid ~= asked
+end
+
 -- A unit token that points to the requested member right now: the mouse moves on long before the
 -- answers arrive, so besides the asked unit also target, focus, group and nameplates are tried.
 local function FindUnit(request)
-  if not request.guid then return nil end
+  if not request.guid or ns.IsSecret(request.guid) then return nil end
   local guidOf = rawget(_G, "UnitGUID")
-  local function Is(unit) return ns.Try(guidOf, unit) == request.guid end
+  local function Is(unit) return SameGuid(ns.Try(guidOf, unit), request.guid) end
   for _, unit in ipairs({ request.unit, "target", "focus", "mouseover" }) do
     if unit and Is(unit) then return unit end
   end
@@ -223,12 +237,9 @@ end
 -- A unit token that shows the character with guid right now (target, focus, mouseover, group,
 -- nameplates), or nil (the character page's model, Game/Gear.lua)
 function GameStats.FindUnitByGuid(guid)
-  if not guid or guid == "" then return nil end
+  if not guid or ns.IsSecret(guid) or guid == "" then return nil end
   local guidOf = rawget(_G, "UnitGUID")
-  local function Is(unit)
-    local found = ns.Try(guidOf, unit)
-    return not ns.IsSecret(found) and found == guid -- (secret in instances: never compared)
-  end
+  local function Is(unit) return SameGuid(ns.Try(guidOf, unit), guid) end
   for _, unit in ipairs({ "target", "focus", "mouseover" }) do
     if Is(unit) then return unit end
   end
@@ -379,7 +390,7 @@ end
 
 function GameStats.OnComparisonReady(guid)
   if not pending or pending.reading then return end
-  if guid and pending.guid and guid ~= pending.guid then return end
+  if OtherGuid(guid, pending.guid) then return end
   local request = pending
   request.reading = true
   MarkProbe(nil)
@@ -553,7 +564,7 @@ end
 function GameStats.OnInspectReady(guid)
   local job = inspecting
   if not job or job.gearDone or job.gearReading
-    or (guid and job.request.guid and guid ~= job.request.guid) then return end
+    or OtherGuid(guid, job.request.guid) then return end
   job.gearReading = true
   job.answered = true
   local last = -1
@@ -603,7 +614,7 @@ function GameStats.CheckLateGear(unit)
     ClearInspect()
     return false
   end
-  if ns.Try(rawget(_G, "UnitGUID"), unit) ~= late.request.guid then return false end
+  if not SameGuid(ns.Try(rawget(_G, "UnitGUID"), unit), late.request.guid) then return false end
   local ids, links = CountSlots(unit)
   local gear, slotLinks, slotIds = ReadUnitGear(unit)
   if not (gear and gear[S.GEAR.ILVL] and links > 0 and links >= ids) then

@@ -324,7 +324,7 @@ end
 -- when the game gives none (no API, secret, no points at all: an inspect that brought no talents)
 function GameTalents.ReadInspect(unit, guid)
   local now = ns.Try(rawget(_G, "UnitGUID"), unit)
-  if ns.IsSecret(now) or not guid or now ~= guid then return nil end
+  if not guid or ns.AnySecret(now, guid) or now ~= guid then return nil end
   local tabs = ReadTabs(true)
   local trees = Tal.FromTabs(tabs)
   if not trees or trees[1] + trees[2] + trees[3] == 0 then return nil end

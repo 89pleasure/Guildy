@@ -2370,6 +2370,60 @@ T.describe("Gear", function()
     T.eq(errors, {})
   end)
 
+  -- Forever's secret GUIDs throw when addon code compares them ("attempt to compare a secret string
+  -- value", Game/Stats.lua in 1.8.1): every GUID here is a fresh secret whose comparison fails
+  T.it("never compares a secret GUID while reading a member", function()
+    local restore = GearStubs("target", { [1] = Link(1001), [16] = Link(1016, 2500) })
+    local saved = { env.SetAchievementComparisonUnit, env.ClearAchievementComparisonUnit, env.GetComparisonStatistic,
+      env.UnitExists, env.UnitIsPlayer, env.UnitIsUnit, env.UnitIsConnected, env.UnitName, env.UnitGUID, env.NotifyInspect,
+      env.ClearInspectPlayer, env.issecretvalue }
+    local secrets = {}
+    local mt = { __eq = function() error("attempt to compare a secret string value") end,
+      __lt = function() error("attempt to compare a secret string value") end }
+    local function Secret() local s = setmetatable({}, mt); secrets[s] = true; return s end
+    local isSecret = env.issecretvalue
+    env.issecretvalue = function(v) return secrets[v] == true or isSecret(v) end
+    env.SetAchievementComparisonUnit = function() return true end
+    env.ClearAchievementComparisonUnit = function() end
+    env.GetComparisonStatistic = function(id) return id == 107 and "1077" or "--" end
+    env.UnitExists = function() return true end
+    env.UnitIsPlayer = function() return true end
+    env.UnitIsUnit = function() return false end
+    env.UnitIsConnected = function() return true end
+    env.UnitName = function(unit) if unit == "target" then return "Au", "Tsch" end return "Ran", "Fred" end
+    env.UnitGUID = function() return Secret() end
+    env.NotifyInspect = function() end
+    env.ClearInspectPlayer = function() end
+    ns.GuildData().members["au tsch"].stats = nil
+    ns.GameStats._ResetForTest()
+    Fire("PLAYER_TARGET_CHANGED")
+    Fire("INSPECT_ACHIEVEMENT_READY", Secret())
+    RunTimers(1)
+    Fire("INSPECT_READY", Secret())
+    RunTimers(1)
+    ns.GameStats.FindUnitByGuid(Secret())
+    env.SetAchievementComparisonUnit, env.ClearAchievementComparisonUnit, env.GetComparisonStatistic, env.UnitExists,
+      env.UnitIsPlayer, env.UnitIsUnit, env.UnitIsConnected, env.UnitName, env.UnitGUID, env.NotifyInspect,
+      env.ClearInspectPlayer, env.issecretvalue = unpack(saved, 1, 12)
+    restore()
+    T.eq(errors, {})
+  end)
+
+  -- InviteUnit is protected on Forever (ADDON_ACTION_FORBIDDEN): Guildy puts the command in the chat box
+  T.it("invites to the group through the chat box, never by the protected call", function()
+    local saved = { env.ChatFrame_OpenChat, env.InviteUnit, env.C_PartyInfo }
+    local opened, called = {}, false
+    env.ChatFrame_OpenChat = function(text) opened[#opened + 1] = text end
+    env.InviteUnit = function() called = true end
+    env.C_PartyInfo = { InviteUnit = function() called = true end }
+    ns.Roster.GroupInvite({ name = "Au Tsch", fullName = "Au Tsch-Forever" })
+    ns.Roster.GroupInvite({ name = "Leer" })
+    env.ChatFrame_OpenChat, env.InviteUnit, env.C_PartyInfo = unpack(saved, 1, 3)
+    T.eq(opened, { "/invite Au Tsch-Forever" })
+    T.eq(called, false)
+    T.eq(errors, {})
+  end)
+
   T.it("learns the item a recipe makes", function()
     local restore = GearStubs("player", {})
     local saved = { env.GetTradeSkillLine, env.GetNumTradeSkills, env.GetTradeSkillInfo, env.GetTradeSkillRecipeLink, env.GetTradeSkillItemLink }

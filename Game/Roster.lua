@@ -273,7 +273,7 @@ end
 -- What the player may do with member m: { promote, demote, remove } (Core/Manage.lua)
 function Roster.Rights(m)
   local myGuid = ns.Try(rawget(_G, "UnitGUID"), "player")
-  local isSelf = m ~= nil and ((myGuid and m.guid == myGuid) or m == Roster.Me())
+  local isSelf = m ~= nil and ((myGuid and not ns.AnySecret(myGuid, m.guid) and m.guid == myGuid) or m == Roster.Me())
   return ns.Manage.Rights(m and m.rankIndex, MyRankIndex(), NumRanks(), Roster.Can(), isSelf)
 end
 
@@ -304,9 +304,14 @@ end
 -- through secure buttons (UI/Commands.lua). Notes are edited in Blizzard's window. Group invites are
 -- allowed.
 
+-- Group invite: "/invite Name-Realm" ready in the chat box, sent with Enter. On WoW Forever InviteUnit is
+-- protected: called from Guildy it is refused (ADDON_ACTION_FORBIDDEN, the pcall does not catch that)
+-- and nobody is invited. A secure button would invite at once, but a protected child locks Guildy's
+-- window in combat (no hiding or moving it); Enter in the chat box is Blizzard's own path.
 function Roster.GroupInvite(m)
-  local fn = (C_PartyInfo and C_PartyInfo.InviteUnit) or rawget(_G, "InviteUnit")
-  if fn then pcall(fn, m.fullName) end
+  if not m or type(m.fullName) ~= "string" or m.fullName == "" then return end
+  local open = rawget(_G, "ChatFrame_OpenChat") or (ChatFrameUtil and ChatFrameUtil.OpenChat)
+  if open then pcall(open, "/invite " .. m.fullName) end -- (the English command works in every client language)
 end
 
 -- Rank names in order (index 1 = guild master)

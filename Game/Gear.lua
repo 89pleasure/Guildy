@@ -92,7 +92,7 @@ end
 local function RaceSex(unit, guid)
   if guid then
     local now = ns.Try(rawget(_G, "UnitGUID"), unit)
-    if ns.IsSecret(now) or now ~= guid then return nil end
+    if ns.AnySecret(now, guid) or now ~= guid then return nil end
   end
   local _, _, race = ns.Try(rawget(_G, "UnitRace"), unit)
   local sex = ns.Try(rawget(_G, "UnitSex"), unit)
