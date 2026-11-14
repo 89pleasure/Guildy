@@ -83,6 +83,7 @@ ns.LocaleTables.ptBR = {
   FAME_NO_PLACE = "você ainda não está classificado",
   FAME_NOTE_ALL = "Valores como foram lidos ou compartilhados por último; a idade aparece por membro.",
   FAME_NOTE_MONTH = "Os valores do mês contam a partir da primeira leitura do mês (início mais tardio: %s).",
+  FAME_NOTE_MISCOUNTED = "O WoW Forever conta este valor muito abaixo (um erro da Blizzard); o Guildy o mostra como o jogo informa.",
   FAME_FRESH = "%d / %d membros · %d compartilhados, %d lidos por perto",
   FAME_TITLE_SLAYER = "Exterminador",
   FAME_TITLE_QUESTER = "Máquina de missões",

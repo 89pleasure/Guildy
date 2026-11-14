@@ -83,6 +83,7 @@ ns.LocaleTables.enUS = {
   FAME_NO_PLACE = "you're not ranked yet",
   FAME_NOTE_ALL = "Values as last read or shared; the age is shown per member.",
   FAME_NOTE_MONTH = "Month values count from the first reading in the month (latest start: %s).",
+  FAME_NOTE_MISCOUNTED = "WoW Forever counts this value far too low (a Blizzard bug); Guildy shows it as the game reports it.",
   FAME_FRESH = "%d / %d members · %d shared, %d read nearby",
   FAME_TITLE_SLAYER = "Slayer",
   FAME_TITLE_QUESTER = "Quest machine",

@@ -1434,6 +1434,18 @@ T.describe("Hall of Fame", function()
         view:ShowHome()
       end
     end
+    -- statistics Forever miscounts carry the note about the Blizzard bug, whatever the period
+    for _, period in ipairs({ "all", "month" }) do
+      view.period = period
+      view:ShowDetail(332)
+      T.eq(view.BoardNote:GetText(), ns.L.FAME_NOTE_MISCOUNTED)
+      view:ShowDetail(919)
+      T.eq(view.BoardNote:GetText(), ns.L.FAME_NOTE_MISCOUNTED)
+    end
+    view.period = "all"
+    view:ShowDetail(107)
+    T.eq(view.BoardNote:GetText(), ns.L.FAME_NOTE_ALL)
+    view:ShowHome()
     RunTimers()
     T.eq(errors, {})
   end)

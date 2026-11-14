@@ -83,6 +83,7 @@ ns.LocaleTables.deDE = {
   FAME_NO_PLACE = "du bist noch nicht dabei",
   FAME_NOTE_ALL = "Werte vom letzten Lesen oder Teilen; das Alter steht bei jedem Mitglied.",
   FAME_NOTE_MONTH = "Monatswerte zählen ab dem ersten Stand im Monat (spätester Beginn: %s).",
+  FAME_NOTE_MISCOUNTED = "WoW Forever zählt diesen Wert viel zu niedrig (ein Blizzard-Fehler); Guildy zeigt ihn, wie das Spiel ihn meldet.",
   FAME_FRESH = "%d / %d Mitglieder · %d geteilt, %d in der Nähe gelesen",
   FAME_TITLE_SLAYER = "Schlächter",
   FAME_TITLE_QUESTER = "Questmaschine",

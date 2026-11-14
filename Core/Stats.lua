@@ -185,6 +185,11 @@ Stats.MONEY = { [328] = true, [333] = true, [326] = true, [919] = true, [921] = 
   [1147] = true, [1148] = true, [1150] = true, [331] = true, [332] = true, spent = true }
 Stats.TENTHS = { [Stats.GEAR.ILVL] = true }
 
+-- Statistics WoW Forever counts far too low (a Blizzard bug, seen 2026-11-14: 258 auctions posted,
+-- sales of 25g and 50g, yet 6g 72s gold from auctions and 1g 44s for the most expensive one sold;
+-- the game's own text says the same). Guildy shows them as the game reports them, with a note.
+Stats.MISCOUNTED = { [919] = true, [332] = true }
+
 -- Where the gold comes from (adds up to 328, total gold acquired) and where it goes (Forever counts
 -- no repairs or training)
 Stats.INCOME = { 326, 333, 921, 919 }      -- quests, loot, vendors, auctions

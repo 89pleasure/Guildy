@@ -1356,7 +1356,9 @@ local function Build(panel)
         if start and (not since or start > since) then since = start end
       end
     end
-    if self.period == "all" then
+    if S.MISCOUNTED[id] then
+      self.BoardNote:SetText(L.FAME_NOTE_MISCOUNTED)
+    elseif self.period == "all" then
       self.BoardNote:SetText(L.FAME_NOTE_ALL)
     elseif self.period == "month" and self:LaunchMonth() then
       self.BoardNote:SetText(L.FAME_NOTE_LAUNCH)
