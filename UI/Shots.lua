@@ -181,6 +181,8 @@ local function Bank(layout, editing, after, extra)
     for key, value in pairs(extra or {}) do UI.bankShot[key] = value end
     view.board:RowsChanged(rows) -- a layout with more rows: the window as tall as it would be
     view.filter, view.pick, view.pickName = {}, nil, nil
+    view.pickItem, view.pickTab = nil, nil
+    if view.More and view.More.contents then view.More.contents.tab = nil end
     view.board:SetEditing(editing == true)
     if view.board.Scroll.SetVerticalScroll then view.board.Scroll:SetVerticalScroll(0) end
     view:Refresh()
@@ -232,7 +234,15 @@ UI.BANK_SHOTS = {
   { "bank-12-edit-free-places", Bank(Layout({ "tiles", 0, 0, 12, 2 }, { "chart", 0, 2, 8, 4 }, { "ledger", 0, 6, 12, 6 }), true) },
   { "bank-13-nothing-read", Bank(nil, false, nil, { empty = true }) },
   { "bank-14-no-boxes", Bank({}) },
-  { "bank-15-options", function()
+  { "bank-15-contents", Bank(nil, false, function(view)
+    local row = view.More.contents.List.rows[2] or view.More.contents.List.rows[1]
+    if row then row.Click:GetScript("OnClick")(row.Click) end
+  end, { page = "contents" }) },
+  { "bank-16-contents-grid", Bank(nil, false, function(view)
+    local button = view.More.contents.Grid.Buttons[3]
+    if button.item then button:GetScript("OnClick")(button) end
+  end, { page = "contents", contents = "grid" }) },
+  { "bank-17-options", function()
     Bank(nil)()
     UI.ShowOptions("bank")
   end },

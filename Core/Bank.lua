@@ -33,7 +33,10 @@ Bank.WIRE_ENTRIES = 240 -- entries in one shared message at most
 
 -- money kinds by what they do to the bank's gold
 Bank.PLUS = { deposit = true, depositSummary = true, refundRename = true }
-Bank.MINUS = { withdraw = true, repair = true, withdrawForTab = true, buyTab = true, buyRename = true }
+Bank.MINUS = { withdraw = true, repair = true, withdrawForTab = true, buyRename = true }
+-- kinds that leave the bank's gold as it is: a tab bought with the bank's gold logs the gold leaving
+-- as "withdrawForTab" and then the purchase itself as "buyTab" (the same amount, paid by the buyer)
+Bank.NEUTRAL = { buyTab = true }
 
 local floor, max, min, abs = math.floor, math.max, math.min, math.abs
 
@@ -404,7 +407,7 @@ local function After(bank)
       money = money - e.c
     elseif Bank.MINUS[e.k] then
       money = money + e.c
-    else
+    elseif not Bank.NEUTRAL[e.k] then
       break
     end
   end
@@ -495,7 +498,7 @@ function Bank.Chart(bank, now, days)
     local e = log[index]
     if not after[e] then break end
     if e.ts >= since then
-      local before = after[e] + (Bank.PLUS[e.k] and -e.c or e.c)
+      local before = after[e] + (Bank.PLUS[e.k] and -e.c or Bank.MINUS[e.k] and e.c or 0)
       -- a step of the log also says what happened: k = kind, w = who, b = the gold before it
       table.insert(steps, 1, { ts = e.ts, c = after[e], k = e.k, w = e.w, b = before })
       start, oldest = before, e.ts
@@ -628,4 +631,80 @@ function Bank.Slots(bank)
     if count then used, read = used + count, read + 1 end
   end
   return used, read * Bank.SLOTS, tabs
+end
+
+-- The same item in a slot and in a log entry: by its id, else by its item string
+function Bank.ItemKey(x)
+  return x.id and ("id:" .. x.id) or x.i
+end
+
+-- What every item did over the last `days`: { [ItemKey] = put in minus taken out }, moves not counted
+function Bank.ItemFlow(bank, now, days)
+  local since, flow = now - days * 86400, {}
+  for key, log in pairs(bank.logs) do
+    if key ~= Bank.MONEY then
+      for _, e in ipairs(log) do
+        if e.ts and e.ts >= since and (e.k == "deposit" or e.k == "withdraw") and (e.id or e.i) then
+          local item = Bank.ItemKey(e)
+          flow[item] = (flow[item] or 0) + (e.k == "deposit" and 1 or -1) * (e.n or 1)
+        end
+      end
+    end
+  end
+  return flow
+end
+
+-- What lies in the tabs whose contents were read: every item once, { key, i, id, nm, n = count over
+-- all its stacks, stacks, tabs = { tab index, ... } ascending }. tab: that tab only (nil: all).
+-- query: only items whose name (nm, or name(entry) where given) holds it, ignoring case. In no order.
+function Bank.Contents(bank, tab, query, name)
+  local find = type(query) == "string" and query ~= "" and query:lower() or nil
+  local by, list = {}, {}
+  for index = 1, Bank.MAX_TABS do
+    local t = bank.tabs[index]
+    if t and type(t.slots) == "table" and (not tab or tab == index) then
+      for slot = 1, Bank.SLOTS do
+        local s = t.slots[slot]
+        if s and s.i then
+          local key = Bank.ItemKey(s)
+          local entry = by[key]
+          if not entry then
+            entry = { key = key, i = s.i, id = s.id, nm = s.nm, n = 0, stacks = 0, tabs = {}, seen = {} }
+            by[key] = entry
+          end
+          entry.n = entry.n + (s.n or 1)
+          entry.stacks = entry.stacks + 1
+          entry.nm = entry.nm or s.nm
+          if not entry.seen[index] then
+            entry.seen[index] = true
+            entry.tabs[#entry.tabs + 1] = index
+          end
+        end
+      end
+    end
+  end
+  for _, entry in pairs(by) do
+    entry.seen = nil
+    local text = (name and name(entry)) or entry.nm or ""
+    if not find or text:lower():find(find, 1, true) then list[#list + 1] = entry end
+  end
+  return list
+end
+
+-- What the items of Bank.Contents fetch: price(entry) = copper per item or nil. Sets entry.value (nil
+-- without a price) and returns the sum and how many items had no price.
+function Bank.Worth(list, price)
+  local total, missing = 0, 0
+  for _, entry in ipairs(list) do
+    local each = price(entry)
+    entry.value = each and each * entry.n or nil
+    if entry.value then total = total + entry.value else missing = missing + 1 end
+  end
+  return total, missing
+end
+
+-- Where a slot of a tab stands in the game's grid: the slots run down the columns, seven to a column,
+-- fourteen columns. Returns column, row (from 1).
+function Bank.SlotPlace(slot)
+  return floor((slot - 1) / 7) + 1, (slot - 1) % 7 + 1
 end

@@ -426,14 +426,45 @@ local function BuildBank(panel)
   marksTip:SetPoint("TOPLEFT", shareLabel, "BOTTOMLEFT", 0, -14)
   marksTip:SetPoint("RIGHT", -12, 0)
 
+  -- the auction house value from a price addon (Game/Prices.lua), off unless chosen
+  local pricesHead = W.Text(panel, "GameFontNormal", L.OPTIONS_BANK_PRICES)
+  pricesHead:SetPoint("TOPLEFT", marksTip, "BOTTOMLEFT", -4, -20)
+  local sources = { { value = "off", text = L.OPTIONS_BANK_PRICES_OFF } }
+  for _, key in ipairs(ns.Prices.ORDER) do sources[#sources + 1] = { value = key, text = ns.Prices.Name(key) } end
+  panel.Prices = W.Segmented(panel, sources, function(value)
+    UI.SetBankSetting("prices", value ~= "off" and value or nil)
+    panel:Refresh()
+    RefreshTab("bank")
+  end)
+  panel.Prices:SetPoint("TOPLEFT", pricesHead, "BOTTOMLEFT", 4, -10)
+  panel.PricesTip = W.Text(panel, "GameFontDisableSmall", L.OPTIONS_BANK_PRICES_TIP)
+  panel.PricesTip:SetPoint("TOPLEFT", panel.Prices, "BOTTOMLEFT", 0, -10)
+  panel.PricesTip:SetPoint("RIGHT", -12, 0)
+
   -- which boxes the tab shows, where and how large, is set on the tab itself (UI/Board.lua)
   local tip = W.Text(panel, "GameFontDisableSmall", L.OPTIONS_BANK_TIP)
-  tip:SetPoint("TOPLEFT", marksTip, "BOTTOMLEFT", 0, -22)
+  tip:SetPoint("TOPLEFT", panel.PricesTip, "BOTTOMLEFT", 0, -22)
   tip:SetPoint("RIGHT", -12, 0)
 
   function panel:Refresh()
     self.Open:SetChecked(ns.Settings().bankOpen ~= false)
     self.Share:SetValue(UI.BankSetting("share") or 0.25)
+    -- with no source at all the tip says what it needs
+    local active = UI.BankPrices()
+    self.Prices:SetValue(active or "off")
+    -- a source that is not installed is not offered (a disabled button looks like the chosen one)
+    local x = 0
+    for _, button in ipairs(self.Prices.buttons) do
+      local shown = button.value == "off" or ns.Prices.SOURCES[button.value].available()
+      button:SetShown(shown)
+      if shown then
+        button:ClearAllPoints()
+        button:SetPoint("LEFT", self.Prices, "LEFT", x, 0)
+        x = x + button:GetWidth() + 2
+      end
+    end
+    local any = #ns.Prices.Available() > 0
+    self.PricesTip:SetText(any and L.OPTIONS_BANK_PRICES_TIP or (L.OPTIONS_BANK_PRICES_TIP .. " " .. L.OPTIONS_BANK_PRICES_NONE))
   end
 end
 

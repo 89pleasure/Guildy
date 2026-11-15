@@ -242,7 +242,7 @@ T.describe("Guild bank", function()
     T.eq(board.AddBar:IsShown(), true)
     T.eq(board.AddBar.gap.tail, true)
     board.AddBar:GetScript("OnClick")(board.AddBar)
-    T.eq(#board:PickRows(), 5)
+    T.eq(#board:PickRows(), 7)
     -- the box under the mouse shows where it will stand, filled, and goes when the mouse leaves
     local row = Row("balance")
     row:GetScript("OnEnter")(row)
@@ -264,7 +264,8 @@ T.describe("Guild bank", function()
     T.eq(#slots, 2) -- that place and the room beside the member table
     T.eq(slots[1].gap, { x = 0, y = 8, w = 3, h = 4 })
     T.eq(board:Offers(slots[1].gap), { { key = "access", fits = true }, { key = "largest", fits = true },
-      { key = "givers", fits = true }, { key = "tiles", fits = false }, { key = "detail", fits = false } })
+      { key = "givers", fits = true }, { key = "tiles", fits = false }, { key = "detail", fits = false },
+      { key = "contents", fits = false }, { key = "where", fits = false } })
     slots[1]:GetScript("OnClick")(slots[1])
     row = Row("givers")
     row:GetScript("OnEnter")(row)
@@ -445,6 +446,112 @@ T.describe("Guild bank", function()
     T.eq(ns.Settings().bank, nil)
     T.eq(board.defs.ledger.Cover:IsShown(), false)
     T.eq(#view.List.items, 6)
+    T.eq(errors, {})
+  end)
+
+  T.it("lists what lies in the tabs, as a list or as the grid, and shows where the picked item lies", function()
+    local view = ns.UI.TabView("bank")
+    local board = view.board
+    view.pickItem, view.pickTab = nil, nil
+    board:Preset(nil)
+    -- the second page, with a board of its own: the ledger's layout stays as it is
+    T.eq(view.Pages.buttons[2]:GetText(), ns.L.BANK_CONTENTS)
+    view.Pages.buttons[2]:GetScript("OnClick")(view.Pages.buttons[2])
+    T.eq(ns.UI.BankPage(), "contents")
+    T.eq(ns.Settings().bank.page, "contents")
+    T.truthy(board.placed.contents and board.placed.where and not board.placed.ledger, "the contents page")
+    local contents, where = view.More.contents, view.More.where
+    -- every item once: three stacks of 20 healing potions in the first tab
+    T.eq(#contents.List.items, 1)
+    local e = contents.List.items[1]
+    T.eq({ e.n, e.stacks, e.tabs, e.flow }, { 60, 3, { 1 }, 15 }) -- 20 put in, 5 taken out
+    T.eq(contents.List:IsShown(), true)
+    T.eq(contents.Grid:IsShown(), false)
+    T.eq(where.Hint:IsShown(), true)
+    -- a click on the row shows where it lies
+    local row = contents.List.rows[1]
+    row.Click:GetScript("OnClick")(row.Click)
+    T.eq(view.pickItem, "id:13446")
+    T.eq(where.Hint:IsShown(), false)
+    T.eq(where.Rows[1]:IsShown(), true)
+    T.eq(where.Grid:IsShown(), true)
+    T.eq(where.Grid.Buttons[2].Edge:IsShown(), true)
+    T.eq(where.Grid.Buttons[4].item, nil)
+    -- the search
+    contents.Search:SetText("heil")
+    contents.Search:GetScript("OnTextChanged")(contents.Search)
+    T.eq(#contents.List.items, 1)
+    contents.Search:SetText("Kraut")
+    contents.Search:GetScript("OnTextChanged")(contents.Search)
+    T.eq(#contents.List.items, 0)
+    T.eq(contents.Empty:GetText(), ns.L.BANK_CONTENTS_NONE)
+    contents.Search:SetText("")
+    contents.Search:GetScript("OnTextChanged")(contents.Search)
+    -- the grid shows the first tab that was read; the choice is kept
+    local grid = contents.Mode.buttons[2]
+    grid:GetScript("OnClick")(grid)
+    T.eq(ns.Settings().bank.contents, "grid")
+    T.eq(contents.Grid:IsShown(), true)
+    T.eq(contents.shownTab, 1)
+    T.eq(contents.Grid.Buttons[1].item.id, 13446)
+    T.eq(contents.Grid.Buttons[1].Count:GetText(), "20")
+    -- a tab that was never opened says so
+    contents.tab = 3
+    view:Refresh()
+    T.eq(contents.Grid:IsShown(), false)
+    T.eq(contents.Empty:GetText(), ns.L.BANK_CONTENTS_UNREAD)
+    contents.tab = nil
+    local list = contents.Mode.buttons[1]
+    list:GetScript("OnClick")(list)
+    -- the gold above the contents; the auction house value only with a price addon and the option on
+    local tiles = view.More.tiles
+    T.eq({ tiles.Tiles.gold:IsShown(), tiles.Tiles.slots:IsShown(), tiles.Tiles.paid:IsShown() }, { true, true, false })
+    T.eq(tiles.Tiles.worth:IsShown(), false)
+    T.eq(contents.Heads.value:IsShown(), false)
+    env.Auctionator = { API = { v1 = { GetAuctionPriceByItemID = function(caller, id)
+      T.eq(caller, "Guildy")
+      return id == 13446 and 250 or nil
+    end } } }
+    T.eq(ns.Prices.Available(), { "auctionator" })
+    view:Refresh()
+    T.eq(tiles.Tiles.worth:IsShown(), false) -- installed is not chosen
+    ns.UI.SetBankSetting("prices", "auctionator")
+    view:Refresh()
+    T.eq({ tiles.Tiles.worth:IsShown(), tiles.Tiles.total:IsShown() }, { true, true })
+    T.truthy(tiles.Tiles.worth.Value:GetText():find("1", 1, true), tiles.Tiles.worth.Value:GetText()) -- 60 x 250 = 1 g 50 s
+    T.eq(contents.Heads.value:IsShown(), true)
+    T.eq(contents.List.items[1].value, 15000)
+    T.truthy(where.Sum:GetText():find(ns.L.BANK_COL_VALUE, 1, true), where.Sum:GetText())
+    -- the addon gone: nothing of it shows, the choice is kept for when it is back
+    env.Auctionator = nil
+    view:Refresh()
+    T.eq({ tiles.Tiles.worth:IsShown(), contents.Heads.value:IsShown() }, { false, false })
+    ns.UI.SetBankSetting("prices", nil)
+    -- back on the ledger page: its boxes as they were
+    view.Pages.buttons[1]:GetScript("OnClick")(view.Pages.buttons[1])
+    T.truthy(board.placed.ledger and board.placed.tabs and not board.placed.contents, "the ledger page")
+    T.eq(ns.Settings().bank, nil) -- nothing differs from what Guildy ships
+    -- a click on a tab in the tabs box shows it on the contents page, as the grid
+    local tabRow = view.Tabs.rows[1]
+    tabRow.Click:GetScript("OnClick")(tabRow.Click)
+    T.eq(ns.UI.BankPage(), "contents")
+    T.eq({ contents.tab, contents.grid }, { 1, true })
+    -- a click on an item in the ledger picks it there and shows where it lies
+    view.Pages.buttons[1]:GetScript("OnClick")(view.Pages.buttons[1])
+    view.pickItem = nil
+    for _, ledgerRow in ipairs(view.List.rows) do
+      if ledgerRow.entry and ledgerRow.entry.id and ledgerRow:IsShown() then
+        ledgerRow.Hover:GetScript("OnMouseUp")(ledgerRow.Hover)
+        break
+      end
+    end
+    T.eq(ns.UI.BankPage(), "contents")
+    T.eq(view.pickItem, "id:13446")
+    T.eq(contents.tab, nil)
+    T.eq(where.Grid:IsShown(), true)
+    contents.Mode.buttons[1]:GetScript("OnClick")(contents.Mode.buttons[1])
+    view.Pages.buttons[1]:GetScript("OnClick")(view.Pages.buttons[1])
+    T.eq(ns.Settings().bank, nil)
     T.eq(errors, {})
   end)
 
@@ -889,7 +996,7 @@ T.describe("Pictures of the Bank tab", function()
     other.env.SlashCmdList.GUILDY("shots bank")
     other.RunTimers(1)
     T.eq(taken, #UI.BANK_SHOTS)
-    T.eq(taken, 15)
+    T.eq(taken, 17)
     T.truthy(seen[1].entries > 30 and seen[1].boxes == 5, "the made-up bank in the ledger")
     T.eq(seen[3].entries < seen[1].entries, true)       -- one member only
     T.eq(seen[4].editing, true)
@@ -900,6 +1007,7 @@ T.describe("Pictures of the Bank tab", function()
     T.eq(seen[11].boxes, 5)
     T.eq(seen[13].entries, 0)                            -- nothing read
     T.eq(seen[14].boxes, 0)
+    T.eq({ seen[15].boxes, seen[16].boxes }, { 3, 3 })  -- the figures, the contents and where it lies
     -- afterwards: no made-up bank, no layout of the run, back on the tab it started on
     T.eq(UI.bankShot, nil)
     T.eq(other.ns.GuildData().bank, nil)

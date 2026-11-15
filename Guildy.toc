@@ -63,6 +63,7 @@ Game\Cooldowns.lua
 Game\Harvest.lua
 Game\Sync.lua
 Game\Bank.lua
+Game\Prices.lua
 Game\Stats.lua
 Game\GearProbe.lua
 Game\Gear.lua
@@ -92,6 +93,7 @@ UI\TabInfo.lua
 UI\TabRanks.lua
 UI\TabBank.lua
 UI\BankWidgets.lua
+UI\BankContents.lua
 UI\TabCommunities.lua
 UI\Options.lua
 UI\Shots.lua

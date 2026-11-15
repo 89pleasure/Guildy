@@ -22,7 +22,9 @@ local COIN = {
 local QUESTION = "Interface\\Icons\\INV_Misc_QuestionMark"
 
 -- What the player chose for the tab ----------------------------------------------------------------------
--- settings.bank.layout: the boxes on the board, nil: the first of these presets
+-- Two pages, each a board of its own: "ledger" (what happened: the gold, the ledger, the members) and
+-- "contents" (what lies in the tabs). settings.bank.page: the page last shown, nil: the ledger.
+-- settings.bank.layout / .layoutContents: the boxes on each page's board, nil: the first preset of the page
 UI.BANK_PRESETS = {
   ledger = { { k = "total", x = 0, y = 0, w = 3, h = 4 }, { k = "tabs", x = 0, y = 4, w = 3, h = 4 },
     { k = "access", x = 0, y = 8, w = 3, h = 4 }, { k = "chart", x = 3, y = 0, w = 9, h = 4 },
@@ -32,8 +34,11 @@ UI.BANK_PRESETS = {
   overview = { { k = "tiles", x = 0, y = 0, w = 12, h = 2 }, { k = "chart", x = 0, y = 2, w = 8, h = 5 },
     { k = "givers", x = 8, y = 2, w = 4, h = 5 }, { k = "ledger", x = 0, y = 7, w = 8, h = 5 },
     { k = "tabs", x = 8, y = 7, w = 4, h = 5 } },
+  contents = { { k = "tiles", x = 0, y = 0, w = 8, h = 2, o = { paid = false, taken = false, repairs = false } },
+    { k = "contents", x = 0, y = 2, w = 8, h = 10 }, { k = "where", x = 8, y = 0, w = 4, h = 12 } },
 }
-UI.BANK_PRESET_ORDER = { "ledger", "members", "overview" }
+UI.BANK_PRESET_ORDER = { "ledger", "members", "overview", "contents" }
+UI.BANK_PAGES = { ledger = { layout = "layout", default = "ledger" }, contents = { layout = "layoutContents", default = "contents" } }
 UI.BANK_DAYS = { 7, 30, 90 }                           -- settings.bank.days, nil: 30
 UI.BANK_SHARES = { 0.1, 0.25, 0.5 }                    -- settings.bank.share, nil: 0.25
 
@@ -49,6 +54,18 @@ function UI.SetBankSetting(key, value)
   if type(settings.bank) ~= "table" then settings.bank = {} end
   settings.bank[key] = value
   if next(settings.bank) == nil then settings.bank = nil end
+end
+
+-- The price addon in use for the auction house value (Game/Prices.lua), nil: off or not installed
+function UI.BankPrices()
+  local chosen = UI.bankShot and UI.bankShot.prices or UI.BankSetting("prices")
+  return ns.Prices.Active(chosen)
+end
+
+-- The page the tab shows: "ledger" or "contents"
+function UI.BankPage()
+  local page = UI.bankShot and UI.bankShot.page or UI.BankSetting("page")
+  return UI.BANK_PAGES[page] and page or "ledger"
 end
 
 -- The days the tab looks back: the chart, the sums and the lists per member
@@ -352,7 +369,11 @@ local function Build(panel)
 
   -- toolbar: the days everything looks back; right the way into edit mode and what the data is worth.
   -- What the ledger lists (kind, bank tab, one member only) is chosen in the ledger's own title row.
-  page:Left(W.Text(page.Bar, "GameFontNormalSmall", L.BANK_PERIOD), 2)
+  -- the two pages first: what happened, what lies in the tabs
+  view.Pages = W.Segmented(page.Bar, { { value = "ledger", text = L.BANK_PAGE_LEDGER }, { value = "contents", text = L.BANK_CONTENTS } },
+    function(value) view:ShowPage(value) end)
+  page:Left(view.Pages, 2)
+  page:Left(W.Text(page.Bar, "GameFontNormalSmall", L.BANK_PERIOD), 20)
   local periods = {}
   for i, days in ipairs(UI.BANK_DAYS) do periods[i] = { value = days, text = L.BANK_DAYS:format(days) } end
   view.Period = W.Segmented(page.Bar, periods, function(value)
@@ -394,21 +415,56 @@ local function Build(panel)
     -- (UI.bankShot: the pictures of /guildy shots bank bring their own layout and keep nothing, UI/Shots.lua)
     load = function()
       if UI.bankShot then return UI.bankShot.layout end
-      return UI.BankSetting("layout")
+      return UI.BankSetting(UI.BANK_PAGES[UI.BankPage()].layout)
     end,
     save = function(layout)
       if UI.bankShot then
         UI.bankShot.layout = layout
       else
-        UI.SetBankSetting("layout", layout)
+        UI.SetBankSetting(UI.BANK_PAGES[UI.BankPage()].layout, layout)
       end
     end,
-    default = function() return UI.BANK_PRESETS.ledger end,
+    default = function() return UI.BANK_PRESETS[UI.BANK_PAGES[UI.BankPage()].default] end,
     onChange = function() view:Refresh() end,
     grow = function(delta) return UI.GrowWindow(delta) end,
   })
   view.board = board
-  board:Controls(page, { { L.BANK_LEDGER }, { L.TAB_MEMBERS, UI.BANK_PRESETS.members }, { L.TAB_OVERVIEW, UI.BANK_PRESETS.overview } })
+  -- the presets of the page that shows (the list is read when the menu opens, so it is refilled on a switch)
+  local presets = {}
+  local PRESETS = {
+    ledger = { { L.BANK_LEDGER }, { L.TAB_MEMBERS, UI.BANK_PRESETS.members }, { L.TAB_OVERVIEW, UI.BANK_PRESETS.overview } },
+    contents = { { L.BANK_CONTENTS } },
+  }
+  local function FillPresets()
+    for i = #presets, 1, -1 do presets[i] = nil end
+    for i, preset in ipairs(PRESETS[UI.BankPage()]) do presets[i] = preset end
+  end
+  FillPresets()
+  board:Controls(page, presets)
+  -- Shows a page: its board with its own layout; the window grows or shrinks by the rows that differ
+  function view:ShowPage(key)
+    if not UI.BANK_PAGES[key] then key = "ledger" end
+    local rows = board:Rows()
+    if UI.bankShot then
+      UI.bankShot.page = key
+    else
+      UI.SetBankSetting("page", key ~= "ledger" and key or nil)
+    end
+    FillPresets()
+    board:RowsChanged(rows)
+    self:Refresh()
+  end
+  -- The contents page from the other one: a bank tab (as the grid) or an item (picked, and where it lies)
+  function view:ShowContents(tab, item, itemTab)
+    local contents = self.More.contents
+    contents.tab = tab
+    if item then
+      self.pickItem, self.pickTab = item, itemTab
+    elseif tab and not UI.bankShot then
+      UI.SetBankSetting("contents", "grid")
+    end
+    self:ShowPage("contents")
+  end
   view.Status = W.Text(page.Bar, "GameFontDisableSmall")
   view.Status:SetJustifyH("RIGHT")
   view.Status:SetWordWrap(false)
@@ -424,15 +480,32 @@ local function Build(panel)
   view.SumsLabel = W.Text(total, "GameFontDisableSmall")
   view.SumsLabel:SetPoint("TOPLEFT", 12, -58)
   view.Sums = {}
+  local sumLabels = {}
   for i, key in ipairs({ "PAID", "TAKEN", "REPAIRS", "MOVED" }) do
     local label = W.Text(total, "GameFontHighlightSmall", L["BANK_SUM_" .. key])
-    label:SetPoint("TOPLEFT", 12, -62 - i * 17)
     local value = W.Text(total, "GameFontHighlightSmall")
     value:SetPoint("RIGHT", total, "RIGHT", -12, 0)
     value:SetPoint("TOP", label, "TOP", 0, 0)
     value:SetJustifyH("RIGHT")
     view.Sums[key] = value
+    sumLabels[i] = { label = label, value = value }
   end
+  -- the rows close up to fit the box (its height follows the window); a row that still
+  -- does not fit stays hidden instead of running into the box below
+  local function placeSums()
+    local height = total:GetHeight() or 0
+    local first, last = 79, 17 + 8 -- top of the first row; a row's height plus the bottom margin
+    local step = math.max(13, math.min(17, (height - first - last) / (#sumLabels - 1)))
+    for i, row in ipairs(sumLabels) do
+      local top = first + (i - 1) * step
+      row.label:SetPoint("TOPLEFT", 12, -top)
+      local fits = height <= 0 or top + 12 + 6 <= height
+      row.label:SetShown(fits)
+      row.value:SetShown(fits)
+    end
+  end
+  total:HookScript("OnSizeChanged", placeSums)
+  placeSums()
 
   -- the tabs and how full they are, and what the next one costs
   local tabs = W.Box(holder)
@@ -461,7 +534,14 @@ local function Build(panel)
     row.Fill = row:CreateTexture(nil, "ARTWORK")
     row.Fill:SetPoint("TOPLEFT", row.Track, "TOPLEFT", 0, 0)
     row.Fill:SetHeight(5)
+    -- a click shows the tab's contents on the other page
+    row.Click = CreateFrame("Button", nil, row)
+    row.Click:SetAllPoints()
+    row.Click:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
+    row.Click:SetScript("OnClick", function() if row.index then view:ShowContents(row.index) end end)
+    W.Tooltip(row.Click, L.BANK_CONTENTS, L.BANK_SHOW_TAB)
   end, function(row, item)
+    row.index = item.index
     local tab = item.tab
     row.Icon:SetTexture(tab.icon or QUESTION)
     row.Name:SetText(tab.name or L.BANK_TAB_N:format(item.index))
@@ -636,9 +716,17 @@ local function Build(panel)
       local e = row.entry
       if not (e and e.i) then return end
       GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-      if pcall(GameTooltip.SetHyperlink, GameTooltip, e.i) then GameTooltip:Show() end
+      if pcall(GameTooltip.SetHyperlink, GameTooltip, e.i) then
+        GameTooltip:AddLine(L.BANK_SHOW_ITEM, 0.6, 0.6, 0.6)
+        GameTooltip:Show()
+      end
     end)
     row.Hover:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    -- a click shows the item on the contents page, and where it lies
+    row.Hover:SetScript("OnMouseUp", function()
+      local e = row.entry
+      if e and (e.id or e.i) then view:ShowContents(nil, B.ItemKey(e), e.k == "move" and e.b or e.a) end
+    end)
   end, function(row, item)
     local e, bank = item.e, view.bank
     local c = Arrange(row, row)
@@ -706,6 +794,7 @@ local function Build(panel)
   -- heading of a column) while customizing
   local function On(o, key) return o[key] ~= false and 1 or 0 end
   view.More = UI.BankWidgets(holder, view)
+  for key, box in pairs(UI.BankContents(holder, view)) do view.More[key] = box end
   board:Add("total", total, { name = L.BANK_TOTAL, about = L.BANK_ABOUT_TOTAL, size = { 3, 4 }, min = { 3, 4 } })
   board:Add("tabs", tabs, { name = L.BANK_TABS, about = L.BANK_ABOUT_TABS, size = { 3, 4 }, min = { 3, 3 } })
   board:Add("access", access, { name = L.BANK_ACCESS, about = L.BANK_ABOUT_ACCESS, size = { 3, 4 }, min = { 3, 3 } })
@@ -721,17 +810,35 @@ local function Build(panel)
       return { { frame = view.Head.When, option = "when" }, { frame = view.Head.Tab, option = "tab" },
         { frame = view.Head.After, option = "after" } }
     end })
+  -- the value tiles and column are there only while a price addon is in use: their options with them
+  local tileOptions, contentOptions = {}, {}
+  local function PriceOptions()
+    local priced = UI.BankPrices() ~= nil
+    for i = #tileOptions, 1, -1 do tileOptions[i] = nil end
+    for _, option in ipairs({ { "gold", L.BANK_GOLD }, { "paid", L.BANK_SUM_PAID }, { "taken", L.BANK_SUM_TAKEN },
+      { "repairs", L.BANK_SUM_REPAIRS }, { "slots", L.BANK_TABS_HINT } }) do tileOptions[#tileOptions + 1] = option end
+    for i = #contentOptions, 1, -1 do contentOptions[i] = nil end
+    contentOptions[1], contentOptions[2] = { "tabs", L.BANK_TABS }, { "flow", L.BANK_COL_FLOW }
+    if priced then
+      tileOptions[#tileOptions + 1] = { "worth", L.BANK_COL_VALUE }
+      tileOptions[#tileOptions + 1] = { "total", L.BANK_TILE_TOTAL }
+      contentOptions[3] = { "value", L.BANK_COL_VALUE }
+    end
+    return priced
+  end
+  view.PriceOptions = PriceOptions
+  PriceOptions()
   board:Add("tiles", view.More.tiles, { name = L.BANK_TILES, about = L.BANK_ABOUT_TILES, size = { 12, 2 },
     min = function(o)
       local count = On(o, "gold") + On(o, "paid") + On(o, "taken") + On(o, "repairs") + On(o, "slots")
+      if UI.BankPrices() then count = count + On(o, "worth") + On(o, "total") end
       return { math.max(3, math.ceil(count * 1.6)), 2 }
     end,
-    options = { { "gold", L.BANK_GOLD }, { "paid", L.BANK_SUM_PAID }, { "taken", L.BANK_SUM_TAKEN },
-      { "repairs", L.BANK_SUM_REPAIRS }, { "slots", L.BANK_TABS_HINT } },
+    options = tileOptions,
     parts = function()
       local parts = {}
-      for _, key in ipairs({ "gold", "paid", "taken", "repairs", "slots" }) do
-        parts[#parts + 1] = { frame = view.More.tiles.Tiles[key], option = key }
+      for _, option in ipairs(tileOptions) do
+        parts[#parts + 1] = { frame = view.More.tiles.Tiles[option[1]], option = option[1] }
       end
       return parts
     end, bare = true })
@@ -746,6 +853,15 @@ local function Build(panel)
   board:Add("detail", view.More.detail, { name = L.BANK_DETAIL, about = L.BANK_ABOUT_DETAIL, size = { 4, 6 }, min = { 4, 4 } })
   board:Add("largest", view.More.largest, { name = L.BANK_LARGEST, about = L.BANK_ABOUT_LARGEST, size = { 4, 4 }, min = { 3, 3 } })
   board:Add("givers", view.More.givers, { name = L.BANK_GIVERS, about = L.BANK_ABOUT_GIVERS, size = { 4, 4 }, min = { 3, 3 } })
+  board:Add("contents", view.More.contents, { name = L.BANK_CONTENTS, about = L.BANK_ABOUT_CONTENTS, size = { 8, 8 },
+    min = function(o) return { 4 + On(o, "tabs") + On(o, "flow") + (UI.BankPrices() and On(o, "value") or 0), 4 } end,
+    options = contentOptions,
+    parts = function()
+      local heads, parts = view.More.contents.Heads, {}
+      for _, option in ipairs(contentOptions) do parts[#parts + 1] = { frame = heads[option[1]], option = option[1] } end
+      return parts
+    end })
+  board:Add("where", view.More.where, { name = L.BANK_WHERE, about = L.BANK_ABOUT_WHERE, size = { 4, 8 }, min = { 3, 5 } })
 
   function view:OnHide()
     if board.editing then board:SetEditing(false) end
@@ -763,9 +879,11 @@ local function Build(panel)
     local mine = ns.GameBank.Mine()
     if shot then mine = not shot.empty and shot.mine or nil end
     local editing = board.editing == true
-    local ctx = { bank = bank, known = known, now = now, days = days }
+    local ctx = { bank = bank, known = known, now = now, days = days, prices = UI.BankPrices() }
+    if self.PriceOptions then self.PriceOptions() end
 
     -- toolbar
+    self.Pages:SetValue(UI.BankPage())
     self.Period:SetValue(days)
     self.Only:SetShown(self.filter.who ~= nil)
     if self.filter.who then self.Only:SetText(L.BANK_ONLY:format(ns.Anon.Name(self.filter.whoName))) end

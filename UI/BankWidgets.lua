@@ -43,20 +43,26 @@ function UI.BankWidgets(parent, view)
 
   -- figures in a row: each can be switched off in the box's options ----------------------------------
   local tiles = CreateFrame("Frame", nil, parent)
-  local TILES = { "gold", "paid", "taken", "repairs", "slots" }
+  -- worth and total: what the items fetch at the auction house and that with the gold, only while a price
+  -- addon is in use (UI.BankPrices)
+  local TILES = { "gold", "paid", "taken", "repairs", "worth", "total", "slots" }
+  local PRICED = { worth = true, total = true }
   tiles.Tiles = {}
   for _, key in ipairs(TILES) do
     local tile = W.Box(tiles)
     tile.Value = W.Text(tile, "GameFontNormalHuge")
     tile.Value:SetPoint("CENTER", 0, 9)
     tile.Label = W.Text(tile, "GameFontDisableSmall")
-    tile.Label:SetPoint("CENTER", 0, -16)
+    tile.Label:SetPoint("LEFT", 8, -16)
+    tile.Label:SetPoint("RIGHT", -8, -16)
+    tile.Label:SetJustifyH("CENTER")
+    tile.Label:SetWordWrap(false)
     tiles.Tiles[key] = tile
   end
   local function PlaceTiles()
     local shown = {}
     for _, key in ipairs(TILES) do
-      local on = (tiles.opts or {})[key] ~= false
+      local on = (tiles.opts or {})[key] ~= false and (not PRICED[key] or tiles.prices ~= nil)
       tiles.Tiles[key]:SetShown(on)
       if on then shown[#shown + 1] = tiles.Tiles[key] end
     end
@@ -70,6 +76,7 @@ function UI.BankWidgets(parent, view)
   end
   tiles:SetScript("OnSizeChanged", PlaceTiles)
   function tiles:Fill(ctx)
+    self.prices = ctx.prices
     PlaceTiles()
     local none = GREY .. "?|r"
     local sums = ctx.known and B.Sums(ctx.bank, ctx.now, ctx.days)
@@ -80,8 +87,19 @@ function UI.BankWidgets(parent, view)
       paid = { sums and (GREEN .. "+" .. H.Money(sums.paid) .. "|r") or none, L.BANK_TILE_PAID:format(ctx.days) },
       taken = { sums and (RED .. "-" .. H.Money(sums.taken) .. "|r") or none, L.BANK_TILE_TAKEN:format(ctx.days) },
       repairs = { sums and (RED .. "-" .. H.Money(sums.repairs) .. "|r") or none, L.BANK_TILE_REPAIRS:format(ctx.days) },
-      slots = { ctx.known and (used .. GREY .. " / " .. room .. "|r") or none, L.BANK_TILE_SLOTS:format(tabs) },
+      slots = { ctx.known and (used .. GREY .. " / " .. room .. "|r") or none, tabs == 1 and L.BANK_TILE_SLOTS_ONE or L.BANK_TILE_SLOTS:format(tabs) },
+      worth = { none, "" }, total = { none, L.BANK_TILE_TOTAL },
     }
+    if ctx.prices then
+      local name = ns.Prices.Name(ctx.prices)
+      values.worth[2] = L.BANK_TILE_WORTH:format(name)
+      if ctx.known then
+        local worth, missing = B.Worth(B.Contents(ctx.bank), function(e) return ns.Prices.Get(ctx.prices, e) end)
+        values.worth[1] = H.Money(worth)
+        values.total[1] = "|cffffd100" .. H.Money(worth + (ctx.bank.money or 0)) .. "|r"
+        if missing > 0 then values.worth[2] = values.worth[2] .. " · " .. L.BANK_TILE_NOPRICE:format(missing) end
+      end
+    end
     for key, tile in pairs(self.Tiles) do
       tile.Value:SetText(values[key][1])
       tile.Label:SetText(values[key][2])

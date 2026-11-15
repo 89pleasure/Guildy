@@ -267,6 +267,18 @@ T.describe("Bank views", function()
     T.eq(Names(Bank.Marks({ { ts = 1, c = 5 } }, 0.1, 10)), "") -- a step from a reading says nothing
   end)
 
+  T.it("takes a tab bought with the bank's gold off once", function()
+    local bank = Bank.Get({})
+    Bank.Apply(bank, Reading(NOW, 64, { money = {
+      Gold("deposit", "A", 1000000, 9), Gold("withdrawForTab", "B", 1000000, 3), Gold("buyTab", "B", 1000000, 3),
+    } }))
+    local chart = Bank.Chart(bank, NOW, 7)
+    T.eq(chart.start, 64)                -- before the deposit: what is there now, not 1000000 less
+    T.eq(chart.days[0].minus, 1000000)
+    T.eq(Bank.Sums(bank, NOW, 7).taken, 1000000)
+    T.eq(chart.steps[3].c, chart.steps[3].b) -- the purchase itself moves nothing
+  end)
+
   T.it("draws from earlier readings where the log has a gap", function()
     local bank = Bank.Get({})
     Bank.Apply(bank, Reading(NOW - 10 * DAY, 500, {}))
@@ -282,7 +294,8 @@ T.describe("Bank per member", function()
   local function Sample()
     local bank = Bank.Get({})
     Bank.Apply(bank, Reading(NOW, 1000000, {
-      money = { Gold("deposit", "Ann Bee", 300000, 300), Gold("buyTab", "Ann Bee", 50000, 200), Gold("repair", "Cid Dee", 20000, 30),
+      money = { Gold("deposit", "Ann Bee", 300000, 300), Gold("withdrawForTab", "Ann Bee", 50000, 200),
+        Gold("buyTab", "Ann Bee", 50000, 200), Gold("repair", "Cid Dee", 20000, 30),
         Gold("withdraw", "Ann Bee", 100000, 3), Gold("depositSummary", nil, 7, 2) },
       ["1"] = { Item("deposit", "Ann Bee", 5, 20, 40), Item("withdraw", "Cid Dee", 5, 4, 2), Item("withdraw", "Eve Eff", 5, 20, 1),
         Item("move", "Cid Dee", 6, 1, 1) },
@@ -298,7 +311,7 @@ T.describe("Bank per member", function()
   T.it("adds up what every member put in and took out", function()
     local all = ByKey(Bank.Balance(Sample(), NOW))
     T.eq(all["ann bee"], { key = "ann bee", name = "Ann Bee", paid = 300000, taken = 150000, repairs = 0, net = 150000,
-      itemsIn = 20, itemsOut = 0, last = NOW - 3 * HOUR, count = 4 })
+      itemsIn = 20, itemsOut = 0, last = NOW - 3 * HOUR, count = 5 }) -- the tab's 50000 once, not twice
     T.eq(all["cid dee"].taken, 20000)
     T.eq(all["cid dee"].repairs, 20000)
     T.eq(all["cid dee"].net, -20000)
@@ -332,6 +345,70 @@ T.describe("Bank per member", function()
   T.it("counts the slots of the tabs that were read", function()
     local used, room, tabs = Bank.Slots(Sample())
     T.eq({ used, room, tabs }, { 2, 98, 2 })
+  end)
+end)
+
+T.describe("Bank contents", function()
+  local function Sample()
+    local bank = Bank.Get({})
+    Bank.Apply(bank, Reading(NOW, 1, {}, {
+      [1] = { name = "A", slots = { [1] = { i = "item:7", id = 7, n = 20, nm = "Linen Cloth" },
+        [9] = { i = "item:7", id = 7, n = 5, nm = "Linen Cloth" }, [3] = { i = "item:8", id = 8, n = 1, nm = "Mana Potion" } } },
+      [2] = { name = "B", slots = { [98] = { i = "item:7", id = 7, n = 3, nm = "Linen Cloth" } } },
+      [3] = { name = "C" }, -- never opened: no contents
+    }))
+    return bank
+  end
+  local function ById(list)
+    local out = {}
+    for _, entry in ipairs(list) do out[entry.id] = entry end
+    return out
+  end
+
+  T.it("lists every item once with its count, stacks and tabs", function()
+    local all = ById(Bank.Contents(Sample()))
+    T.eq(all[7].n, 28)
+    T.eq(all[7].stacks, 3)
+    T.eq(all[7].tabs, { 1, 2 })
+    T.eq(all[8].n, 1)
+    T.eq(all[8].tabs, { 1 })
+  end)
+
+  T.it("narrows to one tab and to a name", function()
+    T.eq(ById(Bank.Contents(Sample(), 2))[7].n, 3)
+    T.eq(ById(Bank.Contents(Sample(), 2))[8], nil)
+    local found = Bank.Contents(Sample(), nil, "pOtI")
+    T.eq(#found, 1)
+    T.eq(found[1].id, 8)
+    T.eq(#Bank.Contents(Sample(), nil, "cloth", function() return "Leinenstoff" end), 0) -- the name the game shows
+    T.eq(#Bank.Contents(Bank.Get({})), 0)
+  end)
+
+  T.it("adds up what every item did in the last days", function()
+    local bank = Bank.Get({})
+    Bank.Apply(bank, Reading(NOW, 1, { ["1"] = { Item("deposit", "A", 7, 20, 30), Item("withdraw", "B", 7, 5, 20),
+      Item("move", "C", 7, 20, 10), Item("deposit", "D", 8, 3, 9 * 24) } }))
+    local flow = Bank.ItemFlow(bank, NOW, 7)
+    T.eq(flow["id:7"], 15)
+    T.eq(flow["id:8"], nil) -- older than the days
+    T.eq(Bank.ItemFlow(bank, NOW, 30)["id:8"], 3)
+    T.eq(Bank.ItemKey({ id = 7, i = "item:7" }), "id:7")
+  end)
+
+  T.it("adds up what the items fetch, leaving out those without a price", function()
+    local list = Bank.Contents(Sample())
+    local total, missing = Bank.Worth(list, function(e) return e.id == 7 and 150 or nil end)
+    T.eq({ total, missing }, { 28 * 150, 1 })
+    for _, e in ipairs(list) do
+      if e.id == 7 then T.eq(e.value, 4200) else T.eq(e.value, nil) end
+    end
+  end)
+
+  T.it("places the slots down the columns like the game", function()
+    T.eq({ Bank.SlotPlace(1) }, { 1, 1 })
+    T.eq({ Bank.SlotPlace(7) }, { 1, 7 })
+    T.eq({ Bank.SlotPlace(8) }, { 2, 1 })
+    T.eq({ Bank.SlotPlace(98) }, { 14, 7 })
   end)
 end)
 
