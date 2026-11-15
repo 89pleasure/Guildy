@@ -220,6 +220,8 @@ return function(T, opts)
       rawset(frame, "EnableMouse", function(self, on) rawset(self, "_mouse", on and true or false) end)
       rawset(frame, "IsMouseEnabled", function(self) return rawget(self, "_mouse") == true end)
       rawset(frame, "TransitionToModelSceneID", function() end)
+      -- the template's own OnUpdate (cameras and actors, every frame while shown): counts its runs
+      frame._scripts.OnUpdate = function(self) rawset(self, "_updates", (rawget(self, "_updates") or 0) + 1) end
       rawset(frame, "GetPlayerActor", function() return actor end)
       rawset(frame, "GetActiveCamera", function() return camera end)
     end

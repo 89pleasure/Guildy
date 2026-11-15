@@ -5,6 +5,7 @@
 -- a model scene of the page's template parented to UIParent, small and invisible, whose player actor
 -- takes the donor with the member's raceID. A dressed body stays when its donor leaves (checked in game
 -- on Forever), so the page later borrows the whole scene into its model area and dresses it there.
+-- Once ready the scene waits hidden (a shown model costs every frame) and shows again on the page.
 -- The viewer's own sex needs no body ("player" is always a donor). At most BUILD_PER_RUN bodies per
 -- look, at most one look per THROTTLE seconds, nothing in combat, every unit value checked for secrets.
 -- What is missing is kept until the gear (GEAR), the member list (Roster.version) or the pool
@@ -50,6 +51,11 @@ local function Park(scene)
   if scene.EnableMouseWheel then scene:EnableMouseWheel(false) end
   scene:Show()
 end
+
+-- A ready body waits hidden: a shown scene, even invisible and 8 px small, has its model animated and
+-- drawn every frame, and the game charges that to Guildy (/guildy cpu in game 2026-11-15: 5 parked
+-- bodies 0.165 ms a frame, hidden 0.001 ms, and 300 instead of 400 fps). It is shown again on Take.
+local function Rest(scene) scene:Hide() end
 
 -- The (race, sex) pairs that members with stored gear need and the pool lacks: "race:sex" -> { race, sex }
 local function Missing()
@@ -143,7 +149,11 @@ local function Build(race, sex, unit)
   end
   local body = { scene = scene, actor = actor, race = race, sex = sex, distance = distance, ready = false }
   bodies[Key(race, sex)] = body
-  C_Timer.After(READY_AFTER, function() body.ready = true end)
+  -- shown while the body loads, as checked in game; hidden once ready, unless on the page
+  C_Timer.After(READY_AFTER, function()
+    body.ready = true
+    if not body.user then Rest(scene) end
+  end)
   return true
 end
 
@@ -183,13 +193,36 @@ function ModelPool.Wake()
   C_Timer.After(THROTTLE - (now - lastLook), function() ns.SafeCall(Look) end)
 end
 
--- The page borrows body for member key: the pool leaves it to the page until Give
-function ModelPool.Take(body, key) body.user = key end
+-- The page borrows body for member key: the pool leaves it to the page until Give; its scene shows
+function ModelPool.Take(body, key)
+  body.user = key
+  body.scene:Show()
+end
 
--- The page gives body back: parked unseen again, its body and gear kept
+-- The page gives body back: parked unseen again and hidden, its body and gear kept
 function ModelPool.Give(body)
   body.user = nil
   Park(body.scene)
+  if body.ready then Rest(body.scene) end
+end
+
+-- /guildy cpu: hides the parked bodies that show (hide true), or shows those again (hide false); the
+-- one on the page stays. Returns how many parked bodies there are.
+function ModelPool.Hold(hide)
+  local n = 0
+  for _, body in pairs(bodies) do
+    if not body.user then
+      n = n + 1
+      if hide and body.scene:IsShown() then
+        body.held = true
+        body.scene:Hide()
+      elseif not hide and body.held then
+        body.held = nil
+        body.scene:Show()
+      end
+    end
+  end
+  return n
 end
 
 -- Lines for /guildy modeltest pool

@@ -3751,7 +3751,7 @@ T.describe("The body pool for members of the other sex", function()
     local body = w.ns.ModelPool.Get(8, 3)
     T.eq(body.actor._log.unit, { "nameplate1:8" })
     T.truthy(rawget(body.scene, "_parent") == w.env.UIParent, "hidden on the screen")
-    T.eq(body.scene:IsShown(), true)
+    T.eq(body.scene:IsShown(), false) -- ready: waits hidden (a shown model costs every frame)
     T.eq(body.scene:GetAlpha(), 0)
     T.eq(body.scene:IsMouseEnabled(), false)
     -- an event later builds nothing new
@@ -3804,6 +3804,85 @@ T.describe("The body pool for members of the other sex", function()
     w.RunTimers()
     T.eq(body.actor._log.undress, 2)
     T.truthy(rawget(body.scene, "_parent") == page.Hero.ModelArea, "on the page again")
+    T.eq(w.errors, {})
+  end)
+
+  T.it("hides a ready body in the pool and shows it on the page, the page's drag on it once", function()
+    local w, sexes = World(2)
+    sexes.nameplate1 = 3
+    w.Fire("NAME_PLATE_UNIT_ADDED", "nameplate1")
+    local first = w.ns.ModelPool.Get(4, 3)
+    T.eq(first.scene:IsShown(), true) -- shown while the body loads
+    w.RunTimers()
+    T.eq(first.scene:IsShown(), false)
+    local body = w.ns.ModelPool.Get(8, 3)
+    T.eq(body.ready, true)
+    T.eq(body.scene:IsShown(), false)
+    -- on the page: shown, the template's OnUpdate with the page's drag hooked onto it
+    sexes.nameplate1 = nil
+    w.env.CommunitiesFrame:Show()
+    w.ns.UI.ShowMember(w.ns.Roster.Find("Au Tsch"))
+    w.RunTimers()
+    T.eq(body.scene:IsShown(), true)
+    local update = body.scene:GetScript("OnUpdate")
+    rawset(body.scene, "_updates", 0)
+    body.scene.dragX, body.scene.dragYaw, body.scene.yaw = 0, 0, 0
+    w.env.GetCursorPosition = function() return 100, 0 end
+    update(body.scene, 0.01)
+    T.eq(rawget(body.scene, "_updates"), 1)
+    T.truthy(body.scene.yaw ~= 0, "the page's drag turns the actor")
+    body.scene.dragX = nil
+    -- back to the pool: hidden; on the page once more: shown, the drag not hooked twice
+    w.ns.UI.ShowMember(w.ns.Roster.Find("Ran Fred"))
+    T.eq(body.scene:IsShown(), false)
+    w.ns.UI.ShowMember(w.ns.Roster.Find("Au Tsch"))
+    w.RunTimers()
+    T.eq(body.scene:IsShown(), true)
+    T.truthy(body.scene:GetScript("OnUpdate") == update, "the same script")
+    T.eq(w.errors, {})
+  end)
+
+  T.it("/guildy cpu measures the game's number per phase and puts every hidden frame back", function()
+    local w, sexes = World(2)
+    sexes.nameplate1 = 3
+    w.Fire("NAME_PLATE_UNIT_ADDED", "nameplate1")
+    w.RunTimers()
+    local body = w.ns.ModelPool.Get(8, 3)
+    body.scene:Show() -- a parked body that shows (as before the pool hid them)
+    local lines = {}
+    rawset(w.env.DEFAULT_CHAT_FRAME, "AddMessage", function(_, text) lines[#lines + 1] = text end)
+    -- no profiler on this client: says so
+    w.env.SlashCmdList.GUILDY("cpu")
+    T.truthy(lines[#lines]:find("no addon profiler", 1, true), lines[#lines])
+    -- the game charges 0.3 ms a frame while bodies are parked, 0.1 without
+    w.env.Enum = w.env.Enum or {}
+    w.env.Enum.AddOnProfilerMetric = { LastTime = 3 }
+    w.env.C_AddOnProfiler = { GetAddOnMetric = function(_, metric)
+      T.eq(metric, 3)
+      return body.scene:IsShown() and 0.3 or 0.1
+    end }
+    local named = w.env.CreateFrame("Frame", "GuildyProbeTestFrame", w.env.UIParent)
+    named:Show()
+    local list = { named }
+    w.env.EnumerateFrames = function(after)
+      if after == nil then return list[1] end
+      for i, f in ipairs(list) do if f == after then return list[i + 1] end end
+    end
+    w.env.SlashCmdList.GUILDY("cpu")
+    local runner = w.ns.CpuProbe.Runner()
+    for i = 1, 3 do
+      local update = runner:GetScript("OnUpdate")
+      if i == 2 then T.eq(body.scene:IsShown(), false) end
+      if i == 3 then T.eq(named:IsShown(), false) end
+      for _ = 1, 11 do update(runner, 0.5) end
+    end
+    T.eq(runner:GetScript("OnUpdate"), nil)
+    T.eq(body.scene:IsShown(), true)
+    T.eq(named:IsShown(), true)
+    local report = table.concat(lines, "\n")
+    T.truthy(report:find("as it is%s+0%.300 ms"), report)
+    T.truthy(report:find("pool bodies hidden%s+0%.100 ms"), report)
+    T.truthy(report:find("GuildyProbeTestFrame", 1, true), report)
     T.eq(w.errors, {})
   end)
 

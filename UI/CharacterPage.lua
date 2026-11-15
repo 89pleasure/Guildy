@@ -1078,6 +1078,7 @@ local function Build()
       GiveBack()
       page.borrowed = body
       local scene = body.scene
+      ns.ModelPool.Take(body, key) -- shown again (it waits hidden in the pool)
       Equip(scene)
       scene:SetParent(hero.ModelArea)
       scene:ClearAllPoints()
