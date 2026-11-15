@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.9.0
+
+- New: the Bank tab has two pages, switched at the left of its toolbar. "Movements" is the tab as it
+  was; "Contents" shows what lies in the bank's tabs. Each page keeps its own boxes and layout.
+- Contents: every item once with its count, stacks, tabs and how much of it came in or went out in the
+  chosen days, sortable and searchable, for all tabs or one. Or one tab as the game's grid, with the
+  search lighting up what it finds. Beside it "Where it lies": the tabs and slots of the item you click.
+- A click on a tab in the "Tabs" box shows its contents; a click on an item in the ledger shows where it
+  lies now.
+- The Contents page shows the gold in the bank above the list. With Auctionator or TSM installed, turn on
+  "Auction house value" under Options, Bank, to see what the items would fetch, the bank's total value
+  and an AH value column. The prices come from your own scans and are not shared.
+- Fixed: buying a bank tab counted its price twice in "Withdrawn", the gold chart and the member list.
+- Fixed: in a low window the last line of the "Guild bank" box ran into the box below.
+
 ## 1.8.3
 
 - Fixed: Guildy cost CPU time every frame, even with its window closed (in AddonProfiler often the
