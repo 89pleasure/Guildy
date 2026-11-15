@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.8.3
+
+- Fixed: Guildy cost CPU time every frame, even with its window closed (in AddonProfiler often the
+  addon with the most time). The bodies Guildy keeps ready for the character page's 3D model stayed
+  shown, invisibly, and the game animated and drew them all the time. They now wait hidden and show only
+  on the character page; the frame rate goes up with it.
+- New: `/guildy cpu` measures what the game itself charges Guildy per frame, the number AddonProfiler
+  shows. Please add what it prints when you report stutter.
+
 ## 1.8.2
 
 - Fixed: a Lua error on WoW Forever ("attempt to compare a secret string value" in Game/Stats.lua) when
