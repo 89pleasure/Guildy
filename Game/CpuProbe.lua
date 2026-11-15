@@ -30,8 +30,9 @@ local function NamedVisible()
   if not enumerate then return list end
   local frame = enumerate()
   while frame do
-    local name = frame.GetName and frame:GetName()
-    if type(name) == "string" and name:find("^Guildy") and frame:IsVisible() then list[#list + 1] = frame end
+    -- forbidden frames (the auras' cooldowns, for one) refuse even GetName: skipped
+    local ok, name = pcall(frame.GetName, frame)
+    if ok and type(name) == "string" and name:find("^Guildy") and frame:IsVisible() then list[#list + 1] = frame end
     frame = enumerate(frame)
   end
   return list

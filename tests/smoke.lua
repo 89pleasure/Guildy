@@ -3863,7 +3863,10 @@ T.describe("The body pool for members of the other sex", function()
     end }
     local named = w.env.CreateFrame("Frame", "GuildyProbeTestFrame", w.env.UIParent)
     named:Show()
-    local list = { named }
+    -- a forbidden frame of the game (the auras' cooldowns): even GetName raises an error
+    local forbidden = w.env.CreateFrame("Cooldown")
+    rawset(forbidden, "GetName", function() error("Attempt to access forbidden object") end)
+    local list = { forbidden, named }
     w.env.EnumerateFrames = function(after)
       if after == nil then return list[1] end
       for i, f in ipairs(list) do if f == after then return list[i + 1] end end
