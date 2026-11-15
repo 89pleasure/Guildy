@@ -227,6 +227,8 @@ SlashCmdList.GUILDY = function(msg)
     ns.UI.StopShots()
   elseif msg == "shots" then
     ns.UI.TakeShots()
+  elseif msg == "cpu" then
+    ns.CpuProbe.Run()
   elseif msg:match("^perf") then
     PerfCommand(msg:match("^perf%s+(%a+)"))
   elseif msg:match("^rights") then

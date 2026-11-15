@@ -68,6 +68,7 @@ Game\GearProbe.lua
 Game\Gear.lua
 Game\Talents.lua
 Game\ModelPool.lua
+Game\CpuProbe.lua
 Game\Activity.lua
 Game\Ding.lua
 UI\Widgets.lua

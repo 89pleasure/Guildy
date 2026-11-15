@@ -43,7 +43,7 @@ If you disable Guildy, you get Blizzard's window back as it was.
 
 ## Feedback
 
-Bugs and wishes go to the [issues](https://github.com/svengabr/Guildy/issues), or send me a DM on [CurseForge](https://www.curseforge.com/members/conoar). I'm especially glad to hear from officers of bigger guilds, because my own guild has about a hundred members and I can't test every size myself. If Guildy stutters for you, type `/guildy perf on`, play a bit, then `/guildy perf` and attach the report.
+Bugs and wishes go to the [issues](https://github.com/svengabr/Guildy/issues), or send me a DM on [CurseForge](https://www.curseforge.com/members/conoar). I'm especially glad to hear from officers of bigger guilds, because my own guild has about a hundred members and I can't test every size myself. If Guildy stutters for you, type `/guildy perf on`, play a bit, then `/guildy perf` and attach the report, together with what `/guildy cpu` prints.
 
 ## About me
 
