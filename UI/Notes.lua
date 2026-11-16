@@ -574,20 +574,14 @@ local function Dock()
   HookDetail()
 end
 
--- Blizzard's panel still holds m but is hidden: Blizzard hides it when its window closes, and keeps
--- the member it picked. Showing it again only shows it; the member stays Blizzard's own pick (its
--- clubId and memberId, which its note boxes read, are untouched).
-local function Remembered(m)
-  local detail = Detail()
-  if not (m and m.guid and detail and not detail:IsShown() and detail.GetMemberInfo) then return false end
-  local info = ns.Try(detail.GetMemberInfo, detail)
-  return info ~= nil and info.guid == m.guid
-end
-
--- Docked while the character page shows the member Blizzard picked
+-- Docked while the character page shows the member Blizzard picked. Guildy never shows Blizzard's
+-- panel itself: its Show runs Blizzard's OnShow from Guildy's code (CommunitiesFrame:RegisterDialogShown
+-- closes Blizzard's popups and keeps the panel as its last dialog), and that taint reached Blizzard's
+-- rank menu and note dialog until a reload. Blizzard hides the panel when its window closes and for a
+-- moment during a rank change (its member info without a rank); a click on the member or on "Edit notes"
+-- picks them again (reported 2026-11-17: rank changes stopped working after a while).
 local function Update()
   local wanted = shown and UI.IsShown() and CanEdit(shown)
-  if wanted and not Picked(shown) and Remembered(shown) then Detail():Show() end
   if wanted and Picked(shown) then Dock() else Undock() end
 end
 Notes.Follow = function() if docked then Dock() end end
@@ -650,8 +644,9 @@ function Notes.Debug()
   local function state(f)
     if not f then return "nil" end
     local l, b, w, h = f:GetRect()
-    return ("shown %s visible %s alpha %.2f %s/%s rect %s,%s %sx%s"):format(tostring(f:IsShown()),
-      tostring(f:IsVisible()), f:GetEffectiveAlpha(), f:GetFrameStrata(), f:GetFrameLevel(),
+    return ("shown %s visible %s alpha %.2f %s/%s rect %s,%s %sx%s"):format(tostring((f:IsShown())),
+      tostring((f:IsVisible())), (f:GetEffectiveAlpha() or 0), tostring((f:GetFrameStrata())),
+      tostring((f:GetFrameLevel())),
       tostring(l and math.floor(l)), tostring(b and math.floor(b)), tostring(w and math.floor(w)),
       tostring(h and math.floor(h)))
   end
@@ -659,6 +654,22 @@ function Notes.Debug()
   add("guild", tostring(GuildSelected()), "combat", tostring(InCombatLockdown()), "member", tostring(m and m.name),
     "picked", tostring(Picked(m)), "row", tostring(m and Row(m.guid) ~= nil), "can", tostring(CanEdit(m)))
   add("host:", state(Host()))
+  -- taint: who wrote the values Blizzard's rank menu and note dialog read (nil = Blizzard itself)
+  local secure = rawget(_G, "issecurevariable")
+  if secure then
+    local function by(t, key)
+      if not t then return "-" end
+      local ok, isSecure, addon = pcall(secure, t, key)
+      if not ok then return "?" end
+      return isSecure and "clean" or ("tainted by " .. tostring(addon))
+    end
+    add("taint lastActiveDialog", by(Host(), "lastActiveDialog"), "clubId", by(Detail(), "clubId"),
+      "memberId", by(Detail(), "memberId"))
+  end
+  local club = C_Club and ns.Try(C_Club.GetGuildClubId)
+  local me = club and ns.Try(C_Club.GetMemberInfoForSelf, club)
+  add("club", tostring(club), "ready", tostring(club and ns.Try(C_Club.AreMembersReady, club)),
+    "my rank order", tostring(me and me.guildRankOrder))
   add("guildy:", state(UI.frame))
   add("list:", state(MemberList()))
   add("detail:", state(Detail()))

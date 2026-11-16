@@ -4444,6 +4444,10 @@ T.describe("The hero card and the column on the character page", function()
     local said = table.concat(w.calls.texts, " | ")
     w.calls.texts = nil
     T.truthy(said:find(w.ns.L.NOTES_SELECT_GUILD, 1, true), "told: " .. said)
+    -- /guildy notedebug with the taint lines
+    w.env.issecurevariable = function() return false, "Guildy" end
+    local lines = w.ns.UI.Notes.Debug()
+    T.truthy(table.concat(lines, " "):find("tainted by Guildy", 1, true), "taint line")
     T.eq(w.errors, {})
   end)
 
