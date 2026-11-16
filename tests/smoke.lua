@@ -1013,6 +1013,42 @@ T.describe("Harvest", function()
     ns.Roster.Scan()
     T.eq(#ns.Roster.Members(), before)
     env.GetNumGuildMembers = count
+    -- a scan that finds everyone as before redraws nothing (ROSTER waits), but still counts as a scan
+    -- (ROSTER_SCAN: the days members were seen online); a member in another zone is a change
+    local fired, scans = 0, 0
+    ns.On("ROSTER", function() fired = fired + 1 end)
+    ns.On("ROSTER_SCAN", function() scans = scans + 1 end)
+    ns.Roster.Scan()
+    fired, scans = 0, 0
+    local kept = ns.Roster.Find("Au-Tsch")
+    ns.Roster.Scan()
+    T.eq({ fired, scans }, { 0, 1 })
+    T.truthy(ns.Roster.Find("Au-Tsch") == kept, "the members stay the same tables")
+    local info = env.GetGuildRosterInfo
+    env.GetGuildRosterInfo = function(i)
+      local r = { info(i) }
+      if r[1] == "Au-Tsch" then r[6] = "Tanaris" end
+      return unpack(r, 1, 17)
+    end
+    ns.Roster.Scan()
+    T.eq({ fired, scans }, { 1, 2 })
+    T.eq(ns.Roster.Find("Au-Tsch").zone, "Tanaris")
+    env.GetGuildRosterInfo = info
+    ns.Roster.Scan()
+    T.eq(fired, 2)
+    -- joins, leaves and promotions in the chat ask for the roster at most every few seconds, the last one
+    -- still asked for at the end
+    local requests = 0
+    local request = env.C_GuildInfo.GuildRoster
+    env.C_GuildInfo.GuildRoster = function() requests = requests + 1 end
+    RunTimers() -- (what other parts asked for before)
+    ns.Roster.Request(true)
+    requests = 0
+    for _ = 1, 3 do ns.Roster.RequestSoon() end
+    T.eq(requests, 0)
+    RunTimers()
+    T.eq(requests, 1)
+    env.C_GuildInfo.GuildRoster = request
     -- member since: the join the event log names is a date, everyone else is "since at least" today
     ns.Roster.Scan()
     local today = ns.Tenure.Day(ns.Now())
@@ -2583,6 +2619,39 @@ T.describe("Gear", function()
       "Makira-Farron", "r4")
     T.eq(guild.gear["au tsch"].items[5].b, { 6655 })
     T.eq(guild.gear["au tsch"].src, "relay")
+    P.Encode = encode
+    T.eq(errors, {})
+  end)
+
+  T.it("answers a slice of a big guild's summary only for the members in that slice", function()
+    local P, guild, now = ns.Protocol, ns.GuildData(), ns.Now()
+    local function Receive(kind, data, sender, id)
+      for _, part in ipairs(P.Chunk(id, P.Encode(kind, data))) do Fire("CHAT_MSG_ADDON", "GUILDY", part, "GUILD", sender) end
+    end
+    local gears = {}
+    local encode = P.Encode
+    P.Encode = function(kind, data, version)
+      if kind == "GEAR" then gears[#gears + 1] = data.m end
+      return encode(kind, data, version)
+    end
+    local items = { [5] = { id = 7484, e = 0, s = 0, l = 39, q = 2 } }
+    guild.gear["au tsch"] = { ts = now + 300, src = "seen", items = items }
+    guild.gear["makira farron"] = { ts = now + 300, src = "seen", items = items }
+    -- slices in which the two fall apart
+    local n = 2
+    while P.SliceOf("au tsch", n) == P.SliceOf("makira farron", n) do n = n * 2 end
+    -- Au names neither in Makira's slice: only that slice was asked about, so only Makira is offered
+    Receive("SUM", { d = {}, g = {}, r = { P.SliceOf("makira farron", n), n } }, "Au-Tsch", "sl1")
+    RunTimers()
+    T.eq(gears, { "Makira Farron" })
+    -- a summary without slice is the whole guild: Au is offered as well
+    gears = {}
+    guild.gear["au tsch"].ts = now + 301
+    guild.gear["makira farron"].ts = now + 301
+    Receive("SUM", { d = {}, g = {} }, "Au-Tsch", "sl2")
+    RunTimers()
+    table.sort(gears)
+    T.eq(gears, { "Au Tsch", "Makira Farron" })
     P.Encode = encode
     T.eq(errors, {})
   end)

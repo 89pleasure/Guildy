@@ -138,7 +138,7 @@ function GameActivity.Report()
   return ns.L.ACTIVITY_REPORT:format(tostring(summary.pulse or "-"), b[1], b[2], b[3], b[4], b[5], tostring(summary.median or "-"))
 end
 
-ns.On("ROSTER", function()
+ns.On("ROSTER_SCAN", function()
   SetDayShift()
   MarkRoster()
 end)

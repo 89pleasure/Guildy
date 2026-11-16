@@ -1,6 +1,6 @@
 -- Guild roster snapshot from the game: members with level, class, zone, notes, online state and days
 -- since last online, the player's guild permissions, and join dates from the guild event log.
--- Fires ns "ROSTER" after each (debounced) update.
+-- Fires ns "ROSTER_SCAN" after each (debounced) scan, "ROSTER" after one that changed something.
 local _, ns = ...
 
 local Roster = {}
@@ -27,6 +27,25 @@ function Roster.Request(force, rosterOnly)
   if rosterOnly then return end
   local queryLog = rawget(_G, "QueryGuildEventLog")
   if queryLog then pcall(queryLog) end
+end
+
+-- Online and offline lines in the chat ask for the roster (Game/Chat.lua). A guild of a thousand has
+-- them every few seconds, and each answer was a whole scan and redraw: at most one request per
+-- REQUEST_GAP seconds, the last change still asked for at the end of it.
+local REQUEST_GAP = 5
+local soon
+function Roster.RequestSoon()
+  if soon then return end
+  local wait = lastRequest + REQUEST_GAP - GetTime()
+  if wait <= 0 then
+    Roster.Request(true)
+    return
+  end
+  soon = true
+  C_Timer.After(wait, function()
+    soon = nil
+    Roster.Request(true)
+  end)
 end
 
 local function ReadEventLog()
@@ -106,8 +125,24 @@ local function Mentioned(note, officerNote, kept)
   return set
 end
 
+-- Whether a scan found the members exactly as before: then nothing is redrawn (ROSTER is not fired)
+local FIELDS = { "index", "fullName", "name", "rank", "rankIndex", "level", "className", "classFile", "zone", "note",
+  "officerNote", "online", "isMobile", "status", "guid", "daysOffline", "joinedDaysAgo", "joinedDay", "joinedExact" }
+local function Unchanged(old, new)
+  if #old ~= #new then return false end
+  for i, m in ipairs(new) do
+    local o = old[i]
+    for _, field in ipairs(FIELDS) do
+      if o[field] ~= m[field] then return false end
+    end
+  end
+  return true
+end
+
+local lastScan = -math.huge
 function Roster.Scan()
   pending = false
+  lastScan = GetTime()
   local count = ns.Try(rawget(_G, "GetNumGuildMembers")) or 0
   -- a guild never has 0 members while the player is in it: the game delivered an empty roster for a
   -- moment (seen in game 2026-11-09 after leaving and rejoining a community, which switches the club in
@@ -153,6 +188,7 @@ function Roster.Scan()
     end
   end
   if changed then Roster.version = Roster.version + 1 end
+  local before = { members, byKey, byGuid }
   members, byKey, byGuid = list, keys, guids
   lap("scan roster:", "read members")
   ReadEventLog()
@@ -190,14 +226,26 @@ function Roster.Scan()
     noteSets = kept
   end
   lap("scan roster:", "notes")
-  ns.Fire("ROSTER")
+  -- every scan, changed or not: the days members were seen online go by the date too (Game/Activity.lua)
+  ns.Fire("ROSTER_SCAN")
+  if Unchanged(before[1], members) then
+    -- the same as before: the old members stay (what the tabs noted on them included), nothing redraws
+    members, byKey, byGuid = before[1], before[2], before[3]
+  else
+    ns.Fire("ROSTER")
+  end
   if notesChanged then ns.Fire("PROFS") end
 end
 
+-- A roster update scans after half a second, and not sooner than SCAN_GAP after the scan before: a
+-- scan grows with the guild (about 1 s apart with 100 members, 5 s with 1000)
+local function ScanGap()
+  return math.min(5, 0.5 + #members / 200)
+end
 function Roster.ScheduleScan()
   if pending then return end
   pending = true
-  C_Timer.After(0.5, function() ns.SafeCall(Roster.Scan) end)
+  C_Timer.After(math.max(0.5, lastScan + ScanGap() - GetTime()), function() ns.SafeCall(Roster.Scan) end)
 end
 
 function Roster.Members() return members end

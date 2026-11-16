@@ -64,6 +64,11 @@ function Protocol.Chunk(msgId, payload)
   return parts
 end
 
+-- How many parts Chunk makes of a payload (without making them)
+function Protocol.PartCount(payload)
+  return math.max(1, math.ceil(#payload / (Protocol.MAX_PART - #"~ffff9999:64/64:")))
+end
+
 function Protocol.NewAssembler()
   return { pending = {} }
 end
@@ -93,6 +98,38 @@ function Protocol.AddPart(assembler, sender, message, now)
   if entry.count < total then return nil end
   assembler.pending[key] = nil
   return table.concat(entry.parts)
+end
+
+-- Slices of a summary (SUM r = {i, n}): a big guild's summary does not fit one message, so it goes out in
+-- n slices, each with the members whose name key falls into slice i. The same on every client: a hash of
+-- the key's bytes below 2^24, n a power of two up to MAX_SLICES, so slice i of n splits into i and i + n
+-- of 2n.
+Protocol.MAX_SLICES = 256
+function Protocol.SliceOf(key, n)
+  local h = 0
+  for i = 1, #key do h = (h * 31 + key:byte(i)) % 16777216 end
+  return h % n
+end
+
+-- The slice {i, n} named by a summary, nil when it names none or garbage (then it covers everything)
+function Protocol.ValidSlice(r)
+  if type(r) ~= "table" then return nil end
+  local i, n = tonumber(r[1]), tonumber(r[2])
+  if not i or not n or n < 2 or n > Protocol.MAX_SLICES or i < 0 or i >= n or i % 1 ~= 0 then return nil end
+  local p = 1
+  while p < n do p = p * 2 end
+  if p ~= n then return nil end
+  return { i, n }
+end
+
+-- The entries of a {key = value} map in slice {i, n} (all of them when slice is nil; non-tables: nil)
+function Protocol.SliceMap(map, slice)
+  if type(map) ~= "table" or not slice then return map end
+  local part = {}
+  for key, value in pairs(map) do
+    if type(key) == "string" and Protocol.SliceOf(key, slice[2]) == slice[1] then part[key] = value end
+  end
+  return part
 end
 
 -- Per-sender rate limit: at most `limit` messages per `window` seconds

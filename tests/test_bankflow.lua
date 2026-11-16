@@ -697,6 +697,54 @@ T.describe("Guild bank", function()
     T.eq(bankFirst, true)
     env.C_ChatInfo.SendAddonMessage = raw
     SendAll()
+    -- the summary of a guild of 1500 members is too long for one message (its receivers take 64 parts):
+    -- it goes out in slices that each fit and together name everyone
+    local guild = ns.GuildData()
+    local saved = guild.members
+    guild.members = {}
+    math.randomseed(7)
+    for i = 1, 1500 do
+      local name = ""
+      for _ = 1, 8 do name = name .. string.char(97 + math.random(0, 25)) end
+      local record = ns.Store.Member(guild, name .. i .. "-Realm")
+      record.profs[171] = { ts = 1760000000 + math.random(0, 9000000), src = "self", rank = 1, max = 300, recipes = {} }
+    end
+    local full = ns.Professions.Digest(guild)
+    sent = {}
+    ns.Sync.SendSummary()
+    RunTimers()
+    local sums = Messages("SUM")
+    T.truthy(#sums >= 2, tostring(#sums))
+    local union, slices = {}, {}
+    for _, sum in ipairs(sums) do
+      local slice = ns.Protocol.ValidSlice(sum.r)
+      T.truthy(slice ~= nil, "a slice names itself")
+      slices[slice[1] .. "/" .. slice[2]] = true
+      T.truthy(type(sum.b) == "table" and type(sum.j) == "table", "bank and join dates ride in every slice")
+      for key, ts in pairs(sum.d) do
+        T.eq(ns.Protocol.SliceOf(key, slice[2]), slice[1])
+        union[key] = ts
+      end
+    end
+    T.eq(union, full)
+    for _, part in ipairs(sent) do
+      local total = tonumber(part:match("^~%w+:%d+/(%d+):"))
+      T.truthy(total and total <= 40, "a slice has at most 40 parts")
+    end
+    -- a message still too long for its receivers (more than Protocol.MAX_PARTS parts) is not sent at all,
+    -- and what comes after it still goes out (such a message held up the line for good)
+    guild.members = saved
+    local giant = ns.Store.Member(guild, "Makira-Farron")
+    local recipes = {}
+    for r = 1, 20000 do recipes[r] = math.random(1, 9999999) end
+    local before = giant.profs[164]
+    giant.profs[164] = { ts = 1760000000, src = "relay", rank = 300, max = 300, recipes = recipes }
+    ns.Sync.Share(ns.Names.Key("Makira-Farron"))
+    T.eq(ns.Sync.Waiting(), 0)
+    giant.profs[164] = before
+    ns.Sync.SendHello()
+    SendAll()
+    T.eq(ns.Sync.Waiting(), 0)
     -- /guildy sync lists in the chat what is sent and received, until it is switched off
     local lines = {}
     local print0 = ns.Print

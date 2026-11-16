@@ -24,6 +24,10 @@
 --   member's talent points per tree ride with the gear (no message of their own); a GEAR may carry k
 --   without g, which older Guildy versions drop as a GEAR without items. Offered on a summary that names
 --   older talents (k), never to a Guildy that sends no k. Own talents only with settings.share.
+--   SUM may carry r = {i, n} (since 1.9.2, Core/Protocol.lua SliceOf): too long for one message (a few
+--   hundred members on), the summary goes out in n slices, each naming only the members of slice i; b and
+--   j ride in every slice and count with the first. A Guildy before it reads a slice as a whole summary
+--   and offers too much, at most MAX_OFFERS records of each kind per slice.
 --   HI   {q = true}                         "I use Guildy" (q: please answer); every envelope since 0.3
 --   carries the sender's addon version (v), so any message marks its sender as a Guildy user.
 -- On a SUM, everyone who knows newer data about some member offers it after a random delay, unless
@@ -141,11 +145,17 @@ function Sync.Pump()
   Pump()
 end
 
-local function SendNow(kind, data)
-  if not IsInGuild() then return end
+-- Puts an encoded message in line (nothing when it is too long for its receivers)
+local function Enqueue(kind, payload)
   msgCounter = msgCounter + 1
   local msgId = string.format("%x", ns.Now() % 65536) .. msgCounter
-  local message = { parts = Proto.Chunk(msgId, Proto.Encode(kind, data, ns.Version())), next = 1, kind = kind }
+  local message = { parts = Proto.Chunk(msgId, payload), next = 1, kind = kind }
+  -- receivers drop a message of more parts than that, and Pump never starts one beyond EXPIRE_ROOM: it
+  -- would hold up everything behind it for good (a summary of a guild of a thousand, 2026-11-16)
+  if #message.parts > math.min(Proto.MAX_PARTS, EXPIRE_ROOM + SEND_BURST) then
+    Debug("not sent %s: %d parts, more than its receivers take", kind, #message.parts)
+    return
+  end
   -- the bank is one small message a member waits for: ahead of the statistics and professions in line
   -- (behind a message that is already on its way)
   local at = #queue + 1
@@ -157,6 +167,11 @@ local function SendNow(kind, data)
   Debug("queued %s: %d parts, place %d of %d", kind, #message.parts, at, #queue)
   Pump()
   if queue[1] and not ticker then ticker = C_Timer.NewTicker(0.25, Pump) end
+end
+
+local function SendNow(kind, data)
+  if not IsInGuild() then return end
+  Enqueue(kind, Proto.Encode(kind, data, ns.Version()))
 end
 
 -- encoding and compressing a message is the expensive part of sending (measured: /guildy perf)
@@ -220,15 +235,49 @@ local function SendMember(key)
   seen[key] = math.max(seen[key] or 0, digest[key] or 0)
 end
 
+-- The summary in slices (Protocol.SliceOf) once it is too long for one message: from a few hundred
+-- members on, depending on how much is known of them. A slice has at most SUMMARY_PARTS parts; the
+-- slices go out a few seconds apart, so the encoding is no single hitch. Bank and join dates (small)
+-- ride in every slice: a Guildy before slices reads each as a whole summary and would offer the bank to
+-- one that names none.
+local SUMMARY_PARTS = 40          -- (well under what Pump starts and receivers take)
+local SUMMARY_ENTRIES = 600       -- entries a slice is planned with; a slice that turns out longer splits
+local SUMMARY_GAP = 2             -- seconds between slices
+local SUMMARY_MAPS = { "d", "s", "f", "c", "g", "k" }
+
+local function SendSummarySlice(full, i, n)
+  if not IsInGuild() then return end
+  local slice = n > 1 and { i, n } or nil
+  local data = { b = full.b, j = full.j, r = slice }
+  for _, field in ipairs(SUMMARY_MAPS) do data[field] = Proto.SliceMap(full[field], slice) end
+  local payload = Proto.Encode("SUM", data, ns.Version())
+  if Proto.PartCount(payload) > SUMMARY_PARTS and n < Proto.MAX_SLICES then
+    SendSummarySlice(full, i, n * 2)
+    SendSummarySlice(full, i + n, n * 2)
+    return
+  end
+  Enqueue("SUM", payload)
+end
+
 function Sync.SendSummary()
   local guild = ns.GuildData()
-  if guild then
-    -- (b also when nothing of the bank is known yet: "I can take it", so someone offers it)
-    Send("SUM", { d = P.Digest(guild), s = ns.Stats.Digest(guild), f = ns.Family.Digest(guild),
-      b = ns.Bank.Digest(guild.bank) or { at = 0, ts = 0, n = 0 }, j = ns.Tenure.Digest(guild.joined),
-      c = ns.Cooldowns.Digest(guild.cooldowns, ns.Now()), g = ns.Gear.Digest(guild.gear, ns.Now()),
-      k = ns.Talents.Digest(guild.talents, ns.Now()) })
+  if not guild then return end
+  -- (b also when nothing of the bank is known yet: "I can take it", so someone offers it)
+  local full = { d = P.Digest(guild), s = ns.Stats.Digest(guild), f = ns.Family.Digest(guild),
+    b = ns.Bank.Digest(guild.bank) or { at = 0, ts = 0, n = 0 }, j = ns.Tenure.Digest(guild.joined),
+    c = ns.Cooldowns.Digest(guild.cooldowns, ns.Now()), g = ns.Gear.Digest(guild.gear, ns.Now()),
+    k = ns.Talents.Digest(guild.talents, ns.Now()) }
+  local entries = 0
+  for _, field in ipairs(SUMMARY_MAPS) do
+    for _ in pairs(type(full[field]) == "table" and full[field] or {}) do entries = entries + 1 end
   end
+  local n = 1
+  while entries > n * SUMMARY_ENTRIES and n < Proto.MAX_SLICES do n = n * 2 end
+  ns.Perf.Call("send", "SUM", SendSummarySlice, full, 0, n)
+  for i = 1, n - 1 do
+    C_Timer.After(i * SUMMARY_GAP, function() ns.Perf.Call("send", "SUM", SendSummarySlice, full, i, n) end)
+  end
+  if n > 1 then Debug("summary: %d entries in %d slices", entries, n) end
 end
 
 -- Since when the members are in the guild, all that is known (a large guild in several messages)
@@ -367,8 +416,13 @@ local function OnSummary(data, sender)
   local guild = ns.GuildData()
   if not guild or ns.Names.Same(sender, ns.PlayerName()) then return end
   local senderKey = ns.Names.Key(sender)
+  -- a slice of a big guild's summary covers the members of that slice only: what I know is compared
+  -- for them alone (else everyone outside it would look missing at the sender)
+  local slice = Proto.ValidSlice(data.r)
+  local function Mine(map) return Proto.SliceMap(map, slice) end
+  local whole = not slice or slice[1] == 0 -- (bank and join dates: once, with the first slice)
   local theirs = type(data.d) == "table" and data.d or {}
-  local mine = P.Digest(guild)
+  local mine = Mine(P.Digest(guild))
   local offers = P.Outdated(mine, theirs)
   for i = 1, math.min(#offers, MAX_OFFERS) do
     local key = offers[i]
@@ -380,7 +434,7 @@ local function OnSummary(data, sender)
   end
   -- families the same way (older Guildy versions send no f)
   if type(data.f) == "table" then
-    local myFamilies = ns.Family.Digest(guild)
+    local myFamilies = Mine(ns.Family.Digest(guild))
     local famOffers = P.Outdated(myFamilies, data.f)
     for i = 1, math.min(#famOffers, MAX_OFFERS) do
       local key = famOffers[i]
@@ -394,7 +448,7 @@ local function OnSummary(data, sender)
   -- join dates: one offer for all of them, when the two know different things (an older Guildy sends
   -- no j and could not use them). Once per state and member: a difference that stays (a member only
   -- one of the two has in the roster yet) is not offered again on every summary.
-  if type(data.j) == "table" then
+  if whole and type(data.j) == "table" then
     local digest = ns.Tenure.Digest(guild.joined)
     local state = digest.n .. "/" .. digest.x .. "/" .. digest.s
     if digest.n > 0 and ns.Tenure.Differs(digest, data.j) and joinOffered[senderKey] ~= state then
@@ -408,7 +462,7 @@ local function OnSummary(data, sender)
   end
   -- cooldowns the same way (a Guildy before them sends no c and could not use them)
   if type(data.c) == "table" then
-    local myCooldowns = ns.Cooldowns.Digest(guild.cooldowns, ns.Now())
+    local myCooldowns = Mine(ns.Cooldowns.Digest(guild.cooldowns, ns.Now()))
     local cdOffers = P.Outdated(myCooldowns, data.c)
     for i = 1, math.min(#cdOffers, MAX_OFFERS) do
       local key = cdOffers[i]
@@ -424,7 +478,7 @@ local function OnSummary(data, sender)
   -- The gear offer sends the talents too: it is left out only when both are covered by what others sent
   -- meanwhile (a Guildy before talents sends newer gear without k, and the talents would wait for the next SUM).
   local gearOffered, talentsWanted, talentOffers = {}, {}, {}
-  local myTalents = type(data.k) == "table" and ns.Talents.Digest(guild.talents, ns.Now()) or nil
+  local myTalents = type(data.k) == "table" and Mine(ns.Talents.Digest(guild.talents, ns.Now())) or nil
   if myTalents then
     talentOffers = FirstOffers(P.Outdated(myTalents, data.k), senderKey)
     local ownKey = ns.Names.Key(ns.PlayerName())
@@ -432,7 +486,7 @@ local function OnSummary(data, sender)
     for _, key in ipairs(talentOffers) do talentsWanted[key] = myTalents[key] end
   end
   if type(data.g) == "table" then
-    local myGear = ns.Gear.Digest(guild.gear, ns.Now())
+    local myGear = Mine(ns.Gear.Digest(guild.gear, ns.Now()))
     local gearOffers = FirstOffers(P.Outdated(myGear, data.g), senderKey)
     local ownKey = ns.Names.Key(ns.PlayerName())
     if type(data.g[ownKey]) == "number" and data.g[ownKey] > (myGear[ownKey] or 0) then RefreshOwnGear() end
@@ -468,7 +522,9 @@ local function OnSummary(data, sender)
   Debug("summary from %s (Guildy %s): bank %s; mine %s", sender, tostring(Sync.UserVersion(sender)),
     type(data.b) == "table" and ("at " .. tostring(data.b.at) .. ", " .. tostring(data.b.n) .. " entries") or "not named",
     myBank and (myBank.n .. " entries") or "nothing")
-  if theirDigest and ns.Bank.Newer(myBank, theirDigest) then
+  if not whole then
+    Debug("bank: slice %d of %d from %s, the first one names the bank", slice[1] + 1, slice[2], sender)
+  elseif theirDigest and ns.Bank.Newer(myBank, theirDigest) then
     local theirBank, before = tonumber(theirDigest.ts) or 0, bankMessages
     local wait = 6 + math.random() * 10
     Debug("bank: I know more than %s, offering it in %d s", sender, wait)
@@ -485,7 +541,7 @@ local function OnSummary(data, sender)
   end
   -- statistics the same way (an older Guildy sends no s: then offer nothing, it can't use them)
   if type(data.s) ~= "table" then return end
-  local myStats = ns.Stats.Digest(guild)
+  local myStats = Mine(ns.Stats.Digest(guild))
   local statOffers = P.Outdated(myStats, data.s)
   for i = 1, math.min(#statOffers, MAX_OFFERS) do
     local key = statOffers[i]
@@ -719,10 +775,13 @@ function Sync.OnAddonMessage(prefix, text, channel, sender)
   end
   if not Proto.Allow(limiter, sender, ns.Now()) then return end
   local name = ns.Names.Normalize(sender)
+  -- what the handlers fire while this is set redraws the open tab once a second, not per message (UI/Main.lua)
+  Sync.receiving = true
   ns.SafeCall(MarkUser, name, envelope.v)
   local handler = HANDLERS[envelope.t]
   if envelope.t ~= "SUM" and envelope.t ~= "BANK" then Debug("received %s from %s", tostring(envelope.t), name) end
   if handler then ns.SafeCall(handler, envelope.d, name) end
+  Sync.receiving = false
 end
 
 -- After login: say what we know once the roster is there

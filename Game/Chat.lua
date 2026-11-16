@@ -64,7 +64,7 @@ function Chat.OnSystemMessage(text)
     if text:match(pattern) then
       Push(systemLines, { system = true, text = text, ts = ns.Now() }, 50)
       ns.Fire("CHAT", "guild")
-      ns.Roster.Request(true)
+      ns.Roster.RequestSoon()
       return
     end
   end

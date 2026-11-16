@@ -822,12 +822,43 @@ function UI.ReturnTab()
 end
 
 -- Data changes refresh the visible tab
+-- What other Guildy users send comes as a stream of small messages (after a login dozens of records in a
+-- few seconds, more the more members and Guildy users a guild has). Redrawing the tab for each of them
+-- was most of the stutter a guild of 1000 reported (2026-11-16): those events redraw the tab at most
+-- once per SYNC_REFRESH seconds while they come from the addon channel (ns.Sync.receiving); the player's
+-- own reads (bank, recipe book) still show at once.
+local SYNC_EVENTS = { PROFS = true, STATS = true, FAMILY = true, BANK = true, USERS = true }
+UI.SYNC_REFRESH = 1
+local syncTimer
 local function Refresh(event, ...)
   if not UI.IsShown() or not current or not current.view or not current.view.Refresh then return end
   ns.Perf.Call("refresh", current.key, ns.SafeCall, current.view.Refresh, current.view, event, ...)
 end
+local function RefreshLater(event)
+  if not UI.IsShown() then return end
+  if syncTimer then syncTimer.event = event return end
+  syncTimer = { event = event }
+  local pending = syncTimer
+  C_Timer.After(UI.SYNC_REFRESH, function()
+    if syncTimer ~= pending then return end
+    syncTimer = nil
+    Refresh(pending.event)
+  end)
+end
+-- The data events that wait for the next redraw, redrawn now (tests)
+function UI.FlushRefresh()
+  local pending = syncTimer
+  syncTimer = nil
+  if pending then Refresh(pending.event) end
+end
 for _, event in ipairs({ "ROSTER", "PROFS", "CHAT", "INFO", "HARVEST", "STATS", "USERS", "FAMILY", "GUILD", "COMMUNITY", "BANK" }) do
-  ns.On(event, function(...) Refresh(event, ...) end)
+  if SYNC_EVENTS[event] then
+    ns.On(event, function(...)
+      if ns.Sync and ns.Sync.receiving then RefreshLater(event) else Refresh(event, ...) end
+    end)
+  else
+    ns.On(event, function(...) Refresh(event, ...) end)
+  end
 end
 -- The mark on the communities side tab while a community has something new
 function UI.UpdateUnread()

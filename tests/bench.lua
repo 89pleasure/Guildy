@@ -230,6 +230,47 @@ local function Run()
   Step("character page: first show", function() ns.UI.ShowMember(member) end)
   Step("character page: next member", function() ns.UI.ShowMember(ns.Roster.Members()[4]) end)
   Step("sync: send summary", function() ns.Sync.SendSummary() end)
+  -- What another Guildy user sends, as the game hands it over: every part a CHAT_MSG_ADDON
+  local msgCounter = 0
+  local function Receive(kind, data, sender)
+    msgCounter = msgCounter + 1
+    local payload = ns.Protocol.Encode(kind, data, "9.9.9")
+    for _, part in ipairs(ns.Protocol.Chunk("b" .. msgCounter, payload)) do
+      world.Fire("CHAT_MSG_ADDON", ns.Protocol.PREFIX, part, "GUILD", sender)
+    end
+  end
+  -- a summary of someone who knows nothing yet (just installed Guildy): everything is offered
+  Step("sync: receive empty summary", function()
+    Receive("SUM", { d = {}, s = {}, f = {}, b = { at = 0, ts = 0, n = 0 }, j = { n = 0, x = 0, s = 0 }, c = {}, g = {}, k = {} },
+      roster[5][1])
+  end)
+  -- a summary of someone who knows as much: the full digests of a big guild
+  local digest = ns.Professions.Digest(ns.GuildData())
+  local stats = ns.Stats.Digest(ns.GuildData())
+  Step("sync: receive full summary", function()
+    Receive("SUM", { d = digest, s = stats, f = {}, b = { at = 0, ts = 0, n = 0 }, j = { n = 0, x = 0, s = 0 }, c = {}, g = {},
+      k = {} }, roster[6][1])
+  end)
+  -- the records that answer a summary, while the members tab is open: 40 members' professions and
+  -- statistics from several senders, as they come in over a few seconds after someone logs in
+  ns.UI.SelectTab("members")
+  local data = ns.GuildData()
+  Step("sync: receive 80 records (members open)", function()
+    for i = 1, 40 do
+      local row = roster[(i * 7) % #roster + 1]
+      local record = data.members[ns.Names.Key(row[1])]
+      local sender = roster[10 + i % 8][1]
+      local profs = {}
+      for skillLine, rec in pairs(record and record.profs or {}) do
+        profs[tostring(skillLine)] = { ts = rec.ts + 100, src = "relay", rank = rec.rank + 1, max = rec.max, recipes = rec.recipes }
+      end
+      Receive("PROF", { m = row[1], p = profs }, sender)
+      local s = record and record.stats
+      if s then Receive("STAT", { m = row[1], s = ns.Stats.Wire({ ts = s.ts + 100, src = "relay", v = s.v, months = s.months }) }, sender)
+      else Receive("HI", {}, sender) end
+    end
+  end)
+  Step("sync: timers after receiving", function() world.RunTimers() end)
   Step("roster update from the game", function()
     world.Fire("GUILD_ROSTER_UPDATE")
     world.RunTimers()
