@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.9.4
+
+- Fixed: after changing ranks for a while, Blizzard's rank and notes panel could stop working for
+  everyone until a reload (thanks for the detailed report!). Guildy re-opened that panel itself after
+  Blizzard closed it during a rank change, and that blocked Blizzard's rank menu and note dialog. If
+  the panel closes now, click the member again or use "Edit notes" on their page.
+- If it still happens, type /guildy notedebug while it's broken and post the output: it now shows
+  whether something blocked Blizzard's panel, and what.
+
 ## 1.9.3
 
 - Fixed: clicking a member sometimes didn't open Blizzard's panel for their rank and notes (thanks for
