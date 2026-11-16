@@ -364,6 +364,8 @@ ns.LocaleTables.enUS = {
 
   SEARCH_MEMBERS = "Search name, zone, note ...",
   FILTER_CLASS = "Class",
+  FILTER_HIDE_HINT = "Right-click: hide",
+  FILTER_NOT = "not %s",
   FILTER_LEVEL = "Level",
   FILTER_PROFESSION = "Profession",
   ALL = "All",

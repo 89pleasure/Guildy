@@ -144,24 +144,41 @@ local function Build(panel)
   end)
   search:SetScript("OnEnterPressed", search.ClearFocus)
 
+  -- left-click: only this value; right-click: hide it (several at once), everyone else stays.
+  -- "All" clears both.
+  local function All(key, notKey)
+    return { text = L.ALL, checked = view.filter[key] == nil and not next(view.filter[notKey] or {}),
+      onClick = function() view.filter[notKey] = nil; view:SetFilterValue(key, nil) end }
+  end
+  local function Value(key, notKey, value, text, color)
+    local hidden = view.filter[notKey] and view.filter[notKey][value]
+    return { text = text, color = color, checked = view.filter[key] == value, crossed = hidden and true or nil,
+      onClick = function()
+        if view.filter[notKey] then view.filter[notKey][value] = nil end
+        view:SetFilterValue(key, value)
+      end,
+      onRightClick = function() view:ToggleHidden(key, notKey, value) end }
+  end
+  local HINT = { text = L.FILTER_HIDE_HINT, disabled = true }
+
   view.ClassButton = W.MenuButton(bar, L.FILTER_CLASS, function()
-    local items = { { text = L.ALL, checked = view.filter.classFile == nil, onClick = function() view:SetFilterValue("classFile", nil) end } }
+    local items = { All("classFile", "notClass") }
     for _, classFile in ipairs(CLASSES) do
       local r, g, b = W.ClassColor(classFile)
-      items[#items + 1] = { text = ClassLabel(classFile), color = { r, g, b }, checked = view.filter.classFile == classFile,
-        onClick = function() view:SetFilterValue("classFile", classFile) end }
+      items[#items + 1] = Value("classFile", "notClass", classFile, ClassLabel(classFile), { r, g, b })
     end
+    items[#items + 1] = HINT
     return items
   end, 90, 150)
   page:Left(view.ClassButton, 8)
 
   -- the guild's ranks that have members, the guild master's first
   view.RankButton = W.MenuButton(bar, L.FILTER_RANK, function()
-    local items = { { text = L.ALL, checked = view.filter.rankIndex == nil, onClick = function() view:SetFilterValue("rankIndex", nil) end } }
+    local items = { All("rankIndex", "notRank") }
     for _, rank in ipairs(view.ranks or {}) do
-      items[#items + 1] = { text = rank.name, checked = view.filter.rankIndex == rank.index,
-        onClick = function() view:SetFilterValue("rankIndex", rank.index) end }
+      items[#items + 1] = Value("rankIndex", "notRank", rank.index, rank.name)
     end
+    items[#items + 1] = HINT
     return items
   end, 90, 170)
   page:Left(view.RankButton)
@@ -611,6 +628,15 @@ local function Build(panel)
     self:Refresh()
   end
 
+  -- hides a value or shows it again; hiding the one value the filter shows clears that filter
+  function view:ToggleHidden(key, notKey, value)
+    local hidden = self.filter[notKey] or {}
+    hidden[value] = not hidden[value] or nil
+    self.filter[notKey] = next(hidden) and hidden or nil
+    if hidden[value] and self.filter[key] == value then self.filter[key] = nil end
+    self:Refresh()
+  end
+
   function view:SetFilter(filter)
     self.filter = filter or {}
     if self.filter.scoreBucket then self.sort, self.desc = "score", true end -- the most active first
@@ -622,6 +648,18 @@ local function Build(panel)
   local function Label(button, base, value)
     button:SetText(value or base)
     button.tip = value and L.LABEL_VALUE:format(base, value) or nil
+  end
+
+  -- "not Alt, Twink": the hidden values in the menu's order, nil when none
+  local function Hidden(list, hidden, keyAndText)
+    if not hidden or not next(hidden) then return nil end
+    local names = {}
+    for _, entry in ipairs(list or {}) do
+      local key, text = keyAndText(entry)
+      if hidden[key] then names[#names + 1] = text end
+    end
+    if #names == 0 then return nil end
+    return L.FILTER_NOT:format(table.concat(names, ", "))
   end
 
   function view:Refresh()
@@ -667,6 +705,12 @@ local function Build(panel)
     table.sort(self.ranks, function(a, b) return a.index < b.index end)
     -- a rank nobody holds any more is no filter
     if self.filter.rankIndex and not rankNames[self.filter.rankIndex] then self.filter.rankIndex = nil end
+    if self.filter.notRank then
+      for index in pairs(self.filter.notRank) do
+        if not rankNames[index] then self.filter.notRank[index] = nil end
+      end
+      if not next(self.filter.notRank) then self.filter.notRank = nil end
+    end
 
     local list = ns.Search.Members(members, self.filter, self.query, ns.TradeSkill.ProfsOf)
     local kept = {}
@@ -740,8 +784,10 @@ local function Build(panel)
     end
     self.NoNoteCheck.Label:SetText(L.NO_NOTE .. " |cffffd100" .. noNote .. "|r")
     self.NoOfficerNoteCheck.Label:SetText(L.NO_OFFICER_NOTE .. " |cffffd100" .. noOfficerNote .. "|r")
-    Label(self.RankButton, L.FILTER_RANK, self.filter.rankIndex and rankNames[self.filter.rankIndex])
-    Label(self.ClassButton, L.FILTER_CLASS, self.filter.classFile and ClassLabel(self.filter.classFile))
+    Label(self.RankButton, L.FILTER_RANK, (self.filter.rankIndex and rankNames[self.filter.rankIndex])
+      or Hidden(self.ranks, self.filter.notRank, function(rank) return rank.index, rank.name end))
+    Label(self.ClassButton, L.FILTER_CLASS, (self.filter.classFile and ClassLabel(self.filter.classFile))
+      or Hidden(CLASSES, self.filter.notClass, function(classFile) return classFile, ClassLabel(classFile) end))
     for key, button in pairs(self.Headers) do
       local text = L["COL_" .. key:upper()]
       if key == self.sort and not self.editing then text = text .. (self.desc and " v" or " ^") end

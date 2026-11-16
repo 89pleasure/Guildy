@@ -364,6 +364,8 @@ ns.LocaleTables.ptBR = {
 
   SEARCH_MEMBERS = "Buscar nome, zona, nota ...",
   FILTER_CLASS = "Classe",
+  FILTER_HIDE_HINT = "Clique direito: ocultar",
+  FILTER_NOT = "sem %s",
   FILTER_LEVEL = "Nível",
   FILTER_PROFESSION = "Profissão",
   ALL = "Todos",

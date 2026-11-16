@@ -735,6 +735,28 @@ T.describe("Smoke", function()
       if item.m then T.eq(item.m.rankIndex, mv.ranks[1].index) end
     end
     mv:SetFilterValue("rankIndex", nil)
+    -- a right-click hides a rank (the guild's "Alt" rank): everyone else stays, the button says "not Alt"
+    local hiddenRank = mv.ranks[1]
+    mv:SetFilterValue("rankIndex", hiddenRank.index)
+    mv:ToggleHidden("rankIndex", "notRank", hiddenRank.index)
+    T.eq(mv.filter.rankIndex, nil) -- hiding the one rank shown clears that filter
+    local listed = 0
+    for _, item in ipairs(mv.List.items or {}) do
+      if item.m then listed = listed + 1; T.truthy(item.m.rankIndex ~= hiddenRank.index, "hidden rank listed") end
+    end
+    T.eq(mv.RankButton:GetText(), ns.L.FILTER_NOT:format(hiddenRank.name))
+    T.truthy(listed < #ns.Roster.Members() or #mv.ranks == 1, "the hidden rank's members left")
+    mv.RankButton:GetScript("OnClick")(mv.RankButton) -- the menu with the rank crossed out
+    -- Escape closes it: the game hides the frames listed in UISpecialFrames
+    local listedMenu
+    for _, name in ipairs(env.UISpecialFrames) do listedMenu = listedMenu or name == "GuildyMenu" end
+    T.truthy(listedMenu, "menu closes on Escape")
+    T.eq(env.GuildyMenu:IsShown(), true)
+    env.GuildyMenu:Hide()
+    ns.Widgets.CloseMenu()
+    mv:ToggleHidden("rankIndex", "notRank", hiddenRank.index) -- a second right-click shows it again
+    T.eq(mv.filter.notRank, nil)
+    T.eq(mv.RankButton:GetText(), ns.L.FILTER_RANK)
     ns.UI.SelectTab("chat")
     ns.UI.Show()
     ns.UI.SelectTab("members")

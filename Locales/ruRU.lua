@@ -365,6 +365,8 @@ ns.LocaleTables.ruRU = {
 
   SEARCH_MEMBERS = "Поиск: имя, зона, заметка ...",
   FILTER_CLASS = "Класс",
+  FILTER_HIDE_HINT = "ПКМ: скрыть",
+  FILTER_NOT = "кроме %s",
   FILTER_LEVEL = "Уровень",
   FILTER_PROFESSION = "Профессия",
   ALL = "Все",

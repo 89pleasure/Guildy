@@ -554,10 +554,17 @@ local function BuildMenu()
   menu:EnableMouse(true)
   menu.buttons = {}
   menu:Hide()
+  -- Escape closes the menu (and only the menu: the game stops at the first special frame it hides);
+  -- however it closes, the catcher goes with it, or it would swallow every click on the screen
+  menu:SetScript("OnHide", function() if catcher then catcher:Hide() end end)
+  _G.GuildyMenu = menu
+  if type(UISpecialFrames) == "table" then tinsert(UISpecialFrames, "GuildyMenu") end
 end
 
--- items: {{text, onClick, checked, disabled, isTitle, color = {r, g, b}}}
-function W.OpenMenu(anchor, items, width)
+-- items: {{text, onClick, checked, disabled, isTitle, color = {r, g, b}, crossed, onRightClick}}
+-- crossed: a red cross in place of the check (a value the filter leaves out). onRightClick: runs on a
+-- right-click and keeps the menu open; rebuild() then gives the menu's new items.
+function W.OpenMenu(anchor, items, width, rebuild)
   if not menu then BuildMenu() end
   width = width or 220
   for i, item in ipairs(items) do
@@ -568,6 +575,7 @@ function W.OpenMenu(anchor, items, width)
       button:SetPoint("TOPLEFT", 6, -6 - (i - 1) * MENU_ROW)
       button:SetPoint("RIGHT", -6, 0)
       button:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
+      button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
       button.Check = button:CreateTexture(nil, "ARTWORK")
       button.Check:SetSize(14, 14)
       button.Check:SetPoint("LEFT", 2, 0)
@@ -591,10 +599,19 @@ function W.OpenMenu(anchor, items, width)
     else
       button.Label:SetTextColor(1, 1, 1)
     end
-    button.Check:SetShown(item.checked == true)
+    button.Check:SetTexture(item.crossed and W.ICON_NO or W.ICON_YES)
+    button.Check:SetShown(item.checked == true or item.crossed == true)
+    if item.crossed then button.Label:SetTextColor(0.5, 0.5, 0.5) end
     button:SetEnabled(not item.disabled and not item.isTitle)
     button.action = item.action
-    button:SetScript("OnClick", function()
+    button:SetScript("OnClick", function(_, mouse)
+      if mouse == "RightButton" then
+        if item.onRightClick then
+          item.onRightClick()
+          if rebuild and menu:IsShown() then W.OpenMenu(anchor, rebuild(), width, rebuild) end
+        end
+        return
+      end
       if item.action then
         ns.Print(ns.L.NOT_IN_COMBAT) -- only reachable when the overlay could not be shown
         return
@@ -640,7 +657,7 @@ function W.MenuButton(parent, text, buildItems, width, maxWidth)
   local button
   button = W.DropButton(parent, text, function()
     if menu and menu:IsShown() then CloseMenu() return end
-    W.OpenMenu(button, buildItems(), math.max(width or 120, 180))
+    W.OpenMenu(button, buildItems(), math.max(width or 120, 180), buildItems)
   end, width, maxWidth)
   return button
 end

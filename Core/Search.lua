@@ -67,7 +67,7 @@ function Search.GroupRecipes(results)
 end
 
 -- members: Roster.Members() entries. filter = {classFile, rankIndex, bracket, skillLine, onlineOnly, hideOffline,
--- activeDays}; profsOf(member) -> set or nil
+-- activeDays, notRank = {[rankIndex] = true}, notClass = {[classFile] = true}}; profsOf(member) -> set or nil
 function Search.Members(members, filter, query, profsOf)
   filter = filter or {}
   local q = Search.Normalize(query)
@@ -77,6 +77,9 @@ function Search.Members(members, filter, query, profsOf)
     if (filter.onlineOnly or filter.hideOffline) and not m.online then keep = false end
     if keep and filter.classFile and m.classFile ~= filter.classFile then keep = false end
     if keep and filter.rankIndex and m.rankIndex ~= filter.rankIndex then keep = false end
+    -- hidden ranks and classes (right-click in the members tab's menus): everyone else stays
+    if keep and filter.notRank and filter.notRank[m.rankIndex] then keep = false end
+    if keep and filter.notClass and filter.notClass[m.classFile] then keep = false end
     if keep and filter.bracket and ns.Census.Bracket(m.level) ~= filter.bracket then keep = false end
     if keep and filter.level and tonumber(m.level) ~= filter.level then keep = false end
     if keep and filter.activeDays and not ns.Census.IsActive(m, filter.activeDays) then keep = false end

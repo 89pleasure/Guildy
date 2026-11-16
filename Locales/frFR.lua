@@ -364,6 +364,8 @@ ns.LocaleTables.frFR = {
 
   SEARCH_MEMBERS = "Chercher nom, zone, note ...",
   FILTER_CLASS = "Classe",
+  FILTER_HIDE_HINT = "Clic droit : masquer",
+  FILTER_NOT = "sans %s",
   FILTER_LEVEL = "Niveau",
   FILTER_PROFESSION = "Métier",
   ALL = "Tous",

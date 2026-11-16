@@ -364,6 +364,8 @@ ns.LocaleTables.deDE = {
 
   SEARCH_MEMBERS = "Name, Zone, Notiz suchen ...",
   FILTER_CLASS = "Klasse",
+  FILTER_HIDE_HINT = "Rechtsklick: ausblenden",
+  FILTER_NOT = "ohne %s",
   FILTER_LEVEL = "Stufe",
   FILTER_PROFESSION = "Beruf",
   ALL = "Alle",
