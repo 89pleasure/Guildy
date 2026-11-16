@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.9.3
+
+- Fixed: clicking a member sometimes didn't open Blizzard's panel for their rank and notes (thanks for
+  the report!). Clicking a name in Guildy's chat now opens it, as a click in the member list always did.
+- New: an "Edit notes" button on the character page opens the panel for pages you reached another
+  way, the member menu for example. When Blizzard's guild window can't show the member, it says why.
+- Fixed: offline members' rank and notes panel didn't open when Blizzard's roster hid offline members.
+  Guildy now has Blizzard's roster list them (takes effect after a /reload).
+
 ## 1.9.2
 
 - Faster in big guilds (reported with 1000 members, thanks!). When another Guildy user logs in, dozens
