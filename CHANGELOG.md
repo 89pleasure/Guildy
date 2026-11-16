@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.9.1
+
+- New: the Members tab's Rank and Class filters can hide values. Right-click a rank, an "Alt" rank for
+  example, to leave its members out and see everyone else. Hide as many as you like; the button then
+  reads "not Alt". Right-click again to show it, "All" or Reset to clear. A left-click still shows only
+  that rank or class.
+- Fixed: Escape did not close Guildy's dropdown menus. It now closes the menu, and only the menu.
+
 ## 1.9.0
 
 - New: the Bank tab has two pages, switched at the left of its toolbar. "Movements" is the tab as it
