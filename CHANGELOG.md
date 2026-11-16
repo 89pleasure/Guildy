@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.9.2
+
+- Faster in big guilds (reported with 1000 members, thanks!). When another Guildy user logs in, dozens
+  of records come in over a few seconds, and Guildy redrew the open tab for every one of them. It now
+  redraws at most once a second while data comes in; receiving costs almost nothing.
+- Roster updates are cheaper: when nothing visible changed, nothing is redrawn, and in a big guild
+  Guildy reads the roster at most every few seconds (about every second with 100 members, every five
+  with 1000).
+- Fixed: in guilds of a few hundred members and more, the summary Guildy sends at login was too long to
+  arrive, and everything Guildy wanted to send after it got stuck. It now goes out in parts that each
+  fit, so big guilds sync again. Please update everyone: older versions understand the parts, but
+  answer them with more than needed.
+
 ## 1.9.1
 
 - New: the Members tab's Rank and Class filters can hide values. Right-click a rank, an "Alt" rank for
