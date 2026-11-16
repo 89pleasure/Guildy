@@ -243,6 +243,7 @@ ns.LocaleTables.deDE = {
   NOTE_PICK_AGAIN = "Klick noch einmal in die Notiz, um sie zu bearbeiten.",
   NOTES_SELECT_GUILD = "Blizzards Gildenfenster zeigt eine andere Community. Wähl dort einmal die Gilde aus und versuch es noch mal.",
   NOTES_NOT_LISTED = "%s steht noch nicht in Blizzards Mitgliederliste. Versuch es gleich noch mal.",
+  NOTES_HIDDEN = "Blizzards Mitgliederliste zeigt %s nicht, darum kann sich Blizzards Mitgliederfenster nicht öffnen. Setz in Blizzards Gildenfenster im Roster den Haken bei „Offline-Mitglieder anzeigen“ oder wechsle vom Offizierskanal in den Gildenkanal.",
   YES = "Ja",
   CANCEL = "Abbrechen",
   SAVE = "Speichern",

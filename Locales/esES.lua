@@ -243,6 +243,7 @@ ns.LocaleTables.esES = {
   NOTE_PICK_AGAIN = "Haz clic otra vez en la nota para editarla.",
   NOTES_SELECT_GUILD = "La ventana de hermandad de Blizzard muestra otra comunidad. Selecciona allí la hermandad una vez y vuelve a intentarlo.",
   NOTES_NOT_LISTED = "%s aún no está en la lista de miembros de Blizzard. Inténtalo de nuevo en un momento.",
+  NOTES_HIDDEN = "La lista de miembros de Blizzard no muestra a %s, así que su panel de miembro no puede abrirse. En la ventana de hermandad de Blizzard, marca «Mostrar miembros desconectados» en la lista o cambia del canal de oficiales al canal de hermandad.",
   YES = "Sí",
   CANCEL = "Cancelar",
   SAVE = "Guardar",

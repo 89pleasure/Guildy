@@ -118,8 +118,17 @@ function UI.ChatPane(chatBox, opts)
     local setItemRef = rawget(_G, "SetItemRef")
     if setItemRef then pcall(setItemRef, link, text, button, DEFAULT_CHAT_FRAME) end
   end)
-  messages:SetScript("OnHyperlinkEnter", function(self, link)
+  messages:SetScript("OnHyperlinkEnter", function(self, link, text)
     local kind = link:match("^(%a+):")
+    -- a guild member's name: the click opens their page with Blizzard's member panel (UI/Notes.lua)
+    local member = kind == "player" and ns.Roster.Find(link:match("^player:([^:]+)") or "")
+    if member and UI.Notes then
+      local offset, count = self:GetScrollOffset(), self:GetNumMessages()
+      UI.Notes.HoverLink(self, member, function(button)
+        local click = self:GetScript("OnHyperlinkClick")
+        if click then click(self, link, text or link, button) end
+      end, function() return self:GetScrollOffset() == offset and self:GetNumMessages() == count end)
+    end
     if kind == "item" or kind == "spell" or kind == "enchant" or kind == "quest" or kind == "achievement" then
       GameTooltip:SetOwner(self, "ANCHOR_CURSOR")
       pcall(GameTooltip.SetHyperlink, GameTooltip, link)

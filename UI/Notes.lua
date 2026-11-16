@@ -94,6 +94,8 @@ local function CanEdit(m)
   return (can.editPublic or can.editOfficer or (ns.Roster.Me and ns.Roster.Me() == m)) and true or false
 end
 
+Notes.CanEdit = CanEdit
+
 -- Blizzard's member list: tall and off screen ------------------------------------------------------
 
 local function SizeList()
@@ -190,8 +192,14 @@ local function Pick()
   pick:SetAttribute("type2", "click")
   pick:SetScript("PostClick", function(self, button, down)
     if (down and true or false) ~= KeyDownMode() then return end -- registered for both; act once
-    local owner, m, forward = self.owner, self.member, self.forward
+    local owner, m, forward, onClick = self.owner, self.member, self.forward, self.onClick
     if not InCombatLockdown() then self:Hide() end
+    -- over a name in the chat (Notes.HoverLink): the chat's own click, the right one included
+    if onClick then
+      if m and button ~= "RightButton" then AfterPick() end
+      onClick(button)
+      return
+    end
     if button == "RightButton" then return end -- Blizzard's menu instead of Guildy's
     if m then AfterPick() end
     if forward then Forward(owner, button) end
@@ -216,7 +224,8 @@ local function Pick()
   -- the frame below went away or shows someone else now (a list scrolled under the resting mouse)
   pick:SetScript("OnUpdate", function(self)
     local owner = self.owner
-    if not owner or not owner:IsVisible() or (self.forward and MemberOf(owner) ~= self.member) then HidePick() end
+    if not owner or not owner:IsVisible() or (self.forward and MemberOf(owner) ~= self.member)
+      or (self.still and not self.still()) then HidePick() end
   end)
   pick:Hide()
   return pick
@@ -225,19 +234,20 @@ end
 -- Lays the pick button over owner (a frame showing member m) while the mouse is on it.
 -- forward: the click goes on to owner afterwards; hint: owner's tooltip hint.
 local function LayPick(owner, m, forward, hint)
-  if InCombatLockdown() or not (m and m.guid) then return end
+  if InCombatLockdown() or not (m and m.guid) then return false end
   local host = Host()
-  if not (host and host:IsShown() and GuildSelected()) then return end
+  if not (host and host:IsShown() and GuildSelected()) then return false end
   local p = Pick()
-  if p:IsShown() and p.owner == owner and p.member == m then return end
+  if p:IsShown() and p.owner == owner and p.member == m then return true end
   local row = Row(m.guid)
   if not row then
     SizeList()
-    return
+    return false
   end
   local left, bottom = owner:GetLeft(), owner:GetBottom()
-  if not (left and bottom) then return end
-  p.owner, p.member, p.forward, p.hint = owner, m, forward, hint
+  if not (left and bottom) then return false end
+  p.owner, p.member, p.forward, p.hint, p.onClick, p.still = owner, m, forward, hint, nil, nil
+  p:SetAttribute("type2", "click")
   p:SetAttribute("clickbutton1", row)
   p:SetAttribute("clickbutton2", row)
   local scale = owner:GetEffectiveScale() / UIParent:GetEffectiveScale()
@@ -245,12 +255,78 @@ local function LayPick(owner, m, forward, hint)
   p:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", left * scale, bottom * scale)
   p:SetSize(owner:GetWidth() * scale, owner:GetHeight() * scale)
   p:Show()
+  return true
 end
 
 -- The mouse is on member m somewhere in Guildy (UI.MemberTooltip): the click there picks m in
 -- Blizzard's list too, then goes on to that frame as always
 function Notes.HoverMember(owner, m, hint)
   if owner and m and MemberOf(owner) == m then LayPick(owner, m, true, hint) end
+end
+
+-- The mouse is on member m's name in a chat (frame: its message frame, which gives no bounds for a
+-- link): a small pick button under the cursor. Its left click picks m in Blizzard's list, then every
+-- click goes to onClick(button) as the chat's own (right: Guildy's menu, nothing of Blizzard's).
+-- Moving off it hides it; still on the name, the chat's OnHyperlinkEnter lays it again under the
+-- cursor. still(): false once the text moved under it (scrolled, a new message).
+local LINK_PICK = 16
+function Notes.HoverLink(frame, m, onClick, still)
+  if InCombatLockdown() or not (frame and m and m.guid) then return end
+  local host = Host()
+  if not (host and host:IsShown() and GuildSelected()) then return end
+  local row = Row(m.guid)
+  if not row then
+    SizeList()
+    return
+  end
+  local x, y = GetCursorPosition()
+  local scale = UIParent:GetEffectiveScale()
+  if not (x and y and scale and scale > 0) then return end
+  local p = Pick()
+  p.owner, p.member, p.forward, p.hint, p.onClick, p.still = frame, m, false, nil, onClick, still
+  p:SetAttribute("clickbutton1", row)
+  p:SetAttribute("type2", nil)
+  p:SetAttribute("clickbutton2", nil)
+  p:ClearAllPoints()
+  p:SetPoint("CENTER", UIParent, "BOTTOMLEFT", x / scale, y / scale)
+  p:SetSize(LINK_PICK, LINK_PICK)
+  p:Show()
+end
+
+-- The character page's "Edit notes" button (mouse on it): its click picks m in Blizzard's list like a
+-- click on a member row. The page is often opened without such a click: a name in the chat, Guildy's
+-- member menu, the page that stayed open while Blizzard's panel closed. Blizzard's row may appear a
+-- moment after the list grew: tried again while the mouse stays on the button.
+function Notes.HoverButton(owner, m)
+  if not (owner and m) or LayPick(owner, m, false) then return end
+  C_Timer.After(0.2, function()
+    if owner:IsVisible() and owner:IsMouseOver() then LayPick(owner, m, false) end
+  end)
+end
+
+-- The button was clicked but no pick lay over it (the click reached the button itself): why, in chat
+function Notes.Explain(m)
+  if not (m and m.guid) or Picked(m) then return end
+  local L = ns.L
+  if InCombatLockdown() then
+    ns.Print(L.BLIZZARD_PART_MISSING)
+  elseif not GuildSelected() then
+    ns.Print(L.NOTES_SELECT_GUILD)
+  elseif not Row(m.guid) then
+    SizeList()
+    ns.Print(L.NOTES_HIDDEN:format(m.name))
+  end
+end
+
+-- Blizzard's list leaves out offline members in its roster view unless "Show offline members" is
+-- ticked there (CommunitiesMemberListMixin:ShouldShowOfflinePlayers): no row, nothing to pick, and
+-- Blizzard's member panel never showed for them (reported 2026-11-16). Its list reads that setting
+-- from the cvar once, when Blizzard_Communities loads (on demand, after Guildy): set before that, it
+-- is Blizzard's own untainted value. Guildy writes nothing of Blizzard's list.
+do
+  local loaded = (C_AddOns and C_AddOns.IsAddOnLoaded) or rawget(_G, "IsAddOnLoaded")
+  local set = (C_CVar and C_CVar.SetCVar) or rawget(_G, "SetCVar")
+  if set and not (loaded and loaded("Blizzard_Communities")) then pcall(set, "communitiesShowOffline", "1") end
 end
 
 -- Guildy's look on Blizzard's panel and note dialog -------------------------------------------------

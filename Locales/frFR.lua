@@ -243,6 +243,7 @@ ns.LocaleTables.frFR = {
   NOTE_PICK_AGAIN = "Cliquez encore une fois sur la note pour la modifier.",
   NOTES_SELECT_GUILD = "La fenêtre de guilde de Blizzard affiche une autre communauté. Sélectionnez-y la guilde une fois, puis réessayez.",
   NOTES_NOT_LISTED = "%s n'est pas encore dans la liste des membres de Blizzard. Réessayez dans un instant.",
+  NOTES_HIDDEN = "La liste des membres de Blizzard n'affiche pas %s, son panneau de membre ne peut donc pas s'ouvrir. Dans la fenêtre de guilde de Blizzard, cochez « Afficher les membres hors ligne » dans la liste, ou passez du canal des officiers au canal de guilde.",
   YES = "Oui",
   CANCEL = "Annuler",
   SAVE = "Enregistrer",

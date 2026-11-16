@@ -243,6 +243,7 @@ ns.LocaleTables.ptBR = {
   NOTE_PICK_AGAIN = "Clique na nota mais uma vez para editá-la.",
   NOTES_SELECT_GUILD = "A janela de guilda da Blizzard mostra outra comunidade. Selecione a guilda lá uma vez e tente de novo.",
   NOTES_NOT_LISTED = "%s ainda não está na lista de membros da Blizzard. Tente de novo em instantes.",
+  NOTES_HIDDEN = "A lista de membros da Blizzard não mostra %s, então o painel de membro não pode abrir. Na janela de guilda da Blizzard, marque \"Mostrar membros offline\" na lista ou troque do canal de oficiais para o canal da guilda.",
   YES = "Sim",
   CANCEL = "Cancelar",
   SAVE = "Salvar",

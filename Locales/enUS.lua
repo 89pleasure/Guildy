@@ -243,6 +243,7 @@ ns.LocaleTables.enUS = {
   NOTE_PICK_AGAIN = "Click the note once more to edit it.",
   NOTES_SELECT_GUILD = "Blizzard's guild window shows another community. Select the guild there once, then try again.",
   NOTES_NOT_LISTED = "%s isn't in Blizzard's member list yet. Try again in a moment.",
+  NOTES_HIDDEN = "Blizzard's member list doesn't show %s, so its member panel can't open. In Blizzard's guild window, tick \"Show offline members\" on the roster, or switch from the officer channel to the guild channel.",
   YES = "Yes",
   CANCEL = "Cancel",
   SAVE = "Save",

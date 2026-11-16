@@ -657,9 +657,16 @@ local function Build()
   end
   hero.Whisper = W.Button(hero, L.WHISPER, function() if page.member then UI.Whisper(page.member.fullName) end end, 110)
   hero.Invite = W.Button(hero, L.GROUP_INVITE_SHORT, function() if page.member then ns.Roster.GroupInvite(page.member) end end, 110)
+  -- rank and notes: Blizzard's own member panel beside the page shows once Blizzard picked the member.
+  -- A click on a member row picks them; this button does the same for a page opened without one (a
+  -- chat name, the member menu). Its click only reaches it when no pick lay over it (UI/Notes.lua).
+  hero.Notes = W.Button(hero, L.NOTES_IN_BLIZZARD, function() UI.Notes.Explain(page.member) end, 110,
+    { small = true, maxWidth = 150 })
+  hero.Notes:SetScript("OnEnter", function(self)
+    if page.member then UI.Notes.HoverButton(self, page.member) end
+  end)
 
-  -- officer row under a hairline: removal (rank and notes are in Blizzard's own member panel beside the
-  -- page, UI/Notes.lua)
+  -- row under a hairline: "Edit notes" (above) and the removal
   hero.OfficerRule = hero:CreateTexture(nil, "ARTWORK")
   hero.OfficerRule:SetHeight(1)
   hero.OfficerRule:SetColorTexture(W.GOLD[1], W.GOLD[2], W.GOLD[3], 0.25)
@@ -905,15 +912,20 @@ local function Build()
     }
     for key, block in pairs(hero.NoteBlocks) do block.Text:SetText(notes[key] or "") end
 
-    -- the bottom: whisper and invite, under them the officer row behind a hairline
-    local officer = can.remove
+    -- the bottom: whisper and invite, under them a row behind a hairline: "Edit notes" on the left (else the "Officers" label), removal right
+    local remove = can.remove
+    local editNotes = UI.Notes.CanEdit(m)
+    local officer = remove or editNotes
     local bottomH = officer and 64 or 32
-    hero.OfficerLabel:SetShown(officer)
+    hero.OfficerLabel:SetShown(remove and not editNotes)
     hero.OfficerRule:SetShown(officer)
-    hero.Remove:SetShown(officer)
+    hero.Remove:SetShown(remove)
     hero.Remove:SetEnabled(ns.Roster.Rights(m).remove or false)
+    hero.Notes:SetShown(editNotes)
     local y = 10
     if officer then
+      hero.Notes:ClearAllPoints()
+      hero.Notes:SetPoint("BOTTOMLEFT", hero, "BOTTOMLEFT", 12, 8)
       hero.Remove:ClearAllPoints()
       hero.Remove:SetPoint("BOTTOMRIGHT", hero, "BOTTOMRIGHT", -12, 8)
       hero.OfficerLabel:ClearAllPoints()

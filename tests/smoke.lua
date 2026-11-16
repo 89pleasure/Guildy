@@ -1001,6 +1001,14 @@ T.describe("Harvest", function()
     printed = nil
     view.Pane.Messages:GetScript("OnHyperlinkClick")(view.Pane.Messages, "clubTicket:Ab12", "[x]", "LeftButton")
     T.truthy(printed and printed:find("|HclubTicket:Ab12|h", 1, true), "chat link handed to Blizzard's chat")
+    -- the mouse on a guild member's name and on other links: nothing breaks (the pick button needs
+    -- Blizzard's guild list, which the test client lacks)
+    local enter = view.Pane.Messages:GetScript("OnHyperlinkEnter")
+    local someone = ns.Roster.Members()[1]
+    enter(view.Pane.Messages, "player:" .. someone.name, "[" .. someone.name .. "]")
+    enter(view.Pane.Messages, "player:Nobody", "[Nobody]")
+    enter(view.Pane.Messages, "item:6948", "[x]")
+    T.eq(errors, {})
     rawset(env.DEFAULT_CHAT_FRAME, "AddMessage", nil)
     view:Select(9)
     T.eq(view.Join:IsShown(), false) -- picking a community goes back to its chat
@@ -4407,6 +4415,36 @@ T.describe("The hero card and the column on the character page", function()
       T.eq(hero.ModelArea:GetHeight(), fit.model)
       T.eq(w.errors, {})
     end
+  end)
+
+  T.it("offers Edit notes on the page, says why Blizzard's panel can't open, and lists offline members", function()
+    local cvars = {}
+    local w = dofile(T.testsDir .. "/wow.lua")(T, {
+      setup = function(e) e.SetCVar = function(name, value) cvars[name] = value end end })
+    -- set before Blizzard_Communities loads: Blizzard's roster then lists offline members too
+    T.eq(cvars.communitiesShowOffline, "1")
+    w.Fire("ADDON_LOADED", "Guildy")
+    w.Fire("PLAYER_LOGIN")
+    w.Fire("GUILD_ROSTER_UPDATE")
+    w.RunTimers()
+    w.env.CommunitiesFrame:Show()
+    local m
+    for _, member in ipairs(w.ns.Roster.Members() or {}) do
+      if member.guid and member ~= w.ns.Roster.Me() then m = member break end
+    end
+    T.truthy(m, "a member with a GUID")
+    w.ns.UI.ShowMember(m)
+    local hero = w.ns.UI.MemberPage().Hero
+    T.truthy(hero.Notes:IsShown(), "Edit notes on the page")
+    T.truthy(hero.OfficerRule:IsShown(), "under the hairline")
+    T.truthy(not hero.OfficerLabel:IsShown(), "in place of the Officers label")
+    -- no pick lay over the button (Blizzard's window shows no guild here): the click says why
+    w.calls.texts = {}
+    hero.Notes:GetScript("OnClick")(hero.Notes, "LeftButton")
+    local said = table.concat(w.calls.texts, " | ")
+    w.calls.texts = nil
+    T.truthy(said:find(w.ns.L.NOTES_SELECT_GUILD, 1, true), "told: " .. said)
+    T.eq(w.errors, {})
   end)
 
   T.it("gives the professions only their rows and the upgrades the rest of the column", function()
