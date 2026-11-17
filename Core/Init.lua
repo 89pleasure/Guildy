@@ -17,7 +17,6 @@ end
 local function OnGuildChat(kind, text, sender, ...)
   local guid = select(10, ...)
   ns.Chat.OnGuildMessage(kind, text, sender, guid)
-  if kind == "guild" then ns.GameDing.OnGuildChat(text) end
   ns.TradeSkill.OnChatMessage(text, sender, guid)
 end
 

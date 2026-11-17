@@ -807,8 +807,5 @@ ns.LocaleTables.esES = {
   MEMBER_FORGET_PROFS = "Descartar profesiones y leerlas de nuevo",
   MEMBER_FORGOT_PROFS = "Se descartó lo que Guildy sabía de las profesiones de %s. El próximo escaneo las lee de nuevo.",
   DING_TEXT = "ha alcanzado el nivel máximo",
-  DING_CHAT = "¡%s ha alcanzado el nivel %d!",
   OPTIONS_DING = "Aviso cuando un miembro de la hermandad alcanza el nivel 60",
-  OPTIONS_DING_POST = "Anunciarlo en el chat de hermandad",
-  OPTIONS_DING_POST_TIP = "Solo un usuario de Guildy lo anuncia: el primero que lo nota.",
 }

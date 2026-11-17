@@ -1,5 +1,5 @@
--- A guild member reaches level 60 in the stubbed client (tests/wow.lua): Guildy finds it in the roster,
--- shows the banner and says it once in guild chat, unless another Guildy user has said it already.
+-- A guild member reaches level 60 in the stubbed client (tests/wow.lua): Guildy finds it in the roster
+-- and shows the banner to this player. Nothing goes to guild chat.
 local T = ...
 
 local function World()
@@ -35,76 +35,49 @@ local function World()
 end
 
 T.describe("Level 60", function()
-  T.it("says nothing after the first roster", function()
+  T.it("shows nothing after the first roster", function()
     local w = World()
-    T.eq(w.sent, {})
     T.truthy(not (w.Banner() and w.Banner():IsShown()), "no banner for who is 60 already")
     T.eq(w.errors, {})
   end)
 
-  T.it("shows the banner and says it once in guild chat", function()
+  T.it("shows the banner once and says nothing in guild chat", function()
     local w = World()
     w.Reach({ 2 })
-    T.eq(#w.sent, 1)
-    T.eq(w.sent[1][2], "GUILD")
-    T.truthy(w.ns.Ding.Said(w.sent[1][1], "Makira Farron"), w.sent[1][1])
-    T.truthy(w.sent[1][1]:find("60", 1, true), w.sent[1][1])
     T.truthy(w.Banner():IsShown(), "banner shown")
     T.truthy(w.Banner().Name:GetText():find("Makira Farron", 1, true), "banner names the member")
+    local banner = w.Banner()
+    banner:GetScript("OnUpdate")(banner, 60)
     w.Fire("GUILD_ROSTER_UPDATE") -- the next roster: nothing again
     w.RunTimers()
-    T.eq(#w.sent, 1)
+    T.truthy(not banner:IsShown(), "no second banner")
+    T.eq(w.sent, {})
     T.eq(w.errors, {})
   end)
 
-  T.it("stays quiet when another Guildy user said it first", function()
+  T.it("says nothing in guild chat even with the old option of 1.9.4 still saved", function()
     local w = World()
-    w.Reach({ 2 }, 1) -- found, the wait before posting still runs
-    w.Fire("CHAT_MSG_GUILD", "[Guildy] Makira Farron hat Stufe 60 erreicht!", "Au-Tsch")
+    w.ns.Settings().ding60Post = true
+    w.Reach({ 2 })
+    w.roster[1][4] = 59 -- the player's own level 60 neither
+    w.Fire("GUILD_ROSTER_UPDATE")
+    w.RunTimers()
+    w.Fire("PLAYER_LEVEL_UP", 60)
     w.RunTimers()
     T.eq(w.sent, {})
-    T.truthy(w.Banner():IsShown(), "the banner is shown all the same")
+    T.eq(w.errors, {})
   end)
 
-  T.it("stays quiet when the line came before its own roster showed the level", function()
+  T.it("shows nothing with the banner option off", function()
     local w = World()
-    w.Fire("CHAT_MSG_GUILD", "[Guildy] Makira Farron has reached level 60!", "Au-Tsch")
-    w.Reach({ 2 })
-    T.eq(w.sent, {})
-    T.truthy(w.Banner():IsShown(), "banner shown")
-  end)
-
-  T.it("is not fooled by a line about somebody else", function()
-    local w = World()
-    w.Fire("CHAT_MSG_GUILD", "[Guildy] Au Tsch has reached level 60!", "Ran-Fred")
-    w.Reach({ 2 })
-    T.eq(#w.sent, 1)
-  end)
-
-  T.it("posts nothing with the chat option off, shows nothing with the banner option off", function()
-    local w = World()
-    w.ns.Settings().ding60Post = false
-    w.Reach({ 2 })
-    T.eq(w.sent, {})
-    T.truthy(w.Banner():IsShown(), "banner shown")
-    w = World()
     w.ns.Settings().ding60 = false
     w.Reach({ 2 })
-    T.eq(#w.sent, 1)
     T.truthy(not (w.Banner() and w.Banner():IsShown()), "no banner")
   end)
 
-  T.it("posts nothing while names are made up for pictures", function()
-    local w = World()
-    w.ns.Anon.on = true
-    w.Reach({ 2 })
-    T.eq(w.sent, {})
-  end)
-
-  T.it("shows two at once one after the other and says both", function()
+  T.it("shows two at once one after the other", function()
     local w = World()
     w.Reach({ 2, 3 })
-    T.eq(#w.sent, 2)
     local banner = w.Banner()
     local first = banner.Name:GetText()
     banner:GetScript("OnUpdate")(banner, 1)
@@ -117,33 +90,30 @@ T.describe("Level 60", function()
     T.eq(w.errors, {})
   end)
 
-  T.it("announces nobody of a guild the player has just changed to", function()
+  T.it("shows nobody of a guild the player has just changed to", function()
     local w = World()
     w.guild = "Other Guild"
     w.Reach({ 2 })
-    T.eq(w.sent, {})
     T.truthy(not (w.Banner() and w.Banner():IsShown()), "no banner")
     w.Reach({ 3 }) -- from now on that guild is known
-    T.eq(#w.sent, 1)
+    T.truthy(w.Banner():IsShown(), "banner shown")
   end)
 
-  T.it("announces the own level 60 at once, and not again when the roster shows it", function()
+  T.it("shows the own level 60 at once, and not again when the roster shows it", function()
     local w = World()
     w.roster[1][4] = 59 -- Ran Fred, the player
     w.Fire("GUILD_ROSTER_UPDATE")
     w.RunTimers()
     w.Fire("PLAYER_LEVEL_UP", 59)
     w.RunTimers()
-    T.eq(w.sent, {})
+    T.truthy(not (w.Banner() and w.Banner():IsShown()), "no banner at 59")
     w.Fire("PLAYER_LEVEL_UP", 60)
     w.RunTimers()
-    T.eq(#w.sent, 1)
-    T.truthy(w.ns.Ding.Said(w.sent[1][1], "Ran Fred"), w.sent[1][1])
-    T.truthy(w.Banner():IsShown(), "banner shown")
     local banner = w.Banner()
+    T.truthy(banner:IsShown(), "banner shown")
+    T.truthy(banner.Name:GetText():find("Ran Fred", 1, true), "own name")
     banner:GetScript("OnUpdate")(banner, 60)
     w.Reach({ 1 })
-    T.eq(#w.sent, 1)
     T.truthy(not banner:IsShown(), "no second banner")
     T.eq(w.errors, {})
   end)
@@ -158,10 +128,9 @@ T.describe("Level 60", function()
     w.RunTimers()
     w.Reach({ 2 })
     T.truthy(not banner:IsShown(), "no second banner")
-    T.eq(#w.sent, 1)
   end)
 
-  T.it("asks for the roster every 30 seconds, not for the event log, and not with both options off", function()
+  T.it("asks for the roster every 30 seconds, not for the event log, and not with the banner off", function()
     local w = World()
     local ticker
     for _, t in ipairs(w.tickers) do if t.seconds == 30 then ticker = t end end
@@ -171,13 +140,13 @@ T.describe("Level 60", function()
     w.env.QueryGuildEventLog = function() logs = logs + 1 end
     ticker.fn()
     T.eq({ asked, logs }, { 1, 0 })
-    w.ns.Settings().ding60, w.ns.Settings().ding60Post = false, false
+    w.ns.Settings().ding60 = false
     ticker.fn()
     T.eq(asked, 1)
     T.eq(w.errors, {})
   end)
 
-  T.it("shows the banner for the own character on /guildy ding and posts nothing", function()
+  T.it("shows the banner for the own character on /guildy ding", function()
     local w = World()
     w.env.SlashCmdList.GUILDY("ding")
     w.RunTimers()
@@ -187,20 +156,19 @@ T.describe("Level 60", function()
     T.eq(w.errors, {})
   end)
 
-  T.it("has the two options on the general page", function()
+  T.it("has the banner option on the general page, and no chat option", function()
     local w = World()
     w.env.CommunitiesFrame:Show() -- J opens the guild window, Guildy follows
     w.RunTimers()
     w.ns.UI.ShowOptions("general")
     local panel = w.ns.UI.Options().Panels.general
-    T.truthy(panel.Ding and panel.DingPost, "check boxes")
+    T.truthy(panel.Ding, "check box")
+    T.eq(rawget(panel, "DingPost"), nil)
     T.eq(panel.Ding:GetChecked(), true)
     w.ns.Settings().ding60 = false
     panel:Refresh()
     T.eq(panel.Ding:GetChecked(), false)
-    panel.DingPost:SetChecked(false)
-    panel.DingPost:GetScript("OnClick")(panel.DingPost)
-    T.eq(w.ns.Settings().ding60Post, false)
+    w.ns.Settings().ding60Post = false -- left over from 1.9.4
     panel.ResetAll:GetScript("OnClick")(panel.ResetAll)
     T.eq({ w.ns.Settings().ding60, w.ns.Settings().ding60Post }, {})
     T.eq(w.errors, {})

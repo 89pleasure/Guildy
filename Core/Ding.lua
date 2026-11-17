@@ -1,12 +1,9 @@
--- Who has just reached the top level: the levels of one roster scan against the scan before. Also the
--- line Guildy says in guild chat about it, and how to tell that somebody has said it already.
--- Pure: takes and returns tables and texts.
+-- Who has just reached the top level: the levels of one roster scan against the scan before.
+-- Pure: takes and returns tables.
 local _, ns = ...
 
 local Ding = {}
 ns.Ding = Ding
-
-Ding.TAG = "[Guildy]" -- what the line in guild chat starts with, in every language
 
 -- The members who were one level below max in the scan before and are at it now, and the levels of
 -- this scan for the next call. before = { [key] = level }, nil on the first scan: then nobody is found.
@@ -24,16 +21,4 @@ function Ding.Find(before, members, max)
     end
   end
   return found, levels
-end
-
--- The line for guild chat: format takes the name and the level
-function Ding.Line(format, name, max)
-  return Ding.TAG .. " " .. format:format(name, max)
-end
-
--- Whether a guild chat text is that line for name, in whatever language it was sent
-function Ding.Said(text, name)
-  if type(text) ~= "string" or type(name) ~= "string" or name == "" then return false end
-  if text:sub(1, #Ding.TAG) ~= Ding.TAG then return false end
-  return text:find(name, #Ding.TAG + 1, true) ~= nil
 end
