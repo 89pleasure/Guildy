@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.9.5
+
+- Changed: Guildy no longer posts in guild chat when a member reaches level 60 (thanks for the
+  feedback: players want to announce it themselves). The banner still shows, only to you, and can be
+  turned off under Customize (the cog) → General. Guilds will see the line until everyone has updated.
+
 ## 1.9.4
 
 - Fixed: after changing ranks for a while, Blizzard's rank and notes panel could stop working for
