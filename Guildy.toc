@@ -55,6 +55,7 @@ Core\Tenure.lua
 Core\Anon.lua
 Core\ShotRun.lua
 Core\Runtime.lua
+Core\API.lua
 Game\Roster.lua
 Game\Chat.lua
 Game\Communities.lua

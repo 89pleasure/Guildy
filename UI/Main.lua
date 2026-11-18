@@ -851,7 +851,7 @@ function UI.FlushRefresh()
   syncTimer = nil
   if pending then Refresh(pending.event) end
 end
-for _, event in ipairs({ "ROSTER", "PROFS", "CHAT", "INFO", "HARVEST", "STATS", "USERS", "FAMILY", "GUILD", "COMMUNITY", "BANK" }) do
+for _, event in ipairs({ "ROSTER", "PROFS", "CHAT", "INFO", "HARVEST", "STATS", "USERS", "FAMILY", "GUILD", "COMMUNITY", "BANK", "NAMES" }) do
   if SYNC_EVENTS[event] then
     ns.On(event, function(...)
       if ns.Sync and ns.Sync.receiving then RefreshLater(event) else Refresh(event, ...) end
