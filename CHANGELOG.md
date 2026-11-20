@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.9.7
+
+- Fixed: since today's WoW update, the Hall of Fame and the other tabs could show your guild empty
+  after logging in or a /reload. The game no longer tells addons the realm name, and Guildy looked for
+  your guild under a name without it. It now finds your guild by its name, and anything it stored
+  under the wrong name in the meantime moves back into your guild. Nothing was lost.
+- Fixed: Lua errors in battlegrounds and instances when opening the guild window. The game hides the
+  guild chat, communities and member details from addons there. Opening the guild window in a
+  battleground or instance now shows Blizzard's own window, which still shows the guild chat. The
+  Guildy tab on its right edge brings Guildy back for everything else.
+- New: PvP ranks. The Hall of Fame's PvP table has a Rank column, and the character page shows the
+  rank next to the name, both with Blizzard's gold rank badges and the game's rank titles, for example
+  "(1) Private". Guildy reads your own rank, shares it with other Guildy users and reads it when you
+  inspect a guild member nearby.
+
 ## 1.9.6
 
 - New: the guild log on the Info & Log tab has filters (thanks for the idea!). All, Joined, Left,
