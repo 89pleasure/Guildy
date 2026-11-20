@@ -52,6 +52,7 @@ Core\Family.lua
 Core\Activity.lua
 Core\Ding.lua
 Core\Tenure.lua
+Core\GuildLog.lua
 Core\Anon.lua
 Core\ShotRun.lua
 Core\Runtime.lua

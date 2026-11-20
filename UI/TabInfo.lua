@@ -28,10 +28,51 @@ local function EventLines()
       end
       local ago = ns.Census.DaysOffline(years, months, days, hours)
       local m = { online = false, daysOffline = ago }
-      lines[#lines + 1] = { text = text, when = ago and ns.Roster.LastOnlineText(m) or "" }
+      lines[#lines + 1] = { kind = kind, text = text, when = ago and ns.Roster.LastOnlineText(m) or "" }
     end
   end
   return lines
+end
+
+-- The mark before a log line, drawn from two small bars (the game font has no arrows): + joined,
+-- > invited, ^ promoted, v demoted, - left, x removed. Each shape: the two bars as
+-- { width, height, x, y, rotation } around the mark's center, the second one optional.
+local D = math.pi / 4
+local MARKS = {
+  join = { { 9, 2, 0, 0, 0 }, { 2, 9, 0, 0, 0 } },
+  quit = { { 9, 2, 0, 0, 0 } },
+  remove = { { 10, 2, 0, 0, D }, { 10, 2, 0, 0, -D } },
+  promote = { { 7, 2, -2, 0, D }, { 7, 2, 2, 0, -D } },
+  demote = { { 7, 2, -2, 0, -D }, { 7, 2, 2, 0, D } },
+  invite = { { 7, 2, 0, 2, -D }, { 7, 2, 0, -2, D } },
+}
+
+local function Mark(row)
+  local mark = CreateFrame("Frame", nil, row)
+  mark:SetSize(14, 14)
+  mark.Bars = {}
+  for i = 1, 2 do
+    local bar = mark:CreateTexture(nil, "ARTWORK")
+    bar:SetColorTexture(1, 1, 1, 1)
+    mark.Bars[i] = bar
+  end
+  function mark:SetKind(kind)
+    local shape, color = MARKS[kind], ns.GuildLog.Color(kind)
+    self:SetShown(shape ~= nil and color ~= nil)
+    if not shape or not color then return end
+    for i, bar in ipairs(self.Bars) do
+      local s = shape[i]
+      bar:SetShown(s ~= nil)
+      if s then
+        bar:ClearAllPoints()
+        bar:SetSize(s[1], s[2])
+        bar:SetPoint("CENTER", self, "CENTER", s[3], s[4])
+        if bar.SetRotation then bar:SetRotation(s[5]) end
+        bar:SetVertexColor(color[1], color[2], color[3], 1)
+      end
+    end
+  end
+  return mark
 end
 
 -- In-place editor for the MOTD or guild info box: Edit sets Blizzard's editor up, Save hands it the text
@@ -239,9 +280,37 @@ local function Build(panel)
   log:SetPoint("BOTTOMRIGHT", 0, 0)
   local logTitle = W.Text(log, "GameFontNormal", L.EVENT_LOG)
   logTitle:SetPoint("TOPLEFT", 10, -8)
+  view.LogCount = W.Text(log, "GameFontDisableSmall")
+  view.LogCount:SetPoint("TOPRIGHT", -10, -10)
+  view.LogCount:SetJustifyH("RIGHT")
+  -- the filter: one group of entries alone (Core/GuildLog.lua), each button with its count
+  view.logFilter = "all"
+  local filterNames = { all = L.LOG_ALL, join = L.LOG_JOIN, left = L.LOG_LEFT, invite = L.LOG_INVITE, rank = L.LOG_RANK }
+  view.filterNames = filterNames
+  local filterOptions = {}
+  for i, group in ipairs(ns.GuildLog.GROUPS) do filterOptions[i] = { value = group, text = filterNames[group] } end
+  view.LogFilter = W.Segmented(log, filterOptions, function(value)
+    view.logFilter = value
+    view:RefreshLog()
+  end)
+  view.LogFilter:SetPoint("TOPLEFT", 8, -28)
+  view.LogFilter:SetValue("all")
+  view.LogEmpty = W.Text(log, "GameFontDisableSmall", L.LOG_NONE)
+  view.LogEmpty:SetPoint("TOPLEFT", 14, -62)
+  view.LogEmpty:Hide()
   view.Log = W.ScrollList(log, 18, function(row)
+    row.Tint = row:CreateTexture(nil, "BACKGROUND")
+    row.Tint:SetAllPoints()
+    row.Tint:SetColorTexture(1, 1, 1, 1)
+    row.Edge = row:CreateTexture(nil, "BORDER")
+    row.Edge:SetPoint("TOPLEFT")
+    row.Edge:SetPoint("BOTTOMLEFT")
+    row.Edge:SetWidth(2)
+    row.Edge:SetColorTexture(1, 1, 1, 1)
+    row.Mark = Mark(row)
+    row.Mark:SetPoint("LEFT", 6, 0)
     row.Text = W.Text(row, "GameFontHighlightSmall")
-    row.Text:SetPoint("LEFT", 4, 0)
+    row.Text:SetPoint("LEFT", 22, 0)
     row.Text:SetPoint("RIGHT", -70, 0)
     row.Text:SetWordWrap(false)
     row.When = W.Text(row, "GameFontDisableSmall")
@@ -259,8 +328,18 @@ local function Build(panel)
   end, function(row, line)
     row.Text:SetText(line.text)
     row.When:SetText(line.when)
+    row.Mark:SetKind(line.kind)
+    -- a filtered list carries its color on the whole row, the full log only on the edge
+    local color = ns.GuildLog.Color(line.kind)
+    local filtered = view.logFilter ~= "all"
+    row.Edge:SetShown(color ~= nil and filtered)
+    row.Tint:SetShown(color ~= nil and filtered)
+    if color then
+      row.Edge:SetVertexColor(color[1], color[2], color[3], 0.85)
+      row.Tint:SetVertexColor(color[1], color[2], color[3], 0.08)
+    end
   end)
-  view.Log:SetPoint("TOPLEFT", 8, -28)
+  view.Log:SetPoint("TOPLEFT", 8, -56)
   view.Log:SetPoint("BOTTOMRIGHT", -28, 8)
 
   function view:Refresh()
@@ -276,7 +355,26 @@ local function Build(panel)
     self.Info:SetText(infoText ~= "" and infoText or ("|cff999999" .. L.EMPTY .. "|r"))
     self.InfoEditor:Update(infoText, can.editInfo)
     self:RefreshPlay()
-    self.Log:SetItems(EventLines())
+    self.logLines = EventLines()
+    self:RefreshLog()
+  end
+
+  function view:RefreshLog()
+    local lines = self.logLines or {}
+    local counts = ns.GuildLog.Counts(lines)
+    for _, group in ipairs(ns.GuildLog.GROUPS) do
+      local name = self.filterNames[group]
+      self.LogFilter:SetLabel(group, group == "all" and name or string.format(L.LOG_FILTER_COUNT, name, counts[group]))
+    end
+    self.LogFilter:SetValue(self.logFilter)
+    local shown = ns.GuildLog.Filter(lines, self.logFilter)
+    if self.logFilter == "all" then
+      self.LogCount:SetText(string.format(L.LOG_ENTRIES, #lines))
+    else
+      self.LogCount:SetText(string.format(L.LOG_SHOWN, #shown, #lines))
+    end
+    self.LogEmpty:SetShown(#shown == 0)
+    self.Log:SetItems(shown)
   end
 
   function view:RefreshPlay()

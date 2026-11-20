@@ -716,21 +716,36 @@ function W.BarRow(parent, labelWidth)
 end
 
 -- Row of toggle buttons; only one is active. options = { {value, text} }; onSelect(value)
+-- Each button follows the one before it, so a button that widens for a longer text (group:SetLabel)
+-- pushes the rest along; the group's width follows.
 function W.Segmented(parent, options, onSelect)
   local group = CreateFrame("Frame", nil, parent)
   group.buttons = {}
-  local x = 0
+  local function Measure()
+    local x = 0
+    for _, button in ipairs(group.buttons) do x = x + button:GetWidth() + 2 end
+    group:SetSize(math.max(1, x), 22)
+  end
   for i, option in ipairs(options) do
     local button = W.Button(group, option.text, function()
       group:SetValue(option.value)
       onSelect(option.value)
     end, 70, { small = true })
-    button:SetPoint("LEFT", x, 0)
-    x = x + button:GetWidth() + 2
+    if i == 1 then
+      button:SetPoint("LEFT", 0, 0)
+    else
+      button:SetPoint("LEFT", group.buttons[i - 1], "RIGHT", 2, 0)
+    end
     button.value = option.value
     group.buttons[i] = button
   end
-  group:SetSize(math.max(1, x), 22)
+  Measure()
+  function group:SetLabel(value, text)
+    for _, button in ipairs(self.buttons) do
+      if button.value == value then button:SetText(text) end
+    end
+    Measure()
+  end
   function group:SetValue(value)
     for _, button in ipairs(self.buttons) do
       local on = button.value == value
