@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.9.6
+
+- New: the guild log on the Info & Log tab has filters (thanks for the idea!). All, Joined, Left,
+  Invited and Ranks, each with its count, so you can see at a glance who left or who was invited. Every
+  line has a colored mark: green for joins, blue for invites, gold and orange for promotions and
+  demotions, red for leaving or being removed. The game only keeps the last 100 entries of the log.
+
 ## 1.9.5
 
 - Changed: Guildy no longer posts in guild chat when a member reaches level 60 (thanks for the
