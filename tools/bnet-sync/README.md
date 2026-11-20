@@ -26,14 +26,15 @@ writing, it saves a backup next to the file as `Guildy.lua.bnet-<time>.bak` and 
 
 The script reads every guild in GuildyDB. For each one it fetches the roster from the API: members
 at level 10 or above are added, and lower levels are skipped because the API has no profile for
-them. Your own characters (`ownChars`) are skipped. Each character costs 5 requests: profile,
-`/achievements/statistics`, `/equipment`, `/professions` and `/specializations` (skipped quietly where
-the game version lacks it).
+them. Your own characters (`ownChars`) are skipped. Each character costs 6 requests: profile,
+`/achievements/statistics`, `/equipment`, `/professions`, `/specializations` and `/pvp-summary` (the
+last two skipped quietly where the game version lacks them).
 
 | Guildy | From the API |
 |---|---|
 | `stats.v`: Blizzard statistics (kills, deaths, quests, dungeon end bosses, reputation counts 931/1466/529/378/377, …) | `/achievements/statistics` |
 | `stats.v`: equipment (item level, quality counts, quality per slot, the `Stats.GEAR` IDs) | `/equipment`, computed like `Stats.ReadGear` |
+| `stats.v[9800002]`: the PvP rank as rank + 1 (`Stats.PVP_RANK`, 1 = civilian .. 15 = rank 14); a run without it keeps the stored rank | `/pvp-summary` `honor_level`, which on Forever is the rank (Blizzard's inspect window and scoreboard read it so). The field is not documented: `pvp_rank`, `honor_rank` and `rank` are tried too, and when none holds a rank the script prints the response's fields once. The summary line says for how many characters a rank was found |
 | `gear[nameKey]`: the gear item by item (item ID, enchant ID, item level, quality; race and gender for the model), `src = "api"` | `/equipment` and the profile; the suffix ID stays 0 (not found in the response), so each item also gets `st`, its stats as the response lists them (random suffix included) in the client's `ITEM_MOD_*_SHORT` keys, which Guildy takes for the worn item |
 | `talents[nameKey]`: the talent points per tree (`trees = { p1, p2, p3 }`, tab order), `src = "api"`; `talentNames`: the trees' names per class in the client's language | `/specializations` (asked in `clientLocale`): the active (`is_active`) `specialization_groups[]` entry, its `specializations[]` `spent_points` (else the sum of `talents[].talent_rank`). Only trees with points are listed (live, 2026-11-13: a 7/31/0 druid gives 574 and 134, restoration is missing), so each is placed by `specialization.id` in the class's tab order from `/data/wow/playable-class/{classId}` (static namespace, one request per class, cached in `out/class-specs-<locale>.json`); a missing tree counts 0. Only when that list cannot be had are the trees placed by the names Guildy knows |
 | `enchantText`: the enchant texts in the client's language, the part after the first ": " | `/equipment` `enchantments[].display_string`, asked in `clientLocale` |

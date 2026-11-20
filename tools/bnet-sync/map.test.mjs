@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { LuaTable, toLua } from './lua.mjs'
-import { gearValues, statValues, professions, updateStats, updateProfessions, nameBridge, apiLocale, wantNames, localize, BOOK_SKILLS, GEAR, nameKey, slugOf, guildSlug, monthKey, gearRecord, updateGear, enchantTexts, craftItems, talentTrees, talentRecord, classSpecs, staticNamespaceOf, updateTalents, talentNames, knownTreeNames, CLASS_FILES, treeNamesLua, TREE_LOCALES } from './map.mjs'
+import { pvpRankValues, PVP_RANK, gearValues, statValues, professions, updateStats, updateProfessions, nameBridge, apiLocale, wantNames, localize, BOOK_SKILLS, GEAR, nameKey, slugOf, guildSlug, monthKey, gearRecord, updateGear, enchantTexts, craftItems, talentTrees, talentRecord, classSpecs, staticNamespaceOf, updateTalents, talentNames, knownTreeNames, CLASS_FILES, treeNamesLua, TREE_LOCALES } from './map.mjs'
 
 const item = (slot, level, quality, inv = slot) => ({ slot: { type: slot }, level: { value: level }, quality: { type: quality }, inventory_type: { type: inv } })
 
@@ -25,6 +25,35 @@ test('gearValues counts an empty off hand next to a one-hander', () => {
   const v = gearValues({ equipped_items: [item('MAIN_HAND', 10, 'COMMON', 'WEAPON')] })
   assert.equal(v[GEAR.EMPTY], 16)
   assert.equal(v[9900100 + 17], undefined)
+})
+
+test('pvpRankValues stores the honor level as rank + 1, a civilian too, nothing outside 0 .. 14', () => {
+  assert.deepEqual(pvpRankValues({ honor_level: 3 }), { [PVP_RANK]: 4 })
+  assert.deepEqual(pvpRankValues({ honor_level: 0 }), { [PVP_RANK]: 1 })
+  assert.deepEqual(pvpRankValues({ pvp_rank: { level: 14 } }), { [PVP_RANK]: 15 })
+  assert.deepEqual(pvpRankValues({ honor_level: 15 }), {})
+  assert.deepEqual(pvpRankValues({ honor_level: '3' }), {})
+  assert.deepEqual(pvpRankValues(null), {})
+  // a reading without a rank keeps the stored one (updateStats keeps what the record had)
+  const member = new LuaTable()
+  updateStats(member, { 107: 5, ...pvpRankValues({ honor_level: 2 }) }, {}, 1000)
+  updateStats(member, { 107: 6 }, {}, 2000)
+  assert.equal(member.get('stats').get('v').get(PVP_RANK), 3)
+  // newer data from the game wins, but a record without a rank gets the API's
+  const seen = new LuaTable()
+  updateStats(seen, { 107: 9 }, {}, 5000)
+  assert.equal(updateStats(seen, { 107: 5, ...pvpRankValues({ honor_level: 1 }) }, {}, 4000), true)
+  assert.equal(seen.get('stats').get('v').get(107), 9)
+  assert.equal(seen.get('stats').get('v').get(PVP_RANK), 2)
+  // ... and keeps a rank it has
+  updateStats(seen, { ...pvpRankValues({ honor_level: 4 }) }, {}, 4500)
+  assert.equal(seen.get('stats').get('v').get(PVP_RANK), 2)
+  // a record cut to 500 values keeps the rank
+  const many = { ...pvpRankValues({ honor_level: 5 }) }
+  for (let id = 1; id <= 600; id++) many[id] = 1
+  const big = new LuaTable()
+  updateStats(big, many, {}, 1000)
+  assert.equal(big.get('stats').get('v').get(PVP_RANK), 6)
 })
 
 test('statValues flattens categories and drops zeros', () => {

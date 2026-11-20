@@ -199,6 +199,22 @@ export function gearValues(equipment) {
 }
 
 // /achievements/statistics response to { [statID]: quantity }, zeros left out (like the game reading)
+// The PvP rank of Forever's seasons (0 civilian .. 14) as Guildy stores it (Stats.PVP_RANK: rank + 1).
+// On Forever the "honor level" is the rank: Blizzard's inspect window and scoreboard read it so
+// (Blizzard_InspectUI/Camelot/InspectPVPFrame.lua, Blizzard_PVPMatch/Camelot/PVPMatchTableOverrides.lua).
+// From /pvp-summary; its field for the rank is not documented, so the likely names are tried and
+// anything outside 0 .. 14 is left out.
+export const PVP_RANK = 9800002
+export const MAX_PVP_RANK = 14
+export function pvpRankValues(summary) {
+  for (const field of ['honor_level', 'pvp_rank', 'honor_rank', 'rank']) {
+    const raw = summary?.[field]
+    const rank = typeof raw === 'object' && raw !== null ? raw.level ?? raw.value ?? raw.id : raw
+    if (Number.isInteger(rank) && rank >= 0 && rank <= MAX_PVP_RANK) return { [PVP_RANK]: rank + 1 }
+  }
+  return {}
+}
+
 export function statValues(response) {
   const values = {}
   const walk = category => {
@@ -280,6 +296,11 @@ export function updateStats(member, apiStats, gear, ts) {
     rec.set('src', 'seen')
     rec.set('v', valuesTable(current))
     changed = true
+  } else if (apiStats[PVP_RANK] && rec.get('v') instanceof LuaTable && rec.get('v').get(PVP_RANK) == null) {
+    // newer data read in the game keeps winning, but a record without the PvP rank (read by a version
+    // before it) gets it: a state, which Guildy keeps until a reading brings another
+    rec.get('v').set(PVP_RANK, apiStats[PVP_RANK])
+    changed = true
   }
   const month = monthKey(ts)
   const snap = months.get(month)
@@ -304,7 +325,9 @@ export function updateStats(member, apiStats, gear, ts) {
 function cap(values) {
   const ids = Object.keys(values)
   if (ids.length <= MAX_VALUES) return values
-  const keep = ids.sort((a, b) => (isGear(b) - isGear(a)) || (Number(a) - Number(b))).slice(0, MAX_VALUES)
+  // the gear and the PvP rank first (high IDs a cut by number would drop), then the low IDs
+  const first = id => isGear(id) || Number(id) === PVP_RANK
+  const keep = ids.sort((a, b) => (first(b) - first(a)) || (Number(a) - Number(b))).slice(0, MAX_VALUES)
   return Object.fromEntries(keep.map(id => [id, values[id]]))
 }
 
