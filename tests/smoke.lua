@@ -827,6 +827,15 @@ T.describe("Smoke", function()
     env.GetRealmName = function() return "" end
     T.eq(ns.GuildKey(), name .. "@ForeverRealm7")
     T.eq(ns.DB().lastRealm, "ForeverRealm7")
+    -- a fresh install after the patch (no realm ever known): the server ID in the player's GUID
+    local unitGuid, lastRealm = env.UnitGUID, ns.DB().lastRealm
+    env.UnitGUID = function(unit) return unit == "player" and "Player-6855-00765A20" or nil end
+    ns._ForgetRealm()
+    ns.DB().lastRealm = nil
+    T.eq(ns.GuildKey(), name .. "@6855")
+    env.UnitGUID = function() return nil end
+    T.eq(ns.GuildKey(), nil) -- nothing to key it with: no guild made
+    env.UnitGUID, ns.DB().lastRealm = unitGuid, lastRealm
     ns.DB().guilds[good] = stored
     env.GetNormalizedRealmName, env.GetRealmName = normalized, realmName
     T.eq(ns.GuildKey(), good)

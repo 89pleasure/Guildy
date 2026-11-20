@@ -110,8 +110,18 @@ end
 -- The realm for the guild key. GetNormalizedRealmName gave "" after a /reload and then at every login
 -- (found in game 2026-11-20): Guildy made a guild "Murloc Mafia@" of its own and showed it empty. So
 -- the realm name is asked too (without spaces and dashes, as the normalized name is), then the last one
--- known (kept in GuildyDB.lastRealm across sessions); nil while none is known.
+-- known (kept in GuildyDB.lastRealm across sessions), then the server ID in the player's GUID
+-- ("Player-<serverID>-<id>"), so a fresh install after the patch (client build 71037) or a guild
+-- never seen still gets a key; nil while none is known.
 local lastRealm
+
+-- The server ID of the player's GUID as text, nil when the game gives none
+local function ServerId()
+  local guid = ns.Try(rawget(_G, "UnitGUID"), "player")
+  if type(guid) ~= "string" or ns.IsSecret(guid) then return nil end
+  return guid:match("^Player%-(%d+)%-")
+end
+
 function ns.Realm()
   local realm = ns.Try(rawget(_G, "GetNormalizedRealmName"))
   if type(realm) ~= "string" or realm == "" or ns.IsSecret(realm) then
@@ -123,7 +133,13 @@ function ns.Realm()
     lastRealm = realm
     if db then db.lastRealm = realm end
   end
-  return lastRealm or (db and type(db.lastRealm) == "string" and db.lastRealm ~= "" and db.lastRealm) or nil
+  return lastRealm or (db and type(db.lastRealm) == "string" and db.lastRealm ~= "" and db.lastRealm)
+    or ServerId()
+end
+
+-- Tests: as after a fresh login, no realm known in this session
+function ns._ForgetRealm()
+  lastRealm = nil
 end
 
 -- The guild stored under name with some realm, the one with the most members: the realm text of the
