@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.9.8
+
+- Fixed: if you install Guildy fresh after this week's WoW update, or join a guild Guildy hasn't seen
+  before, the guild tabs stayed empty. The game no longer tells addons the realm name, and Guildy had
+  nothing to file the new guild under. It now uses your server's number from the game instead.
+  Guilds Guildy already knows are not affected.
+
 ## 1.9.7
 
 - Fixed: since today's WoW update, the Hall of Fame and the other tabs could show your guild empty
