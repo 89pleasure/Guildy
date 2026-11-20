@@ -11,6 +11,26 @@ local W = ns.Widgets
 local UI = ns.UI
 local S = ns.Stats
 
+-- Blizzard's badge of a PvP rank (1 .. 14) as inline text: the gold badges of its battleground
+-- scoreboard (Interface\PvPRankBadges\PvPRank01 .. 14, compared in game 2026-11-20 with the grey
+-- UI-Character-Info-Honor-Icon atlas of its PvP window)
+function UI.PvpRankIcon(rank, size)
+  if not rank or rank < 1 then return "" end
+  size = size or 16
+  return ("|TInterface\\PvPRankBadges\\PvPRank%02d:%d:%d|t"):format(rank, size, size)
+end
+
+-- The name of a PvP rank (0 civilian .. 14) as the game words it: the client's PVP_RANK_<n>_<faction>
+-- strings, the faction of the player (a guild is of one faction), the female form for the player
+-- herself when the client has one (Blizzard_UIPanels_Game/Camelot/PVPRankFrame.lua)
+function UI.PvpRankTitle(rank, own)
+  if not rank or rank <= 0 then return rawget(_G, "PVP_RANK_0_NAME") or ns.L.FAME_PVP_RANK_NONE end
+  local faction = UnitFactionGroup and UnitFactionGroup("player") == "Alliance" and 1 or 0
+  local key = "PVP_RANK_" .. (4 + rank) .. "_" .. faction
+  local female = own and UnitSex and UnitSex("player") == 3 and rawget(_G, key .. "_FEMALE")
+  return female or rawget(_G, key) or ns.L.FAME_PVP_RANK_N:format(rank)
+end
+
 local SPECIAL = { bosses = "FAME_BOSSES", dungeons = "FAME_DUNGEONS_DONE", spent = "FAME_SPENT",
   [S.GEAR.ILVL] = "FAME_GEAR_ILVL", [S.GEAR.EPIC] = "FAME_GEAR_EPIC", [S.GEAR.RARE] = "FAME_GEAR_RARE",
   [S.GEAR.UNCOMMON] = "FAME_GEAR_UNCOMMON", [339] = "FAME_MOUNTS", [338] = "FAME_PETS",
@@ -381,7 +401,7 @@ local function Build(panel)
   -- bar = "split" a second one (cell.Rest) right after it; fill(row, entry, box) sets the cells
   -- (box.width[key] = width of a column).
   local AGE_WIDTH = 70
-  local function MemberTable(titleText, cols, fill)
+local function MemberTable(titleText, cols, fill)
     local box = W.Box(home)
     local boxTitle = W.Text(box, "GameFontNormal", titleText)
     boxTitle:SetPoint("TOPLEFT", 10, -8)
@@ -576,6 +596,7 @@ local function Build(panel)
   view.Pvp = MemberTable(L.FAME_PVP_TABLE, {
     { key = "name", weight = 3, text = L.COL_NAME },
     { key = "level", weight = 0.8, text = L.COL_LEVEL },
+    { key = "rank", weight = 2.2, text = L.FAME_PVP_RANK },
     { key = "kills", weight = 1.5, text = L.FAME_PVP_KILLS, stat = 588 },
     { key = "killBar", weight = 2.2, bar = true },
     { key = "duels", weight = 1.1, text = L.FAME_PVP_DUELS, stat = 319 },
@@ -588,6 +609,10 @@ local function Build(panel)
     local kills, won, lost, bgs = Get(588), Get(319), Get(320), Get(839)
     local level = entry.member and entry.member.level
     row.Cols.level:SetText(level or "–")
+    local rank = S.PvpRank(entry.rec.v)
+    row.Cols.rank:SetText(rank == nil and DASH or rank == 0 and ("|cff9a8f78" .. UI.PvpRankTitle(0) .. "|r")
+      or (UI.PvpRankIcon(rank, 20) .. " " .. L.FAME_PVP_RANK_VALUE:format(rank,
+        UI.PvpRankTitle(rank, entry.key == ns.Names.Key(ns.PlayerName())))))
     row.Cols.kills:SetText(kills > 0 and Format(588, kills) or DASH)
     local r, g, b = W.ClassColor(entry.classFile)
     local killBar = row.Cols.killBar
@@ -1094,7 +1119,8 @@ local function Build(panel)
     for _, entry in ipairs(entries) do
       local function Get(id) return S.Value(entry.rec, id, self.period, ns.Now(), ns.GameStats.Date) or 0 end
       local kills, duels, bgs = Get(588), Get(319) + Get(320), Get(839)
-      if kills > 0 or duels > 0 or bgs > 0 then
+      -- a rank counts too: it is a state, the same in every period
+      if kills > 0 or duels > 0 or bgs > 0 or (S.PvpRank(entry.rec.v) or 0) > 0 then
         rows[#rows + 1] = { entry = entry, kills = kills, duels = duels }
         maxKills, maxDuels = math.max(maxKills, kills), math.max(maxDuels, duels)
       end

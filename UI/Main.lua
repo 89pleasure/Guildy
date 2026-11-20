@@ -29,6 +29,7 @@ local blizzardMode -- the player asked for Blizzard's own window (UI.ShowBlizzar
 local placingHost  -- Guildy itself is moving Blizzard's window (its hooks ignore that)
 local hostGeometry -- Blizzard's window's anchors and size before Guildy moved it
 local returnTab    -- side tab on Blizzard's own window back to Guildy (UI.ShowBlizzard)
+local lockdownTold -- the hint for Blizzard's window in battlegrounds was printed (HookHost)
 local lastTab -- session only, on purpose not in GuildyDB
 local noGuild, forcedCommunities -- without a guild only the communities (UpdateGuildState)
 local bankMode, tabBeforeBank    -- shown at the guild banker without Blizzard's window (UI.ShowAtBank)
@@ -674,7 +675,15 @@ local function HookHost()
   if hostHooked or not host then return end
   hostHooked = true
   host:HookScript("OnShow", function()
-    if not blizzardMode then ns.Perf.Call("open", "window", ns.SafeCall, Open) end
+    if blizzardMode then return end
+    ns.Perf.Call("open", "window", ns.SafeCall, Open)
+    -- battlegrounds and instances: the game hides the guild chat from addons (chat messaging lockdown,
+    -- Core/Runtime.lua), Blizzard's own window still shows it, so it opens instead; its Guildy tab brings
+    -- Guildy back for the rest. Said once per session.
+    if ns.ChatLockdown() then
+      UI.ShowBlizzard(ns.L.CHAT_LOCKDOWN_OPENED, lockdownTold)
+      lockdownTold = true
+    end
   end)
   host:HookScript("OnHide", function()
     -- next time Guildy again
@@ -777,7 +786,7 @@ end
 
 -- Blizzard's own guild window instead of Guildy until it closes or its Guildy tab is clicked
 -- (Info tab, member menu, joining a community)
-function UI.ShowBlizzard(message) -- message: said instead of the general hint
+function UI.ShowBlizzard(message, quiet) -- message: said instead of the general hint; quiet: nothing said
   local host = Host()
   if not (host and host:IsShown() and frame) then return end
   blizzardMode = true
@@ -813,7 +822,7 @@ function UI.ShowBlizzard(message) -- message: said instead of the general hint
   end
   back.Emblem:Update()
   back:Show()
-  ns.Print(message or ns.L.BLIZZARD_OPENED)
+  if not quiet then ns.Print(message or ns.L.BLIZZARD_OPENED) end
 end
 
 -- The side tab on Blizzard's window back to Guildy (tests)

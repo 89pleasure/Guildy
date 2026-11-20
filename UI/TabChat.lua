@@ -372,6 +372,22 @@ local function Build(panel)
       end
     end,
   })
+  -- Chat messaging lockdown (battlegrounds, instances): the game gives addons the guild chat only as
+  -- secret values, history and new lines alike, while Blizzard's own window still shows it. The chat
+  -- column says so and opens that window (found in game 2026-11-20, Warsong Gulch).
+  view.Locked = CreateFrame("Frame", nil, chatBox)
+  view.Locked:SetAllPoints(chatBox)
+  view.Locked:SetFrameLevel(chatBox:GetFrameLevel() + 20)
+  view.Locked:EnableMouse(true)
+  view.Locked.Text = view.Locked:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+  view.Locked.Text:SetPoint("LEFT", 24, 16)
+  view.Locked.Text:SetPoint("RIGHT", -24, 16)
+  view.Locked.Text:SetText(L.CHAT_LOCKDOWN)
+  view.Locked.Button = W.Button(view.Locked, L.CHAT_LOCKDOWN_OPEN, function()
+    UI.ShowBlizzard(L.CHAT_LOCKDOWN_OPENED)
+  end, 180)
+  view.Locked.Button:SetPoint("TOP", view.Locked.Text, "BOTTOM", 0, -12)
+  view.Locked:Hide()
   view.Messages = view.Pane.Messages
   view.Timeline = view.Pane.Timeline
   view.Input = UI.ChatInput(left, function(text) ns.Chat.Send(view.kind, text) end)
@@ -393,6 +409,13 @@ local function Build(panel)
   end
 
   function view:RenderChat()
+    local locked = ns.ChatLockdown()
+    self.Locked:SetShown(locked)
+    if locked then
+      self.more = false
+      self.Pane:Render({}, ChatColor(self.kind)) -- nothing it could show behind the note
+      return
+    end
     local lines, more = ns.Chat.History(self.kind, self.limit)
     if self.grow and more then
       -- the older lines asked for at the top arrived

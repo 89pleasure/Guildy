@@ -118,7 +118,9 @@ local function FromPool(known, pool, count, text, fallback)
 end
 
 function Anon.Guild(name)
-  if not Anon.on or type(name) ~= "string" or name == "" then return name end
+  if not Anon.on then return name end
+  if ns.IsSecret(name) then return "?" end -- a secret community name (battlegrounds) is not looked at
+  if type(name) ~= "string" or name == "" then return name end
   local made
   made, guildCount = FromPool(guilds, GUILDS, guildCount, name, "Gilde")
   return made
@@ -166,6 +168,9 @@ function Anon.Stats(rec, key, level)
   values[319] = math.floor((math.floor(h / 7) % 45 + 3) * scale)
   values[320] = math.floor((math.floor(h / 13) % 40 + 2) * scale)
   values[839] = math.floor((math.floor(h / 17) % 90 + 5) * scale)
+  -- a PvP rank (stored as rank + 1) for members without a known one: 0 .. 8
+  local rankId = ns.Stats and ns.Stats.PVP_RANK
+  if rankId and not values[rankId] then values[rankId] = math.floor(h / 19) % 9 + 1 end
   copy.v = values
   return copy
 end

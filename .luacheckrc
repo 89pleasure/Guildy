@@ -22,5 +22,5 @@ read_globals = {
   "CreateFrame", "DEFAULT_CHAT_FRAME", "GameTooltip", "GetCursorInfo", "GetCursorPosition", "IsMouseButtonDown", "GetGuildInfo", "GetGuildRosterInfo",
   "GetGuildRosterLastOnline", "GetLocale", "GetTime", "GetUnitName", "InCombatLockdown", "IsInGuild",
   "IsShiftKeyDown", "IsControlKeyDown", "PanelTemplates_SetNumTabs", "PanelTemplates_SetTab", "PanelTemplates_TabResize", "QuestTitleFont", "StaticPopup_Show", "UIParent", "UISpecialFrames",
-  "UnitClass", "UnitExists", "UnitIsPlayer", "UnitIsUnit", "UnitLevel", "UnitName", "UnitRace", "UnitSex", "hooksecurefunc", "tinsert",
+  "UnitClass", "UnitExists", "UnitFactionGroup", "UnitIsPlayer", "UnitIsUnit", "UnitLevel", "UnitName", "UnitRace", "UnitSex", "hooksecurefunc", "tinsert",
 }

@@ -42,6 +42,21 @@ Stats.GEAR_SLOT_GROUPS = { { 1, 2, 3, 15, 5, 9, 10, 6, 7, 8 }, { 11, 12, 13, 14 
 -- only grows; a record without it (read nearby, relayed by an older version) keeps the highest known.
 Stats.DAYS = 9800001
 
+-- The PvP rank of Forever's seasons (0 civilian .. 14, Enum.PvPRanks), stored as rank + 1 so that a
+-- civilian has a value too (values are positive). Below GEAR_BASE like DAYS, for the same reason. A
+-- state, not a count: shown as it is, never per month. Read by the member's own Guildy (the rank
+-- points faction) or in an inspect nearby (GetInspectHonorData); a reading without it keeps the last
+-- known rank, as older versions and readings without an honor answer have none.
+Stats.PVP_RANK = 9800002
+Stats.MAX_PVP_RANK = 14
+
+-- The rank in a record: 0 .. 14, or nil when unknown
+function Stats.PvpRank(values)
+  local stored = type(values) == "table" and values[Stats.PVP_RANK]
+  if type(stored) ~= "number" or stored < 1 or stored > Stats.MAX_PVP_RANK + 1 then return nil end
+  return math.floor(stored) - 1
+end
+
 -- Categories (Blizzard statistic category IDs) and the statistics Guildy tracks, in display order.
 -- isLocal = read by Guildy itself, never asked from the game; label = locale key for the name.
 Stats.CATALOG = {
@@ -513,6 +528,11 @@ local function KeepDays(rec, before, incoming)
   if days > 0 and rec.v then rec.v[Stats.DAYS] = days end
 end
 
+-- A reading without the PvP rank keeps the one the record had
+local function KeepRank(rec, before)
+  if before and rec.v and not rec.v[Stats.PVP_RANK] then rec.v[Stats.PVP_RANK] = before end
+end
+
 -- Stores newly read values (own or read nearby) for a member. Returns true when anything changed.
 function Stats.Update(member, values, ts, src, date)
   local rec = member.stats
@@ -527,6 +547,7 @@ function Stats.Update(member, values, ts, src, date)
   if src == "seen" then Stats.CleanGear(values) end
   Stats.CleanRecord(rec)
   local daysBefore = rec.v and rec.v[Stats.DAYS]
+  local rankBefore = rec.v and rec.v[Stats.PVP_RANK]
   if not rec.ts or ts > rec.ts or (ts == rec.ts and (PRIORITY[src] or 0) > (PRIORITY[rec.src] or 0)) then
     local new = Copy(values)
     -- a reading without equipment (read nearby, item info not loaded) keeps the last known equipment
@@ -539,6 +560,7 @@ function Stats.Update(member, values, ts, src, date)
     changed = true
   end
   KeepDays(rec, daysBefore, values[Stats.DAYS])
+  KeepRank(rec, rankBefore)
   if not rec.months[month] then
     rec.months[month] = { ts = ts, v = Copy(values) }
     changed = true
@@ -596,6 +618,7 @@ function Stats.Merge(member, incoming)
   Stats.CleanRecord(rec)
   local changed = false
   local daysBefore = rec.v and rec.v[Stats.DAYS]
+  local rankBefore = rec.v and rec.v[Stats.PVP_RANK]
   if not rec.ts or incoming.ts > rec.ts
     or (incoming.ts == rec.ts and (PRIORITY[incoming.src] or 0) > (PRIORITY[rec.src] or 0)) then
     local values = Copy(incoming.v)
@@ -608,6 +631,7 @@ function Stats.Merge(member, incoming)
     changed = true
   end
   KeepDays(rec, daysBefore, incoming.v and incoming.v[Stats.DAYS])
+  KeepRank(rec, rankBefore)
   for month, snap in pairs(incoming.months or {}) do
     local mine = rec.months[month]
     if not mine or snap.ts < mine.ts then

@@ -47,6 +47,27 @@ function Store.Init(db)
   return db
 end
 
+-- Moves what a guild stored under another key (fromKey) into toKey and drops fromKey: each member's
+-- statistics merge as shared ones do (newer values win, the earliest snapshot per month); a member
+-- only fromKey knows is taken over whole. Everything else of fromKey (gear, talents, logs) comes again
+-- from the game and the guild.
+function Store.MergeGuild(db, fromKey, toKey)
+  local from = db.guilds[fromKey]
+  db.guilds[fromKey] = nil
+  if type(from) ~= "table" or type(from.members) ~= "table" then return end
+  local to = Store.Guild(db, toKey)
+  for key, member in pairs(from.members) do
+    local target = to.members[key]
+    if type(target) ~= "table" then
+      to.members[key] = member
+    elseif type(member) == "table" and type(member.stats) == "table" and ns.Stats and ns.Stats.Validate then
+      local rec = ns.Stats.Validate({ ts = member.stats.ts, src = member.stats.src, v = member.stats.v,
+        m = member.stats.months })
+      if rec then ns.Stats.Merge(target, rec) end
+    end
+  end
+end
+
 function Store.Guild(db, guildKey)
   local guild = db.guilds[guildKey]
   if type(guild) ~= "table" then

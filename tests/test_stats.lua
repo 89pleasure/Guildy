@@ -351,6 +351,23 @@ T.describe("Stats days counter and boss sums", function()
   T.it("does not take the days counter for equipment", function()
     T.eq(Stats.HasGear({ [Stats.DAYS] = 4 }), false)
   end)
+  T.it("stores the PvP rank as rank + 1 and keeps it when a reading lacks it", function()
+    T.eq(Stats.PvpRank({ [Stats.PVP_RANK] = 1 }), 0)   -- a civilian is known too
+    T.eq(Stats.PvpRank({ [Stats.PVP_RANK] = 4 }), 3)
+    T.eq(Stats.PvpRank({}), nil)
+    T.eq(Stats.PvpRank({ [Stats.PVP_RANK] = 99 }), nil)
+    T.eq(Stats.HasGear({ [Stats.PVP_RANK] = 4 }), false)
+    local member = {}
+    Stats.Update(member, { [107] = 10, [Stats.PVP_RANK] = 4 }, 1000, "self")
+    Stats.Update(member, { [107] = 20 }, 2000, "seen")                       -- inspect without an honor answer
+    T.eq(Stats.PvpRank(member.stats.v), 3)
+    Stats.Merge(member, { ts = 3000, src = "relay", v = { [107] = 30 }, months = {} }) -- an older version
+    T.eq(Stats.PvpRank(member.stats.v), 3)
+    Stats.Merge(member, { ts = 4000, src = "self", v = { [107] = 40, [Stats.PVP_RANK] = 6 }, months = {} })
+    T.eq(Stats.PvpRank(member.stats.v), 5)
+    -- a state: a validated record from the addon channel carries it
+    T.eq(Stats.PvpRank(Stats.Validate({ ts = 1, v = { [tostring(Stats.PVP_RANK)] = 2 } }).v), 1)
+  end)
 end)
 
 T.describe("Stats.FirstTitles", function()

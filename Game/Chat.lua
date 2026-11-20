@@ -88,15 +88,20 @@ end
 
 -- Club history -----------------------------------------------------------------------------------
 
+-- In battlegrounds and instances the club's ids are secret (Warsong Gulch, 1.9.6: "attempted to index a
+-- table that cannot be indexed with secret keys"): Guildy then reads no club stream, the chat shows the
+-- lines captured since login.
 local function GuildStream(kind)
-  if not (C_Club and C_Club.GetGuildClubId and C_Club.GetStreams) then return nil end
+  if not (C_Club and C_Club.GetGuildClubId and C_Club.GetStreams) or ns.ChatLockdown() then return nil end
   local clubId = ns.Try(C_Club.GetGuildClubId)
-  if not clubId then return nil end
+  if not clubId or ns.IsSecret(clubId) then return nil end
   local streams = ns.Try(C_Club.GetStreams, clubId) or {}
   local types = Enum and Enum.ClubStreamType or {}
   local wanted = kind == "officer" and (types.Officer or 2) or (types.Guild or 1)
   for _, stream in ipairs(streams) do
-    if stream.streamType == wanted then return clubId, stream.streamId end
+    if not ns.AnySecret(stream.streamType, stream.streamId) and stream.streamType == wanted then
+      return clubId, stream.streamId
+    end
   end
   return nil
 end
@@ -104,7 +109,7 @@ end
 -- The range holding the newest message: the contiguous history up to now. The client does not keep
 -- the ranges in a fixed order (a guild with a gap in its cache got the old range last).
 local function MessageOrder(id)
-  if type(id) ~= "table" then return -1, -1 end
+  if type(id) ~= "table" or ns.AnySecret(id.epoch, id.position) then return -1, -1 end
   return tonumber(id.epoch) or -1, tonumber(id.position) or -1
 end
 
@@ -188,7 +193,9 @@ end
 
 -- The same for any club stream (communities)
 function Chat.StreamState(clubId, streamId)
-  if not clubId or not streamId or not C_Club or not C_Club.GetMessageRanges then return nil end
+  if not clubId or not streamId or ns.ChatLockdown() or ns.AnySecret(clubId, streamId) or not C_Club or not C_Club.GetMessageRanges then
+    return nil
+  end
   local key = StreamKey(clubId, streamId)
   if Pending(key) then return "loading" end
   local oldest, mark = OldestMark(clubId, streamId)
@@ -199,6 +206,7 @@ end
 
 -- History arrived from the server (for one stream, or all when the event names none)
 function Chat.OnHistoryReceived(clubId, streamId)
+  if ns.AnySecret(clubId, streamId) then return end
   if clubId and streamId then pending[StreamKey(clubId, streamId)] = nil else pending = {} end
 end
 
@@ -210,7 +218,7 @@ end
 
 -- The same for any club stream (communities)
 function Chat.StreamLoadOlder(clubId, streamId)
-  if not clubId or not streamId or not C_Club or not C_Club.RequestMoreMessagesBefore then return false end
+  if not clubId or not streamId or ns.ChatLockdown() or ns.AnySecret(clubId, streamId) or not C_Club or not C_Club.RequestMoreMessagesBefore then return false end
   local key = StreamKey(clubId, streamId)
   local oldest, mark = OldestMark(clubId, streamId)
   if oldest and ns.Try(C_Club.IsBeginningOfStream, clubId, streamId, oldest) then return false end
@@ -224,6 +232,7 @@ end
 
 -- What the history of a stream looks like to Guildy (/guildy communitydebug)
 function Chat.StreamDebug(clubId, streamId)
+  if ns.AnySecret(clubId, streamId) then return "stream: secret ids" end
   local key = StreamKey(clubId, streamId)
   local ranges = ns.Try(C_Club.GetMessageRanges, clubId, streamId)
   local _, mark = OldestMark(clubId, streamId)
@@ -264,7 +273,8 @@ local SLACK = 50 -- new lines the window may grow by before it is cut back to it
 local windows = {} -- "club:stream:kind" -> { id = oldest message shown, limit }
 
 local function SameId(a, b)
-  return type(a) == "table" and type(b) == "table" and a.epoch == b.epoch and a.position == b.position
+  return type(a) == "table" and type(b) == "table" and not ns.AnySecret(a.epoch, a.position, b.epoch, b.position)
+    and a.epoch == b.epoch and a.position == b.position
 end
 
 local AddLines
@@ -273,7 +283,7 @@ local AddLines
 -- limit: only the newest lines (see above); without it everything loaded, up to CLUB_MAX.
 -- Second result: true when older messages are loaded than the lines returned.
 function Chat.StreamLines(clubId, streamId, kind, limit)
-  if not clubId or not streamId or not C_Club or not C_Club.GetMessageRanges then return nil end
+  if not clubId or not streamId or ns.ChatLockdown() or ns.AnySecret(clubId, streamId) or not C_Club or not C_Club.GetMessageRanges then return nil end
   local ranges = ns.Try(C_Club.GetMessageRanges, clubId, streamId)
   if not ranges or #ranges == 0 then return nil end
   -- the newest range is the contiguous history up to now; older ranges have gaps before it

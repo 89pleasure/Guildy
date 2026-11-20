@@ -20,7 +20,7 @@ local PROF_H = 18       -- a profession row
 local UPGRADE_H = 42    -- an upgrade block: icon, item name, slot and makers, the gain at the right
 local UPGRADE_TOP = 28  -- the heading line above the upgrade rows
 local UPGRADE_ICON = 32 -- the icon with its quality border
-local FACTS = { "since", "last", "guildy" }
+local FACTS = { "since", "last", "guildy", "pvp" }
 local NOTE_LINES = 3
 local MODEL_SHARE = 0.6 -- the model area takes at most this share of the card
 local MODEL_MIN = 120   -- and at least this, the notes give up lines first
@@ -874,7 +874,13 @@ local function Build()
     local SEP = ns.L.SEP
     local inner = HERO_WIDTH - 24
     hero.Level:SetText(m.level or "")
-    hero.Name:SetText(W.ClassName(m.name, m.classFile))
+    -- the PvP rank (Stats.PVP_RANK): the gold badge before the name, as Blizzard's battleground
+    -- scoreboard shows it, the rank and its title among the facts
+    local guild = ns.GuildData()
+    local record = guild and guild.members[m.key]
+    local pvpRank = record and type(record.stats) == "table" and ns.Stats.PvpRank(record.stats.v) or nil
+    local badge = (pvpRank or 0) > 0 and (UI.PvpRankIcon(pvpRank, 22) .. " ") or ""
+    hero.Name:SetText(badge .. W.ClassName(m.name, m.classFile))
     local title = FirstTitle(m.key)
     hero.Title:SetText(title and ("„" .. title .. "“") or "")
     local ident = {}
@@ -896,8 +902,10 @@ local function Build()
       since = ns.Roster.TenureText(m, true),
       last = not m.online and ns.Roster.LastOnlineText(m) or nil,
       guildy = UI.GuildyVersionText and UI.GuildyVersionText(m) or nil,
+      pvp = pvpRank and (pvpRank == 0 and UI.PvpRankTitle(0)
+        or L.FAME_PVP_RANK_VALUE:format(pvpRank, UI.PvpRankTitle(pvpRank, ns.Names.Same(m.name or "", ns.PlayerName())))) or nil,
     }
-    local labels = { since = L.MEMBER_SINCE, last = L.LAST_ONLINE, guildy = L.COL_GUILDY }
+    local labels = { since = L.MEMBER_SINCE, last = L.LAST_ONLINE, guildy = L.COL_GUILDY, pvp = L.CHAR_PVP_RANK }
     local labelW = 0
     for _, key in ipairs(FACTS) do
       local row = hero.Facts[key]

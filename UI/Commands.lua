@@ -108,7 +108,7 @@ function Action.ClubMember(clubId, guid, after)
   local found
   ns.Try(box.ForEachFrame, box, function(row)
     local info = row.memberInfo
-    if not found and info and info.guid == guid and row.Click then found = row end
+    if not found and info and not ns.AnySecret(info.guid, guid) and info.guid == guid and row.Click then found = row end -- secret in battlegrounds
   end)
   return found and { click = found, after = after } or nil
 end

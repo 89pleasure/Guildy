@@ -20,8 +20,22 @@ local function GuildType()
   return types and types.Guild or GUILD_TYPE
 end
 
+-- Sort key of a name. In battlegrounds and instances community and channel names can be secret
+-- (found in game 2026-11-20, Warsong Gulch): those sort as "" and are only shown, never inspected.
 local function Lower(text)
-  return type(text) == "string" and text:lower() or ""
+  return type(text) == "string" and not ns.IsSecret(text) and text:lower() or ""
+end
+
+-- A text for display: secret ones as they are (FontStrings take them), empty or missing ones nil
+local function Text(text)
+  if ns.IsSecret(text) then return text end
+  return type(text) == "string" and text ~= "" and text or nil
+end
+
+-- The short name for an avatar: nil when secret (the row compares it), empty or hidden for pictures
+local function ShortName(club)
+  if ns.Anon.on or ns.IsSecret(club.shortName) then return nil end
+  return club.shortName
 end
 
 -- Blizzard's own list (its favorites prediction, hooked once to render again)
@@ -50,13 +64,15 @@ end
 -- The player's communities, favorites first, then by name: { {clubId, name, clubType, memberCount,
 -- unread, favorite} }
 function Communities.List()
-  if not (C_Club and C_Club.GetSubscribedClubs) then return {} end
+  if not (C_Club and C_Club.GetSubscribedClubs) or ns.ChatLockdown() then return {} end
   local list = {}
   for _, club in ipairs(ns.Try(C_Club.GetSubscribedClubs) or {}) do
-    if type(club) == "table" and club.clubId and club.clubType ~= GuildType() then
+    -- secret ids or types (battlegrounds) can be neither compared nor used as keys: left out there
+    if type(club) == "table" and club.clubId and not ns.AnySecret(club.clubId, club.clubType)
+      and club.clubType ~= GuildType() then
       list[#list + 1] = {
         clubId = club.clubId, name = ns.Anon.Guild(club.name or "?"), clubType = club.clubType,
-        shortName = not ns.Anon.on and club.shortName or nil, -- made-up names for pictures: Core/Anon.lua
+        shortName = ShortName(club), -- made-up names for pictures: Core/Anon.lua
         avatarId = club.avatarId, memberCount = club.memberCount, unread = unread[club.clubId] or 0,
         hasUnread = Communities.HasUnread(club.clubId),
         favorite = IsFavorite(club),
@@ -81,11 +97,11 @@ end
 
 -- A community's channels in Blizzard's order (the general channel first): { {streamId, name} }
 function Communities.Streams(clubId)
-  if not (clubId and C_Club and C_Club.GetStreams) then return {} end
+  if not (clubId and C_Club and C_Club.GetStreams) or ns.ChatLockdown() then return {} end
   local list = {}
   for _, stream in ipairs(ns.Try(C_Club.GetStreams, clubId) or {}) do
-    if type(stream) == "table" and stream.streamId then
-      list[#list + 1] = { streamId = stream.streamId, name = (type(stream.name) == "string" and stream.name ~= "" and stream.name) or rawget(_G, "COMMUNITIES_DEFAULT_CHANNEL_NAME") or "?", sortOrder = stream.sortOrder }
+    if type(stream) == "table" and stream.streamId and not ns.AnySecret(stream.streamId, stream.sortOrder) then
+      list[#list + 1] = { streamId = stream.streamId, name = Text(stream.name) or rawget(_G, "COMMUNITIES_DEFAULT_CHANNEL_NAME") or "?", sortOrder = stream.sortOrder }
     end
   end
   table.sort(list, function(a, b)
@@ -100,7 +116,7 @@ end
 -- opens), at most every few seconds; they arrive as CLUB_STREAMS_LOADED
 local streamsAsked = {}
 function Communities.RequestStreams(clubId)
-  if not (clubId and C_Club) then return end
+  if not (clubId and C_Club) or ns.IsSecret(clubId) then return end
   if streamsAsked[clubId] and ns.Now() - streamsAsked[clubId] < 5 then return end
   streamsAsked[clubId] = ns.Now()
   ns.Try(C_Club.FocusCommunityStreams)
@@ -157,7 +173,7 @@ end
 
 -- A community's members, online first, then by name: { {name, level, classFile, zone, presence, online, isSelf} }
 function Communities.Members(clubId)
-  if not (clubId and C_Club and C_Club.GetClubMembers and C_Club.GetMemberInfo) then return {} end
+  if not (clubId and C_Club and C_Club.GetClubMembers and C_Club.GetMemberInfo) or ns.ChatLockdown() then return {} end
   local list = {}
   for _, memberId in ipairs(ns.Try(C_Club.GetClubMembers, clubId) or {}) do
     local info = ns.Try(C_Club.GetMemberInfo, clubId, memberId)
@@ -236,12 +252,12 @@ function Communities.Invitations()
   local list = {}
   for _, invitation in ipairs(ns.Try(C_Club.GetInvitationsForSelf) or {}) do
     local club = type(invitation) == "table" and invitation.club
-    if type(club) == "table" and club.clubId then
+    if type(club) == "table" and club.clubId and not ns.IsSecret(club.clubId) then
       local inviter = type(invitation.inviter) == "table" and invitation.inviter.name or nil
       if ns.IsSecret(inviter) then inviter = nil end
       list[#list + 1] = { clubId = club.clubId, name = ns.Anon.Guild(club.name or "?"), inviter = ns.Anon.Name(inviter),
         memberCount = club.memberCount, clubType = club.clubType, avatarId = club.avatarId,
-        shortName = not ns.Anon.on and club.shortName or nil }
+        shortName = ShortName(club) }
     end
   end
   return list
@@ -335,7 +351,8 @@ end
 
 -- A new line in any club stream. Returns true when it was a community's (not the guild's).
 function Communities.OnMessageAdded(clubId, streamId)
-  if not clubId or clubId == ns.Try(C_Club and C_Club.GetGuildClubId) then return false end
+  local guildClub = ns.Try(C_Club and C_Club.GetGuildClubId)
+  if not clubId or ns.AnySecret(clubId, streamId, guildClub) or clubId == guildClub then return false end
   local shown = focused and focused[1] == clubId and focused[2] == streamId and ns.UI and ns.UI.IsShown()
     and ns.UI.Current() == "communities"
   if not shown then unread[clubId] = (unread[clubId] or 0) + 1 end

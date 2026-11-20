@@ -129,6 +129,12 @@ function Notes.Prepare()
 end
 ns.On("ROSTER", function() if UI.IsShown() then SizeList() end end)
 
+-- Whether Blizzard's member info is guid's. In battlegrounds and instances every field of it is secret
+-- (Warsong Gulch, 1.9.6: "attempt to compare field 'guid'"): then no row is found and no pick laid.
+local function IsGuid(info, guid)
+  return info ~= nil and not ns.AnySecret(info.guid, guid) and info.guid == guid
+end
+
 -- The member's row in Blizzard's list (rows are filled by Blizzard: clean)
 local function Row(guid)
   local list = MemberList()
@@ -137,7 +143,7 @@ local function Row(guid)
   local found
   box:ForEachFrame(function(frame)
     local info = frame.memberInfo
-    if not found and info and info.guid == guid and not frame.isInvitation then found = frame end
+    if not found and IsGuid(info, guid) and not frame.isInvitation then found = frame end
   end)
   return found
 end
@@ -147,7 +153,7 @@ local function Picked(m)
   local detail = Detail()
   if not (m and m.guid and detail and detail:IsShown() and detail.GetMemberInfo) then return false end
   local info = ns.Try(detail.GetMemberInfo, detail)
-  return info ~= nil and info.guid == m.guid
+  return IsGuid(info, m.guid)
 end
 
 -- The secure pick button -------------------------------------------------------------------------

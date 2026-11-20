@@ -34,6 +34,7 @@ local lastRequest = 0
 local tried = {}       -- nameKey -> GetTime() of the last request this session
 local lastOwnSend = 0
 local lateGear         -- { request, values, untilTime }: inspect answered, member gone; read on the next hover
+local lastJob          -- the inspect stored last: its PvP rank may come after it (INSPECT_HONOR_UPDATE)
 local noGear = {}      -- nameKey -> true: last read this session came without equipment
 local resetAt = 0      -- /guildy statreset: values stored before this count as old
 -- Test phase for mouseover: when true, mouseover reading is always on (whatever the setting says)
@@ -82,7 +83,26 @@ function GameStats.ReadOwn()
   if not any then return nil end
   for id, value in pairs(GameStats.ReadGear() or {}) do values[id] = value end
   values[S.DAYS] = ns.GameActivity.OwnDays() -- the days this character was played (Game/Activity.lua)
+  local rank = GameStats.OwnPvpRank()
+  if rank then values[S.PVP_RANK] = rank + 1 end
   return values
+end
+
+-- The own PvP rank (0 .. 14): Forever counts it as the renown level of the rank points faction, as
+-- Blizzard's PvP window reads it (Blizzard_UIPanels_Game/Camelot/PVPRankFrame.lua)
+local PVP_RANK_FACTION = 2800
+function GameStats.OwnPvpRank()
+  local factions = rawget(_G, "C_MajorFactions")
+  local get = type(factions) == "table" and factions.GetMajorFactionProgressionInfo
+  local info = get and ns.Try(get, PVP_RANK_FACTION)
+  local rank = type(info) == "table" and info.renownLevel
+  if type(rank) ~= "number" or ns.IsSecret(rank) or rank < 0 or rank > S.MAX_PVP_RANK then return nil end
+  return math.floor(rank)
+end
+
+-- The own rank changed: read again (the statistics with it), shared as any change of them
+function GameStats.OnPvpRankChanged()
+  C_Timer.After(1, function() ns.SafeCall(GameStats.UpdateOwn) end)
 end
 
 -- Own equipment (Stats.GEAR), or nil while item info is still loading: then the game is asked to load
@@ -469,6 +489,8 @@ local function Finish(job)
   job.finished = true
   if inspecting == job then inspecting = nil end
   for id, value in pairs(job.gear or {}) do job.values[id] = value end
+  if job.rank then job.values[S.PVP_RANK] = job.rank + 1 end
+  lastJob = job
   local key = job.request.key
   if job.gear and job.gear[S.GEAR.ILVL] then
     noGear[key] = nil
@@ -485,6 +507,7 @@ local function Finish(job)
     and (": equipment read (" .. tostring(job.gearUnit) .. "), item level " .. job.gear[S.GEAR.ILVL] / 10)
     or (": statistics stored without equipment (" .. (job.why or "no answer") .. "), next try in " .. RETRY .. " s")))
   StoreRead(job.request, job.values)
+  job.storedAt = GetTime()
   if not job.gear and job.answered and job.why == "member no longer in a unit" then
     -- the game has the equipment, only no unit points to the member: keep it until the next hover
     local values = {}
@@ -605,6 +628,34 @@ function GameStats.OnInspectReady(guid)
   Attempt(1)
 end
 
+-- INSPECT_HONOR_UPDATE: the PvP rank of the member Guildy inspects (the seventh value, as Blizzard's
+-- inspect window reads it, Blizzard_InspectUI/Camelot/InspectPVPFrame.lua). The event names nobody: it
+-- counts only during Guildy's own inspect, never while Blizzard's windows use the inspect. Arriving
+-- after the inspect was stored, it goes into that member's record a few seconds later.
+local HONOR_LATE = 10
+function GameStats.OnInspectHonor()
+  local job = inspecting or lastJob
+  if not job or BlizzardBusy() then return end
+  local get = rawget(_G, "GetInspectHonorData")
+  if not get then return end
+  local ok, _, _, _, _, _, _, rank = pcall(get)
+  if not ok or type(rank) ~= "number" or ns.IsSecret(rank) or rank < 0 or rank > S.MAX_PVP_RANK then return end
+  rank = math.floor(rank)
+  if not job.finished then
+    job.rank = rank
+    return
+  end
+  if job ~= lastJob or GetTime() - (job.storedAt or 0) > HONOR_LATE then return end
+  local guild = ns.GuildData()
+  local member = guild and ns.Store.Member(guild, job.request.name)
+  local rec = member and member.stats
+  if type(rec) ~= "table" or type(rec.v) ~= "table" or rec.v[S.PVP_RANK] == rank + 1 then return end
+  rec.v[S.PVP_RANK] = rank + 1
+  Log(job.request.name .. ": PvP rank " .. rank .. " (after the inspect)")
+  Fire(job.request.key)
+  ns.Sync.ShareStats(job.request.key)
+end
+
 -- The kept equipment of lateGear, read when unit (mouse or target) shows that member again.
 -- Returns true when unit was that member (no new request for them then).
 function GameStats.CheckLateGear(unit)
@@ -659,7 +710,7 @@ end
 
 -- Tests only: forget request state (rate limits, retries)
 function GameStats._ResetForTest()
-  pending, inspecting, lastRequest, tried, noGear, lateGear = nil, nil, 0, {}, {}, nil
+  pending, inspecting, lastRequest, tried, noGear, lateGear, lastJob = nil, nil, 0, {}, {}, nil, nil
 end
 
 -- /guildy statshow [name]: what Guildy knows about one member's statistics (for bug reports); without

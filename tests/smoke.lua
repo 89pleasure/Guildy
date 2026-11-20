@@ -448,6 +448,24 @@ T.describe("Smoke", function()
     rawset(rows[1].Name, "GetStringWidth", function() return 400 end)
     ns.UI.ShowMember(ns.Roster.Find("Au Tsch"))
     T.eq(rows[1].Name:GetWidth(), 200) -- never wider than that: the bar keeps its room
+    -- the PvP rank: Blizzard's gold badge before the name, rank and title among the facts
+    local hero = ns.UI.MemberPage().Hero
+    local keptStats = au.stats
+    au.stats = { ts = 1000, src = "seen", v = { [107] = 1, [ns.Stats.PVP_RANK] = 3 }, months = {} }
+    local title = env.PVP_RANK_6_0
+    env.PVP_RANK_6_0 = "Fußknecht"
+    ns.UI.ShowMember(ns.Roster.Find("Au Tsch"))
+    T.truthy(hero.Name:GetText():find("|TInterface\\PvPRankBadges\\PvPRank02:22:22|t ", 1, true), "badge before the name")
+    T.eq(hero.Facts.pvp.Value:GetText(), "(2) Fußknecht")
+    T.eq(hero.Facts.pvp.Label:GetText(), L.CHAR_PVP_RANK)
+    au.stats.v[ns.Stats.PVP_RANK] = 1 -- a civilian: no badge, the word for it
+    ns.UI.ShowMember(ns.Roster.Find("Au Tsch"))
+    T.eq(hero.Name:GetText():find("PvPRankBadges", 1, true), nil)
+    T.eq(hero.Facts.pvp.Value:GetText(), ns.UI.PvpRankTitle(0))
+    au.stats.v[ns.Stats.PVP_RANK] = nil -- unknown: no row
+    ns.UI.ShowMember(ns.Roster.Find("Au Tsch"))
+    T.eq(hero.Facts.pvp.Value:GetText(), "")
+    au.stats, env.PVP_RANK_6_0 = keptStats, title
     au.profs, guild.cooldowns["au tsch"] = kept, nil
     ns.UI.Hide()
     T.eq(errors, {})
@@ -634,6 +652,200 @@ T.describe("Smoke", function()
     T.eq(C.AnyUnread(), false)
     C.Focus(nil)
     env.C_Club, env.CommunitiesUtil = before, beforeUtil
+    T.eq(errors, {})
+  end)
+
+  -- In battlegrounds community names are secret strings (Warsong Gulch, 1.9.6: "attempt to index local
+  -- 'text' (a secret string value)" from the sort): indexing one of these strings errors as in game
+  T.it("lists communities whose names are secret", function()
+    local before, isSecret = env.C_Club, env.issecretvalue
+    local secrets = { ["Angler (secret)"] = true, ["ANG (secret)"] = true, ["Allgemein (secret)"] = true }
+    env.issecretvalue = function(v) return (type(v) == "string" and secrets[v]) or isSecret(v) end
+    local stringMeta = getmetatable("")
+    local index = stringMeta.__index
+    stringMeta.__index = function(text, key)
+      if secrets[text] then error("attempt to index local 'text' (a secret string value)") end
+      return index[key]
+    end
+    env.C_Club = setmetatable({
+      GetGuildClubId = function() return 7 end,
+      GetSubscribedClubs = function() return {
+        { clubId = 40, name = "Angler (secret)", shortName = "ANG (secret)", clubType = 1, memberCount = 5 },
+        { clubId = 41, name = "Bastler", clubType = 1 } } end,
+      GetStreams = function() return { { streamId = 1, name = "Allgemein (secret)" } } end,
+    }, { __index = function() return function() end end })
+    local ok, err = pcall(function()
+      local list = ns.Communities.List()
+      T.eq(#list, 2)
+      T.eq(list[2].shortName == nil or list[1].shortName == nil, true) -- the secret short name is left out
+      T.eq(ns.Communities.Streams(40)[1].name, "Allgemein (secret)") -- shown as it is
+      ns.Anon.Enable(true)
+      T.eq(ns.Communities.List()[1].name, "?")
+      ns.Anon.Enable(false)
+      env.CommunitiesFrame:Show()
+      ns.UI.SelectTab("communities")
+      ns.UI.SelectTab("chat")
+    end)
+    stringMeta.__index = index
+    env.C_Club, env.issecretvalue = before, isSecret
+    ns.Anon.Enable(false)
+    T.eq(err, nil)
+    T.truthy(ok)
+    T.eq(errors, {})
+  end)
+
+  -- In battlegrounds the club and stream ids are secret too (Warsong Gulch, 1.9.6: "attempted to index a
+  -- table that cannot be indexed with secret keys" from the guild chat): no club stream is read then
+  T.it("opens the chat while the club ids are secret", function()
+    local before, isSecret = env.C_Club, env.issecretvalue
+    local function Boom() error("secret value used") end
+    local secretMeta = { __index = Boom, __eq = Boom, __lt = Boom, __le = Boom, __concat = Boom, __tostring = Boom }
+    local secrets = {}
+    local function Secret() local v = setmetatable({}, secretMeta); secrets[v] = true; return v end
+    env.issecretvalue = function(v) return (type(v) == "table" and secrets[v] == true) or isSecret(v) end
+    local guildClub, readWithSecret = Secret(), 0
+    local function Check(clubId, streamId)
+      if secrets[clubId] or secrets[streamId] then readWithSecret = readWithSecret + 1 end
+    end
+    env.C_Club = setmetatable({
+      GetGuildClubId = function() return guildClub end,
+      GetStreams = function() return { { streamId = Secret(), streamType = 1 }, { streamId = 2, streamType = Secret() } } end,
+      GetSubscribedClubs = function() return { { clubId = Secret(), name = "Angler", clubType = 1 },
+        { clubId = 40, name = "Bastler", clubType = Secret() } } end,
+      GetMessageRanges = function(clubId, streamId) Check(clubId, streamId) return {} end,
+      FocusStream = function(clubId, streamId) Check(clubId, streamId) return true end,
+      RequestMoreMessagesBefore = function(clubId, streamId) Check(clubId, streamId) end,
+    }, { __index = function() return function() end end })
+    local ok, err = pcall(function()
+      env.CommunitiesFrame:Show()
+      ns.UI.SelectTab("chat")
+      T.eq(#ns.Communities.List(), 0)
+      ns.UI.SelectTab("communities")
+      Fire("CLUB_MESSAGE_ADDED", Secret(), Secret())
+      Fire("CLUB_MESSAGE_HISTORY_RECEIVED", Secret(), Secret())
+      ns.UI.SelectTab("chat")
+      RunTimers(1)
+    end)
+    env.C_Club, env.issecretvalue = before, isSecret
+    T.eq(err, nil)
+    T.truthy(ok)
+    T.eq(readWithSecret, 0)
+    T.eq(errors, {})
+  end)
+
+  -- The client says when its club reads turn secret (C_ChatInfo.InChatMessagingLockdown): Guildy reads
+  -- none of them then, and the chat shows the lines captured since login
+  T.it("leaves the club data alone during the chat messaging lockdown", function()
+    local before, beforeInfo = env.C_Club, env.C_ChatInfo
+    local reads = 0
+    local function Read() reads = reads + 1 return {} end
+    env.C_Club = setmetatable({
+      GetGuildClubId = function() return 7 end,
+      GetStreams = Read, GetSubscribedClubs = Read, GetClubMembers = Read, GetMessageRanges = Read,
+      RequestMoreMessagesBefore = Read,
+    }, { __index = function() return function() end end })
+    env.C_ChatInfo = setmetatable({ InChatMessagingLockdown = function() return true end },
+      { __index = beforeInfo or {} })
+    -- J in a battleground opens Blizzard's own window, which shows the guild chat there
+    env.CommunitiesFrame:Hide()
+    env.CommunitiesFrame:Show()
+    T.eq(ns.UI.IsShown(), false)
+    T.truthy(ns.UI.ReturnTab():IsShown(), "Guildy tab on Blizzard's window")
+    ns.UI.Show() -- its Guildy tab: Guildy for the rest
+    ns.UI.SelectTab("chat")
+    ns.UI.SelectTab("communities")
+    T.eq(ns.Communities.Members(40), {})
+    T.eq(ns.Chat.StreamLines(40, 1, "community"), nil)
+    ns.UI.SelectTab("chat")
+    T.eq(reads, 0)
+    -- the chat column says the game hides the guild chat and opens Blizzard's window, which shows it
+    local view = ns.UI.TabView("chat")
+    T.eq(view.Locked:IsShown(), true)
+    view.Locked.Button:GetScript("OnClick")(view.Locked.Button)
+    T.eq(ns.UI.IsShown(), false)
+    T.truthy(ns.UI.ReturnTab():IsShown(), "Guildy tab on Blizzard's window")
+    ns.UI.Show()
+    env.C_ChatInfo = beforeInfo
+    view:RenderChat()
+    T.eq(view.Locked:IsShown(), false) -- out of the battleground: Guildy's chat again
+    env.C_Club, env.C_ChatInfo = before, beforeInfo
+    T.eq(errors, {})
+  end)
+
+  -- Forever's PvP rank is the renown level of the rank points faction 2800 (Blizzard's PvP window)
+  T.it("reads the own PvP rank and reads again when it changes", function()
+    local before = env.C_MajorFactions
+    local saved = { env.GetStatisticsCategoryList, env.GetCategoryNumAchievements, env.GetStatistic }
+    env.GetStatisticsCategoryList = function() return { 21 } end
+    env.GetCategoryNumAchievements = function() return 1 end
+    env.GetStatistic = function() return "41", nil, 588 end
+    local level = 2
+    env.C_MajorFactions = { GetMajorFactionProgressionInfo = function(id)
+      if id == 2800 then return { renownLevel = level, renownReputationEarned = 725, renownLevelThreshold = 750 } end
+    end }
+    T.eq(ns.GameStats.OwnPvpRank(), 2)
+    T.eq(ns.GameStats.ReadOwn()[ns.Stats.PVP_RANK], 3)
+    ns.GameStats.UpdateOwn()
+    local me = ns.GuildData().members[ns.Names.Key(ns.PlayerName())]
+    T.eq(ns.Stats.PvpRank(me.stats.v), 2)
+    level = 4
+    local serverTime = env.GetServerTime
+    env.GetServerTime = function() return serverTime() + 60 end -- a minute later
+    Fire("MAJOR_FACTION_RENOWN_LEVEL_CHANGED", 2800)
+    Fire("MAJOR_FACTION_RENOWN_LEVEL_CHANGED", 2593) -- another faction: nothing
+    RunTimers(1)
+    env.GetServerTime = serverTime
+    T.eq(ns.Stats.PvpRank(me.stats.v), 4)
+    me.stats = nil -- the next tests read their own statistics
+    level = 0
+    T.eq(ns.GameStats.ReadOwn()[ns.Stats.PVP_RANK], 1) -- a civilian
+    env.C_MajorFactions = nil
+    T.eq(ns.GameStats.OwnPvpRank(), nil)
+    env.C_MajorFactions = before
+    env.GetStatisticsCategoryList, env.GetCategoryNumAchievements, env.GetStatistic = unpack(saved, 1, 3)
+    T.eq(errors, {})
+  end)
+
+  -- After a /reload GetNormalizedRealmName gave "" (2026-11-20): Guildy made a guild "<name>@" of its
+  -- own and showed the Hall of Fame empty. It now never makes a key without a realm, and moves such a
+  -- guild into the real one.
+  T.it("never keys the guild without a realm and moves a guild stored so into the real one", function()
+    local normalized, realmName = env.GetNormalizedRealmName, env.GetRealmName
+    local good = ns.GuildKey()
+    local name = good:match("^(.*)@")
+    -- since the game update of 2026-11-20 both give "" ("[] []" in game): the stored guild of that name
+    env.GetNormalizedRealmName = function() return "" end
+    env.GetRealmName = function() return "" end
+    T.eq(ns.GuildKey(), good)
+    -- another realm text: still the stored guild, no new empty one
+    env.GetRealmName = function() return "Forever Realm-7" end
+    T.eq(ns.GuildKey(), good)
+    T.eq(ns.Realm(), "ForeverRealm7") -- the realm name as the normalized name writes it
+    -- a guild not stored yet keys with the last realm known, kept across sessions
+    local stored = ns.DB().guilds[good]
+    ns.DB().guilds[good] = nil
+    env.GetRealmName = function() return "" end
+    T.eq(ns.GuildKey(), name .. "@ForeverRealm7")
+    T.eq(ns.DB().lastRealm, "ForeverRealm7")
+    ns.DB().guilds[good] = stored
+    env.GetNormalizedRealmName, env.GetRealmName = normalized, realmName
+    T.eq(ns.GuildKey(), good)
+    T.eq(ns.DB().guilds[name .. "@ForeverRealm7"], nil) -- asking made nothing
+    -- a guild stored without a realm: its statistics go into the real guild, newer values win
+    local db = ns.DB()
+    local real = ns.GuildData()
+    real.members["au tsch"] = real.members["au tsch"] or { name = "Au Tsch" }
+    real.members["au tsch"].stats = { ts = 1000, src = "seen", v = { [107] = 5 }, months = {} }
+    db.guilds[name .. "@"] = { members = {
+      ["au tsch"] = { name = "Au Tsch", stats = { ts = 2000, src = "relay", v = { [107] = 9, [ns.Stats.PVP_RANK] = 3 }, months = {} } },
+      ["neu ling"] = { name = "Neu Ling", stats = { ts = 2000, src = "relay", v = { [107] = 1 }, months = {} } },
+    } }
+    T.eq(ns.GuildData(), real)
+    T.eq(db.guilds[name .. "@"], nil)
+    T.eq(real.members["au tsch"].stats.v[107], 9)
+    T.eq(ns.Stats.PvpRank(real.members["au tsch"].stats.v), 2)
+    T.eq(real.members["neu ling"].stats.v[107], 1)
+    real.members["neu ling"] = nil
     T.eq(errors, {})
   end)
 
@@ -1116,6 +1328,22 @@ T.describe("Harvest", function()
     rawset(env.CommunitiesFrame, "MemberList", { ScrollBox = { ForEachFrame = function(_, fn) fn(memberRow) end } })
     T.eq(A.ClubMember(9, "Player-1-AB").click, memberRow)
     T.eq(A.ClubMember(8, "Player-1-AB"), nil)
+    -- in battlegrounds every field of Blizzard's rows is secret (Warsong Gulch, 1.9.6: "attempt to compare
+    -- field 'guid'"): no row then, and no comparison (both sides tables so a comparison reaches __eq)
+    local secretMeta = { __eq = function() error("attempt to compare field 'guid' (a secret string value)") end }
+    local secretGuid, otherGuid = setmetatable({}, secretMeta), setmetatable({}, secretMeta)
+    local isSecret = env.issecretvalue
+    env.issecretvalue = function(v) return v == SECRET or rawequal(v, secretGuid) end
+    memberRow.memberInfo.guid = secretGuid
+    T.eq(A.ClubMember(9, otherGuid), nil)
+    local list = env.CreateFrame("Frame")
+    list.ScrollBox = { ForEachFrame = function(_, fn) fn(memberRow) end }
+    rawset(env.CommunitiesFrame, "MemberList", list)
+    blizzardSelected = 7
+    ns.UI.Notes.HoverLink(env.CommunitiesFrame, { guid = otherGuid }, function() end)
+    T.eq(env.GuildyNotePick and env.GuildyNotePick:IsShown() or false, false)
+    blizzardSelected = 9
+    env.issecretvalue = isSecret
     rawset(env.CommunitiesFrame, "MemberList", nil)
     rawset(env.CommunitiesFrame, "CommunitiesList", nil)
     rawset(env.CommunitiesFrame, "InviteButton", nil)
@@ -1314,6 +1542,22 @@ T.describe("Hall of Fame", function()
     T.eq(ns.GuildData().members["au tsch"].stats.v[107], 1077)
     T.eq(ns.GuildData().members["au tsch"].stats.v[ns.Stats.GEAR.ILVL], 400)
     T.truthy(cleared)
+    -- the PvP rank comes with the same inspect (INSPECT_HONOR_UPDATE, the seventh value), also after it
+    local honorRank = 3
+    env.GetInspectHonorData = function() return 0, 0, 0, 0, 120, 0, honorRank, 10, 750 end
+    ns.GuildData().members["au tsch"].stats = nil
+    ns.GameStats._ResetForTest()
+    Fire("PLAYER_TARGET_CHANGED")
+    Fire("INSPECT_ACHIEVEMENT_READY", "Player-1-03")
+    RunTimers(1)
+    Fire("INSPECT_HONOR_UPDATE")
+    Fire("INSPECT_READY", "Player-1-03")
+    RunTimers(1)
+    T.eq(ns.Stats.PvpRank(ns.GuildData().members["au tsch"].stats.v), 3)
+    honorRank = 5
+    Fire("INSPECT_HONOR_UPDATE") -- after the inspect was stored: into the record
+    T.eq(ns.Stats.PvpRank(ns.GuildData().members["au tsch"].stats.v), 5)
+    env.GetInspectHonorData = nil
     -- the links arrive slot by slot: Guildy waits until they stop growing
     ns.GuildData().members["au tsch"].stats = nil
     ns.GameStats._ResetForTest()
@@ -1480,6 +1724,18 @@ T.describe("Hall of Fame", function()
     T.truthy(view.Pvp.List.rows[1] and view.Pvp.List.rows[1]:IsShown(), "PvP row for Makira")
     T.eq(view.Pvp.List.rows[1].Cols.duels:GetText(), "14 : 13")
     T.eq(view.Pvp.List.rows[1].Cols.rate:GetText(), "52 %")
+    T.eq(view.Pvp.List.rows[1].Cols.rank:GetText(), "|cff9a8f78–|r") -- no rank known
+    -- the rank shared by the member's Guildy: number and the game's title for the player's faction
+    local rankMsg = P.Encode("STAT", { m = "Makira Farron", s = { ts = 1800000200, src = "self",
+      v = { ["107"] = 4210, ["588"] = 41, ["319"] = 14, ["320"] = 13, ["839"] = 5, [tostring(ns.Stats.PVP_RANK)] = 4 } } })
+    for _, part in ipairs(P.Chunk("s3", rankMsg)) do Fire("CHAT_MSG_ADDON", "GUILDY", part, "GUILD", "Makira-Farron") end
+    local title = env.PVP_RANK_7_0
+    env.PVP_RANK_7_0 = "Unteroffizier"
+    view:ShowHome()
+    -- the gold badge of Blizzard's battleground scoreboard, then the rank in brackets and the title
+    view:ShowHome()
+    T.eq(view.Pvp.List.rows[1].Cols.rank:GetText(), "|TInterface\\PvPRankBadges\\PvPRank03:20:20|t (3) Unteroffizier")
+    env.PVP_RANK_7_0 = title
     -- a click on a member's row opens their character page, as the tooltip says
     local showMember, opened = ns.UI.ShowMember, nil
     ns.UI.ShowMember = function(m) opened = m end

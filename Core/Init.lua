@@ -73,6 +73,10 @@ local HANDLERS = {
   UPDATE_MOUSEOVER_UNIT = function() ns.GameStats.TryUnit("mouseover") end,
   INSPECT_ACHIEVEMENT_READY = function(guid) ns.GameStats.OnComparisonReady(guid) end,
   INSPECT_READY = function(guid) ns.GameStats.OnInspectReady(guid) end,
+  INSPECT_HONOR_UPDATE = function() ns.GameStats.OnInspectHonor() end,
+  -- Forever's PvP rank is the renown level of the rank points faction (Game/Stats.lua)
+  MAJOR_FACTION_RENOWN_LEVEL_CHANGED = function(factionID) if factionID == 2800 then ns.GameStats.OnPvpRankChanged() end end,
+  PLAYER_PVP_RANK_CHANGED = function(unit) if unit == nil or unit == "player" then ns.GameStats.OnPvpRankChanged() end end,
   PLAYER_GUILD_UPDATE = function()
     ns.Roster.Request(true)
     ns.Fire("GUILD")
