@@ -114,6 +114,7 @@ end
 -- ("Player-<serverID>-<id>"), so a fresh install after the patch (client build 71037) or a guild
 -- never seen still gets a key; nil while none is known.
 local lastRealm
+local moved = {} -- guild keys MoveToRuleset ran for in this session
 
 -- The server ID of the player's GUID as text, nil when the game gives none
 local function ServerId()
@@ -137,9 +138,10 @@ function ns.Realm()
     or ServerId()
 end
 
--- Tests: as after a fresh login, no realm known in this session
+-- Tests: as after a fresh login, no realm known and nothing moved in this session
 function ns._ForgetRealm()
   lastRealm = nil
+  for key in pairs(moved) do moved[key] = nil end
 end
 
 -- The guild stored under name with some realm, the one with the most members: the realm text of the
@@ -158,12 +160,74 @@ local function StoredGuildKey(db, name)
   return best
 end
 
--- Current guild key: guild name + realm; a guild stored under that name with another realm text when
--- none is stored under it; nil when not in a guild or nothing is known to key it with
+-- The ruleset of the realm (Hardcore, RPPvP, RP, PvP or PvE), the key part of a guild since 1.9.9: on
+-- Forever there is one realm per ruleset and region, and the realm name the game gives addons is gone
+-- since client build 71037 (GetRealmName ""). From C_GameRules; nil when the client cannot tell PvP from
+-- PvE (Enum.GameRule without the ruleset rules), then the realm keys the guild as before.
+function ns.Ruleset()
+  local rules, enum = rawget(_G, "C_GameRules"), rawget(_G, "Enum")
+  if type(rules) ~= "table" then return nil end
+  local list = type(enum) == "table" and type(enum.GameRule) == "table" and enum.GameRule or nil
+  local function On(field)
+    local rule = list and list[field]
+    return rule ~= nil and rules.IsGameRuleActive ~= nil and ns.Try(rules.IsGameRuleActive, rule) == true
+  end
+  if (rules.IsHardcoreActive and ns.Try(rules.IsHardcoreActive) == true) or On("HardcoreRuleset") then
+    return "Hardcore"
+  end
+  if not (list and (list.PvPRuleset ~= nil or list.RPRuleset ~= nil)) then return nil end
+  local rp, pvp = On("RPRuleset"), On("PvPRuleset")
+  return rp and pvp and "RPPvP" or rp and "RP" or pvp and "PvP" or "PvE"
+end
+
+-- The ruleset a stored key's realm part names ("CAMWOWEU5Realm7PvE" is PvE), nil when it names none
+-- (a server ID, an empty realm, a realm name without one)
+local RULESET_ENDINGS = { { "rppvp", "RPPvP" }, { "hardcore", "Hardcore" }, { "pvp", "PvP" }, { "pve", "PvE" }, { "rp", "RP" } }
+local function RulesetOf(realm)
+  local lower = type(realm) == "string" and realm:lower() or ""
+  for _, ending in ipairs(RULESET_ENDINGS) do
+    if lower:sub(-#ending[1]) == ending[1] then return ending[2] end
+  end
+  return nil
+end
+
+-- Moves the guild stored under name with a realm (or a server ID, or nothing) to name@ruleset, once per
+-- session: the one with the most members is renamed, so everything of it stays (gear, talents, bank,
+-- logs); the members' statistics of the others are merged into it. Guilds stored with another ruleset
+-- in their realm part stay where they are.
+local function MoveToRuleset(db, name, ruleset, key)
+  if moved[key] then return end
+  moved[key] = true
+  local prefix, found = name .. "@", {}
+  for stored, guild in pairs(db.guilds) do
+    if type(stored) == "string" and stored ~= key and stored:sub(1, #prefix) == prefix and type(guild) == "table" then
+      local of = RulesetOf(stored:sub(#prefix + 1))
+      if of == nil or of == ruleset then
+        local count = 0
+        for _ in pairs(type(guild.members) == "table" and guild.members or {}) do count = count + 1 end
+        found[#found + 1] = { key = stored, count = count }
+      end
+    end
+  end
+  table.sort(found, function(a, b) return a.count > b.count end)
+  for i, entry in ipairs(found) do
+    if i == 1 and type(db.guilds[key]) ~= "table" then
+      db.guilds[key], db.guilds[entry.key] = db.guilds[entry.key], nil
+    else
+      ns.Store.MergeGuild(db, entry.key, key)
+    end
+  end
+end
+
+-- Current guild key: guild name + ruleset (see ns.Ruleset). Without a ruleset: name + realm, a guild
+-- stored under that name with another realm text when none is stored under it; nil when not in a guild
+-- or nothing is known to key it with
 function ns.GuildKey()
   if not IsInGuild or not IsInGuild() then return nil end
   local name = GetGuildInfo("player")
   if not name then return nil end
+  local ruleset = ns.Ruleset()
+  if ruleset then return name .. "@" .. ruleset end
   local realm, db = ns.Realm(), ns.DB and ns.DB()
   local key = realm and (name .. "@" .. realm)
   if db and type(db.guilds) == "table" and not (key and type(db.guilds[key]) == "table") then
@@ -180,10 +244,15 @@ function ns.GuildKey()
 end
 
 -- Data of the current guild in GuildyDB (created on first use), nil when not in a guild. A guild
--- stored without a realm (see ns.Realm) goes into it once.
+-- stored by realm goes to its ruleset key once (MoveToRuleset); a guild stored without a realm (see
+-- ns.Realm) goes into the current one once.
 function ns.GuildData()
   local key, db = ns.GuildKey(), ns.DB()
   if not key or not db then return nil end
+  local ruleset = ns.Ruleset()
+  if ruleset and type(db.guilds) == "table" then
+    MoveToRuleset(db, key:sub(1, #key - #ruleset - 1), ruleset, key)
+  end
   local guild = ns.Store.Guild(db, key)
   local broken = key:match("^(.*@)")
   if broken and broken ~= key and type(db.guilds[broken]) == "table" then

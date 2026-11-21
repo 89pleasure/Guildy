@@ -858,6 +858,51 @@ T.describe("Smoke", function()
     T.eq(errors, {})
   end)
 
+  -- Guilds are keyed by ruleset (one realm per ruleset on Forever, no realm name since build 71037): the
+  -- guild stored by realm moves to name@ruleset whole, guilds of another ruleset stay
+  T.it("keys the guild by ruleset and moves the guild stored by realm there", function()
+    local db = ns.DB()
+    local good = ns.GuildKey()
+    local name = good:match("^(.*)@")
+    local real = ns.GuildData()
+    real.members["au tsch"] = real.members["au tsch"] or { name = "Au Tsch" }
+    db.guilds[name .. "@ServerRealm9PvP"] = { members = { ["x y"] = { name = "X Y" } } }
+    db.guilds[name .. "@"] = { members = { ["neu ling"] = { name = "Neu Ling",
+      stats = { ts = 2000, src = "relay", v = { [107] = 1 }, months = {} } } } }
+    local rules, enum = env.C_GameRules, env.Enum
+    env.Enum = setmetatable({}, { __index = enum or {} })
+    local active = {}
+    env.Enum.GameRule = { HardcoreRuleset = 1, RPRuleset = 2, PvPRuleset = 3 }
+    env.C_GameRules = { IsGameRuleActive = function(rule) return active[rule] == true end,
+      IsHardcoreActive = function() return active[1] == true end }
+    ns._ForgetRealm()
+    T.eq(ns.Ruleset(), "PvE")
+    T.eq(ns.GuildKey(), name .. "@PvE")
+    T.eq(ns.GuildData(), real) -- the same table, renamed: nothing of it is lost
+    T.eq(db.guilds[good], nil)
+    T.eq(db.guilds[name .. "@"], nil)
+    T.eq(real.members["neu ling"].stats.v[107], 1) -- the realmless one merged in
+    T.truthy(db.guilds[name .. "@ServerRealm9PvP"], "a PvP guild of the same name stays")
+    active[3] = true
+    T.eq(ns.Ruleset(), "PvP")
+    active[2] = true
+    T.eq(ns.Ruleset(), "RPPvP")
+    active[3] = nil
+    T.eq(ns.Ruleset(), "RP")
+    active[1] = true
+    T.eq(ns.Ruleset(), "Hardcore")
+    env.Enum.GameRule = {} -- a client without the ruleset rules: the realm keys the guild as before
+    active = {}
+    T.eq(ns.Ruleset(), nil)
+    env.C_GameRules, env.Enum = rules, enum
+    -- back as the other tests know it
+    db.guilds[good], db.guilds[name .. "@PvE"] = real, nil
+    db.guilds[name .. "@ServerRealm9PvP"], real.members["neu ling"] = nil, nil
+    ns._ForgetRealm()
+    T.eq(ns.GuildKey(), good)
+    T.eq(errors, {})
+  end)
+
   T.it("measures its own work with /guildy perf", function()
     local slash = env.SlashCmdList.GUILDY
     slash("perf") -- off: only says how to switch it on
