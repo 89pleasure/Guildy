@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.9.10
+
+- Fixed: when two people play on the same WoW account, Guildy showed all of its characters as one
+  player's twinks, and the whole guild saw it that way. The Members tab of the options now has
+  "Characters on this account": give each character its player (1, 2 or 3). Guildy sends the
+  corrected twink lists to the guild right away, and they replace the wrong ones, also for guild
+  members on older Guildy versions.
+- New: an FAQ tab in the options, with answers to the questions that come up most: twinks under the
+  wrong player, how Guildy finds twinks, why a member's gear or talents are empty, and what Guildy
+  shares with your guild.
+
 ## 1.9.9
 
 - Changed: Guildy now files your guild under its realm type (PvE, PvP, RP, RP-PvP or Hardcore) instead
