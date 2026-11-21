@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.9.9
+
+- Changed: Guildy now files your guild under its realm type (PvE, PvP, RP, RP-PvP or Hardcore) instead
+  of the realm name, which the game no longer tells addons. Your guild's data moves over by itself the
+  next time you log in with a character in that guild; nothing is lost.
+
 ## 1.9.8
 
 - Fixed: if you install Guildy fresh after this week's WoW update, or join a guild Guildy hasn't seen
