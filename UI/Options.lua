@@ -1,7 +1,8 @@
 -- Guildy's options ("Customize Guildy"): a window of its own beside Guildy's, so a change shows in
 -- Guildy at once; opened by the cog left of the close button. Its tabs are named like Guildy's own and
 -- each holds what can be changed on that tab (chat, members, professions, bank); "General" holds
--- what belongs to none of them (member tooltip, resetting everything, Blizzard's own window).
+-- what belongs to none of them (member tooltip, resetting everything, Blizzard's own window); "FAQ"
+-- answers what players ask again and again.
 -- Everything here is the player's own and lives in settings; the guild's settings stay on the info tab.
 local _, ns = ...
 local W = ns.Widgets
@@ -348,9 +349,68 @@ local function BuildColumns(panel)
   end
 end
 
+-- members: players on this account -----------------------------------------------------------------------
+-- Two people sharing one WoW account: Guildy took all its characters for one player's twinks and told
+-- the guild so. Here each character of the account in the guild gets its player (1, 2 or 3, stored in
+-- GuildyDB.ownChars, Core/Family.lua); a change regroups at once and sends the new family records,
+-- which replace the merged ones in the guild (Sync.OwnPlayersChanged).
+local PLAYER_ROW = 24
+
+local function OwnMembers()
+  local db = ns.DB()
+  local list = {}
+  for _, m in ipairs(ns.Roster.Members()) do
+    if db and db.ownChars and db.ownChars[m.key] then list[#list + 1] = m end
+  end
+  table.sort(list, function(a, b) return (a.name or "") < (b.name or "") end)
+  return list
+end
+
+local function BuildPlayers(panel)
+  local L = ns.L
+  local head = W.Text(panel, "GameFontNormal", L.OPTIONS_PLAYERS_HEAD)
+  head:SetPoint("TOPLEFT", 4, 0)
+  local tip = W.Text(panel, "GameFontDisableSmall", L.OPTIONS_PLAYERS_TIP)
+  tip:SetPoint("TOPLEFT", head, "BOTTOMLEFT", 2, -6)
+  tip:SetPoint("RIGHT", -12, 0)
+  tip:SetJustifyH("LEFT")
+  panel.Empty = W.Text(panel, "GameFontDisableSmall", L.OPTIONS_PLAYERS_NONE)
+  panel.Empty:SetPoint("TOPLEFT", tip, "BOTTOMLEFT", 0, -12)
+  local choices = {}
+  for n = 1, ns.Family.MAX_PLAYERS do choices[n] = { value = n, text = L.OPTIONS_PLAYER:format(n) } end
+  panel.List = W.ScrollList(panel, PLAYER_ROW, function(row)
+    row.Name = W.Text(row, "GameFontHighlightSmall")
+    row.Name:SetPoint("LEFT", 6, 0)
+    row.Name:SetJustifyH("LEFT")
+    row.Name:SetWordWrap(false)
+    row.Player = W.Segmented(row, choices, function(value)
+      local db = ns.DB()
+      if not (db and db.ownChars and row.key and db.ownChars[row.key]) then return end
+      db.ownChars[row.key] = value > 1 and value or true
+      ns.SafeCall(ns.Sync.OwnPlayersChanged)
+      RefreshTab("members")
+    end)
+    row.Player:SetPoint("RIGHT", -4, 0)
+    row.Name:SetPoint("RIGHT", row.Player, "LEFT", -8, 0)
+  end, function(row, m)
+    row.key = m.key
+    row.Name:SetText(W.ClassName(ns.Anon.Name(m.name), m.classFile))
+    row.Player:SetValue(ns.Family.Player(ns.DB().ownChars, m.key) or 1)
+  end)
+  panel.List:Place(0, -66, -4, 0) -- under a tip of up to three lines
+
+  function panel:Refresh()
+    local list = OwnMembers()
+    -- one character alone has nobody to be told apart from
+    if #list < 2 then list = {} end
+    self.Empty:SetShown(#list == 0)
+    self.List:SetItems(list)
+  end
+end
+
 -- members ------------------------------------------------------------------------------------------------
 -- Everything about the member list on one page: twinks, under them how it tells online from offline
--- (cards with a preview)
+-- (cards with a preview), under those the players on this account
 local function BuildMembers(panel)
   local L = ns.L
   local columns = CreateFrame("Frame", nil, panel)
@@ -362,11 +422,17 @@ local function BuildMembers(panel)
   head:SetPoint("TOPLEFT", columns, "BOTTOMLEFT", 4, -4)
   local style = CreateFrame("Frame", nil, panel)
   style:SetPoint("TOPLEFT", head, "BOTTOMLEFT", -4, -8)
-  style:SetPoint("BOTTOMRIGHT", 0, 0)
+  style:SetPoint("RIGHT", 0, 0)
+  style:SetHeight(212)
   BuildStyle(style)
-  panel.Parts = { columns = columns, style = style }
+  local players = CreateFrame("Frame", nil, panel)
+  players:SetPoint("TOPLEFT", style, "BOTTOMLEFT", 0, -16)
+  players:SetPoint("BOTTOMRIGHT", 0, 0)
+  BuildPlayers(players)
+  panel.Parts = { columns = columns, style = style, players = players }
   panel.Cards = style.Cards
   panel.Twinks = columns.Twinks
+  panel.Players = players
 
   function panel:Refresh()
     for _, part in pairs(self.Parts) do part:Refresh() end
@@ -478,6 +544,49 @@ local function BuildProfessions(panel)
   end
 end
 
+-- faq ----------------------------------------------------------------------------------------------------
+-- Questions that come up again and again, each with its answer, in a scrolling list
+local FAQ = { "ALTS_WRONG", "ALTS_HOW", "EMPTY", "SHARE" }
+local FAQ_W = WIDTH - 26 - 30 -- the text's width: the window's inner width less the scroll bar
+
+local function BuildFaq(panel)
+  local L = ns.L
+  local scroll = CreateFrame("ScrollFrame", nil, panel, "UIPanelScrollFrameTemplate")
+  scroll:SetPoint("TOPLEFT", 0, 0)
+  scroll:SetPoint("BOTTOMRIGHT", -24, 0)
+  local content = CreateFrame("Frame", nil, scroll)
+  content:SetSize(FAQ_W, 1)
+  scroll:SetScrollChild(content)
+  panel.Scroll = scroll
+  panel.Entries = {}
+  for i, key in ipairs(FAQ) do
+    local entry = {}
+    entry.Question = W.Text(content, "GameFontNormal", L["FAQ_" .. key .. "_Q"])
+    entry.Question:SetWidth(FAQ_W - 8)
+    entry.Question:SetJustifyH("LEFT")
+    entry.Answer = W.Text(content, "GameFontHighlightSmall", L["FAQ_" .. key .. "_A"])
+    entry.Answer:SetWidth(FAQ_W - 16)
+    entry.Answer:SetJustifyH("LEFT")
+    entry.Answer:SetSpacing(3)
+    if i == 1 then
+      entry.Question:SetPoint("TOPLEFT", 4, -2)
+    else
+      entry.Question:SetPoint("TOPLEFT", panel.Entries[i - 1].Answer, "BOTTOMLEFT", -8, -18)
+    end
+    entry.Answer:SetPoint("TOPLEFT", entry.Question, "BOTTOMLEFT", 8, -6)
+    panel.Entries[i] = entry
+  end
+
+  -- the list is as tall as its texts, so the scroll bar reaches the last answer
+  function panel:Refresh()
+    local height = 4
+    for _, entry in ipairs(self.Entries) do
+      height = height + (entry.Question:GetStringHeight() or 14) + 6 + (entry.Answer:GetStringHeight() or 14) + 18
+    end
+    content:SetHeight(math.max(1, height))
+  end
+end
+
 -- window -------------------------------------------------------------------------------------------------
 local function Build()
   local L = ns.L
@@ -543,6 +652,7 @@ local function Build()
     { "general", L.OPTIONS_GENERAL, BuildGeneral }, { "chat", L.TAB_CHAT, BuildChat },
     { "members", L.TAB_MEMBERS, BuildMembers },
     { "professions", L.TAB_PROFESSIONS, BuildProfessions }, { "bank", L.TAB_BANK, BuildBank },
+    { "faq", L.OPTIONS_FAQ, BuildFaq }, -- last: questions that come up again and again
   }) do
     local panel = CreateFrame("Frame", nil, body)
     panel:SetAllPoints()

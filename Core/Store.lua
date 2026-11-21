@@ -40,9 +40,13 @@ function Store.Init(db)
   end
   if type(db.guilds) ~= "table" then db.guilds = {} end
   -- the account view is gone: of the own characters only the names are kept (twinks in the guild,
-  -- Core/Family.lua), not class, level, race and guild of each
+  -- Core/Family.lua), not class, level, race and guild of each. The value is the player on a shared
+  -- account: true for the first, 2 or 3 for the others (Family.Player)
   if type(db.ownChars) == "table" then
-    for key in pairs(db.ownChars) do db.ownChars[key] = true end
+    for key in pairs(db.ownChars) do
+      local player = ns.Family and ns.Family.Player(db.ownChars, key) or 1
+      db.ownChars[key] = player > 1 and player or true
+    end
   end
   return db
 end

@@ -57,19 +57,47 @@ function Family.Digest(guild)
   return digest
 end
 
--- The own family record from the account's characters that are in the guild: kept as it is when
--- the characters did not change, else a new one stamped now. known = the stored record or nil.
-function Family.Own(ownChars, memberKeys, nameOf, known, now)
-  local chars = {}
+-- Players on one account: two people sharing a WoW account sort its characters into players, and only
+-- the characters of one player are a family. GuildyDB.ownChars[key] holds the player: true (as stored
+-- before there were players) is player 1, else the number. nil for a character not of the account.
+Family.MAX_PLAYERS = 3
+function Family.Player(ownChars, key)
+  local value = type(ownChars) == "table" and ownChars[key]
+  if not value then return nil end
+  if type(value) == "number" and value >= 2 and value <= Family.MAX_PLAYERS then return math.floor(value) end
+  return 1
+end
+
+-- The own family records that changed, { [ownerKey] = FamilyRec }, from the account's characters in
+-- the guild. Each character of the account that ever played sent a record under its own name, so a
+-- record of each of them that lists other characters than its player's gets replaced (one name is
+-- enough there: it replaces a merged record); the character played now (meKey) gets the record of its
+-- player when that has two characters or more, as before. Records that stay the same keep their time.
+-- memberKeys: { [key] = true } of the roster, nameOf: { [key] = name }, families: guild.families.
+function Family.OwnRecords(ownChars, memberKeys, nameOf, families, meKey, now)
+  families = type(families) == "table" and families or {}
+  local byPlayer = {}
   for key in pairs(type(ownChars) == "table" and ownChars or {}) do
-    if memberKeys[key] then chars[#chars + 1] = nameOf[key] or key end
+    if memberKeys[key] then
+      local player = Family.Player(ownChars, key)
+      byPlayer[player] = byPlayer[player] or {}
+      table.insert(byPlayer[player], nameOf[key] or key)
+    end
   end
-  table.sort(chars)
-  if #chars < 2 then return nil end
-  if known and type(known.chars) == "table" and table.concat(known.chars, ",") == table.concat(chars, ",") then
-    return known
+  for _, chars in pairs(byPlayer) do table.sort(chars) end
+  local changed = {}
+  for key in pairs(type(ownChars) == "table" and ownChars or {}) do
+    local chars = memberKeys[key] and byPlayer[Family.Player(ownChars, key)]
+    local known = families[key]
+    local knownChars = type(known) == "table" and type(known.chars) == "table" and known.chars or nil
+    if chars and (knownChars or (key == meKey and #chars >= 2))
+      and not (knownChars and table.concat(knownChars, ",") == table.concat(chars, ",")) then
+      local copy = {}
+      for i, name in ipairs(chars) do copy[i] = name end
+      changed[key] = { ts = now, chars = copy }
+    end
   end
-  return { ts = now, chars = chars }
+  return changed
 end
 
 local function HasWord(text)
@@ -202,9 +230,14 @@ function Family.Groups(members, families, ownChars)
       JoinAll(keys)
     end
   end
+  -- the account's characters, one family per player on the account
   local own = {}
-  for key in pairs(type(ownChars) == "table" and ownChars or {}) do own[#own + 1] = key end
-  JoinAll(own)
+  for key in pairs(type(ownChars) == "table" and ownChars or {}) do
+    local player = Family.Player(ownChars, key)
+    own[player] = own[player] or {}
+    table.insert(own[player], key)
+  end
+  for _, keys in pairs(own) do JoinAll(keys) end
   for _, m in ipairs(members) do
     for _, other in ipairs(Family.NoteLinks(m.note, m.key, members)) do Join(m.key, other) end
     for _, other in ipairs(Family.NoteLinks(m.officerNote, m.key, members)) do Join(m.key, other) end

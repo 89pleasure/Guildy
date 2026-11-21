@@ -335,6 +335,25 @@ T.describe("Smoke", function()
     ns.Sync.ShareCooldowns("ran fred")
     T.eq(sent.CD, nil)
     ns.Settings().share = true
+    -- two players on this account (Ran Fred and Au Tsch): the merged records both sent before are
+    -- replaced by one per player, and both go out at once
+    local db = ns.DB()
+    local ownBefore, familiesBefore = db.ownChars, guild.families
+    local merged = { "Au Tsch", "Ran Fred" }
+    db.ownChars = { ["ran fred"] = true, ["au tsch"] = true }
+    guild.families = { ["ran fred"] = { ts = 5, chars = merged }, ["au tsch"] = { ts = 6, chars = merged } }
+    local fams = {}
+    P.Encode = function(kind, data, version)
+      if kind == "FAM" then fams[#fams + 1] = data end
+      return encode(kind, data, version)
+    end
+    db.ownChars["au tsch"] = 2
+    T.eq(ns.Sync.OwnPlayersChanged(), { "au tsch", "ran fred" })
+    T.eq(guild.families["ran fred"].chars, { "Ran Fred" })
+    T.eq(guild.families["au tsch"].chars, { "Au Tsch" })
+    T.eq(#fams, 2)
+    T.eq(#ns.Family.Of("ran fred", ns.Roster.Members(), guild.families, db.ownChars), 0)
+    db.ownChars, guild.families = ownBefore, familiesBefore
     P.Encode = encode
     guild.members["ran fred"].profs[202], guild.members["au tsch"].profs = nil, auProfs
     guild.members["makira farron"].profs[202] = nil
@@ -1841,11 +1860,11 @@ T.describe("Hall of Fame", function()
     ns.UI.ToggleOptions()
     local options = ns.UI.Options()
     T.truthy(options and options:IsShown(), "options open")
-    for _, key in ipairs({ "general", "chat", "members", "professions", "bank" }) do options:Select(key) end
+    for _, key in ipairs({ "general", "chat", "members", "professions", "bank", "faq" }) do options:Select(key) end
     -- the Hall of Fame has no tab of its own any more: asked for, the options open where they were
     T.eq(options.Panels.fame, nil)
     ns.UI.ShowOptions("fame")
-    T.eq(options.selected, "bank")
+    T.eq(options.selected, "faq")
     -- members: twinks stand on their own; chat: no icons
     local lists = options.Panels.members
     local function Toggle(check, on)
@@ -1893,6 +1912,35 @@ T.describe("Hall of Fame", function()
       T.eq(Headers() > 0, card.style == "sections")
     end
     ns.Settings().memberStyle = nil
+    -- members: the characters of this account, sorted into players (two people sharing one account)
+    local db = ns.DB()
+    local ownBefore, familiesBefore = db.ownChars, ns.GuildData().families
+    db.ownChars = { ["ran fred"] = true, ["au tsch"] = true }
+    ns.GuildData().families = {}
+    options:Select("members")
+    local players = options.Panels.members.Players
+    T.eq(#players.List.items, 2)
+    local auRow
+    for _, row in ipairs(players.List.rows) do
+      if row:IsShown() and row.key == "au tsch" then auRow = row end
+    end
+    T.truthy(auRow, "a row for Au Tsch")
+    local two = auRow.Player.buttons[2]
+    two:GetScript("OnClick")(two)
+    T.eq(db.ownChars["au tsch"], 2)
+    T.eq(db.ownChars["ran fred"], true)
+    T.eq(#ns.Family.Of("ran fred", ns.Roster.Members(), ns.GuildData().families, db.ownChars), 0)
+    local one = auRow.Player.buttons[1]
+    one:GetScript("OnClick")(one)
+    T.eq(db.ownChars["au tsch"], true)
+    db.ownChars, ns.GuildData().families = ownBefore, familiesBefore
+    ns.Fire("FAMILY")
+    -- the FAQ: questions with their answers, the wrong alt links first
+    options:Select("faq")
+    local faq = options.Panels.faq
+    T.truthy(faq:IsShown(), "faq shown")
+    T.truthy(#faq.Entries >= 4, "four questions or more")
+    T.eq(faq.Entries[1].Question:GetText(), ns.L.FAQ_ALTS_WRONG_Q)
     ns.UI.ToggleOptions()
     T.eq(options:IsShown(), false)
     T.eq(errors, {})

@@ -311,10 +311,11 @@ function Sync.ShareBank(since)
   end
 end
 
--- The account's characters in this guild as the own family record (kept while they stay the same)
+-- The account's characters in this guild as the own family records, one per player on the account
+-- (kept while they stay the same). Returns the keys of the records that changed.
 local function UpdateOwnFamily()
   local guild, db = ns.GuildData(), ns.DB()
-  if not guild or not db then return nil end
+  if not guild or not db then return {} end
   local keys, names = {}, {}
   for _, m in ipairs(ns.Roster.Members()) do
     keys[m.key] = true
@@ -322,12 +323,14 @@ local function UpdateOwnFamily()
   end
   local me = ns.Names.Key(ns.PlayerName())
   guild.families = type(guild.families) == "table" and guild.families or {}
-  local own = ns.Family.Own(db.ownChars, keys, names, guild.families[me], ns.Now())
-  if own and own ~= guild.families[me] then
-    guild.families[me] = own
-    ns.Fire("FAMILY") -- the activity scores count the account's characters as one player
+  local changed = {}
+  for key, rec in pairs(ns.Family.OwnRecords(db.ownChars, keys, names, guild.families, me, ns.Now())) do
+    guild.families[key] = rec
+    changed[#changed + 1] = key
   end
-  return own
+  table.sort(changed)
+  if #changed > 0 then ns.Fire("FAMILY") end -- the activity scores count the account's characters as one player
+  return changed
 end
 
 local function SendFamily(ownerKey)
@@ -789,11 +792,24 @@ function Sync.Start()
   MarkUser(ns.PlayerName(), ns.Version())
   C_Timer.After(3 + math.random() * 3, function() ns.SafeCall(SendHello, true) end)
   C_Timer.After(10 + math.random() * 10, function()
-    ns.SafeCall(UpdateOwnFamily)
+    local ok, changed = pcall(UpdateOwnFamily)
     ns.SafeCall(Sync.SendSummary)
     if ns.Settings().share then
-      SendMember(ns.Names.Key(ns.PlayerName()))
-      SendFamily(ns.Names.Key(ns.PlayerName()))
+      local me = ns.Names.Key(ns.PlayerName())
+      SendMember(me)
+      SendFamily(me)
+      for _, key in ipairs(ok and changed or {}) do
+        if key ~= me then SendFamily(key) end
+      end
     end
   end)
+end
+
+-- The players on this account were sorted anew (options, Core/Family.lua): the family records of the
+-- account's characters change and go out at once, replacing the ones the guild has
+function Sync.OwnPlayersChanged()
+  local changed = UpdateOwnFamily()
+  ns.Fire("FAMILY")
+  for _, key in ipairs(changed) do SendFamily(key) end
+  return changed
 end

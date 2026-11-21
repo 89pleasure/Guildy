@@ -54,10 +54,50 @@ T.describe("Family records", function()
   T.it("keeps the own record while the characters stay the same", function()
     local members = { ["ran fred"] = true, fredwild = true }
     local names = { ["ran fred"] = "Ran Fred", fredwild = "Fredwild" }
-    local own = Family.Own({ ["ran fred"] = true, fredwild = true, other = true }, members, names, nil, 100)
-    T.eq(own, { ts = 100, chars = { "Fredwild", "Ran Fred" } })
-    T.eq(Family.Own({ ["ran fred"] = true, fredwild = true }, members, names, own, 200).ts, 100)
-    T.eq(Family.Own({ ["ran fred"] = true }, members, names, nil, 200), nil)
+    local changed = Family.OwnRecords({ ["ran fred"] = true, fredwild = true, other = true }, members, names, {},
+      "ran fred", 100)
+    T.eq(changed, { ["ran fred"] = { ts = 100, chars = { "Fredwild", "Ran Fred" } } })
+    local families = { ["ran fred"] = changed["ran fred"] }
+    T.eq(Family.OwnRecords({ ["ran fred"] = true, fredwild = true }, members, names, families, "ran fred", 200), {})
+    T.eq(Family.OwnRecords({ ["ran fred"] = true }, members, names, {}, "ran fred", 200), {})
+  end)
+  T.it("builds one record per player of a shared account and replaces the merged ones", function()
+    local members = { ["bob stone"] = true, ["rob stone"] = true, ["jane stone"] = true, ["mary stone"] = true }
+    local names = { ["bob stone"] = "Bob Stone", ["rob stone"] = "Rob Stone", ["jane stone"] = "Jane Stone",
+      ["mary stone"] = "Mary Stone" }
+    local all = { "Bob Stone", "Jane Stone", "Mary Stone", "Rob Stone" }
+    -- Bob and Jane each logged in before the split: two merged records in the guild
+    local families = { ["bob stone"] = { ts = 50, chars = all }, ["jane stone"] = { ts = 60, chars = all },
+      ["someone"] = { ts = 10, chars = { "Someone", "Else" } } }
+    local own = { ["bob stone"] = true, ["rob stone"] = true, ["jane stone"] = 2, ["mary stone"] = 2 }
+    local changed = Family.OwnRecords(own, members, names, families, "bob stone", 100)
+    T.eq(changed, {
+      ["bob stone"] = { ts = 100, chars = { "Bob Stone", "Rob Stone" } },
+      ["jane stone"] = { ts = 100, chars = { "Jane Stone", "Mary Stone" } },
+    })
+    -- a player left with one character still replaces the merged record, with that one name
+    own["rob stone"] = 3
+    families["rob stone"] = { ts = 70, chars = all }
+    changed = Family.OwnRecords(own, members, names, families, "bob stone", 100)
+    T.eq(changed["bob stone"], { ts = 100, chars = { "Bob Stone" } })
+    T.eq(changed["rob stone"], { ts = 100, chars = { "Rob Stone" } })
+  end)
+end)
+
+T.describe("Family players", function()
+  T.it("joins the characters of a shared account only within one player", function()
+    local roster = {
+      M("bob stone", "Bob Stone", 60), M("rob stone", "Rob Stone", 30),
+      M("jane stone", "Jane Stone", 60), M("mary stone", "Mary Stone", 30),
+    }
+    local own = { ["bob stone"] = true, ["rob stone"] = true, ["jane stone"] = 2, ["mary stone"] = 2 }
+    local mains = Family.Mains(roster, {}, own)
+    T.eq(mains["rob stone"], "bob stone")
+    T.eq(mains["mary stone"], "jane stone")
+    T.eq(#Family.Of("bob stone", roster, {}, own), 1)
+    T.eq(Family.Player(own, "jane stone"), 2)
+    T.eq(Family.Player(own, "bob stone"), 1)
+    T.eq(Family.Player(own, "nobody"), nil)
   end)
 end)
 
