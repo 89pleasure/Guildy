@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.10.1
+
+- Fixed: guild chat lines written in Discord through the guild's Discord integration showed up in
+  Guildy as "Former member". They now show the author with the Discord icon in front, like the game's
+  own guild window: the character the Discord user last played, or their Discord name if no character
+  is known.
+- Fixed: Guildy could list a member with a profession they don't have, "via link" and without recipes.
+  After you opened another member's recipe book, Guildy saved your own skill levels on that member each
+  time one of your skills went up, and shared them with the guild. Your skill levels now stay on your
+  own character.
+- Fixed: "Discard professions and read anew" could not be reached from the member lists, since a
+  right-click there opens the game's guild member menu. The entry is now at the bottom of that menu.
+  Use it on members who show a profession they don't have; the next scan reads their professions anew.
+
 ## 1.10.0
 
 - New: a Blacklist tab, shared with every Guildy user in your guild. Add players your guild should be
