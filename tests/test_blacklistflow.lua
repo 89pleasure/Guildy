@@ -157,3 +157,113 @@ T.describe("Blacklist between Guildy users", function()
     T.eq(errors, {})
   end)
 end)
+
+T.describe("Seeing blacklisted players", function()
+  local lines, sounds, tipLines = {}, 0, {}
+  local units = {
+    nameplate1 = { "Vexa", "Nachtschatten", "WARLOCK", 58, "Horde" },
+    target = { "Vexa", "Nachtschatten", "WARLOCK", 58, "Horde" },
+    party1 = { "Gerd", "Großmaul", "PALADIN", 44, "Alliance" },
+    NPC = { "Fenna", "Falschgold", "MAGE", 37, "Alliance" },
+    nameplate2 = { "Au", "Tsch", "ROGUE", 21, "Alliance" },
+  }
+  env.UnitName = function(unit)
+    local u = units[unit]
+    if u then return u[1], u[2] end
+    return "Ran", "Fred"
+  end
+  env.UnitExists = function(unit) return units[unit] ~= nil end
+  env.UnitIsPlayer = function(unit) return units[unit] ~= nil end
+  env.UnitClass = function(unit) return "x", units[unit] and units[unit][3] or "MAGE" end
+  env.UnitLevel = function(unit) return units[unit] and units[unit][4] or 33 end
+  env.UnitFactionGroup = function(unit) return units[unit] and units[unit][5] or "Alliance" end
+  env.IsInRaid = function() return false end
+  env.GetNumGroupMembers = function() return 2 end
+  env.SOUNDKIT = { RAID_WARNING = 8959 }
+  env.PlaySound = function() sounds = sounds + 1 end
+  rawset(env.DEFAULT_CHAT_FRAME, "AddMessage", function(_, text) lines[#lines + 1] = text end)
+  local function Reset() lines, sounds = {}, 0 end
+
+  local book = ns.GameBlacklist.Book()
+  ns.Blacklist.Add(book, "Vexa Nachtschatten", "kos", "tötet Leute unter 30", "Makira Farron", now, ns.GameBlacklist.Ctx())
+  ns.Blacklist.Add(book, "Gerd Großmaul", "insult", "beleidigt im Handel", "Makira Farron", now, ns.GameBlacklist.Ctx())
+  ns.Blacklist.Add(book, "Fenna Falschgold", "scam", nil, "Makira Farron", now, ns.GameBlacklist.Ctx())
+  ns.Blacklist.Add(book, "Jule Plappermaul", "insult", nil, "Makira Farron", now, ns.GameBlacklist.Ctx())
+  -- Au Tsch is in the guild now: an old entry from before
+  book["au tsch"] = { n = "Au Tsch", t = "insult", a = "Makira Farron", at = now - 9999 }
+
+  T.it("warns once per 5 minutes", function()
+    Reset()
+    Fire("NAME_PLATE_UNIT_ADDED", "nameplate1")
+    Fire("PLAYER_TARGET_CHANGED")
+    T.eq(#lines, 1)
+    T.eq(sounds, 1)
+    T.truthy(lines[1]:find("Vexa Nachtschatten", 1, true), "names the player")
+    T.truthy(lines[1]:find("tötet Leute unter 30", 1, true), "gives the reason")
+    now = now + 300
+    Fire("PLAYER_TARGET_CHANGED")
+    T.eq(#lines, 2)
+    T.eq(sounds, 2)
+  end)
+
+  T.it("fills class, level and faction from a seen unit", function()
+    local entry = ns.GameBlacklist.Book()["vexa nachtschatten"]
+    T.eq(entry.c, "WARLOCK")
+    T.eq(entry.l, 58)
+    T.eq(entry.f, "H")
+  end)
+
+  T.it("warns on group, whisper, invite and trade", function()
+    Reset()
+    Fire("GROUP_ROSTER_UPDATE")
+    T.eq(#lines, 1)
+    T.truthy(lines[1]:find("Gerd Großmaul", 1, true), "group")
+    Fire("TRADE_SHOW")
+    T.eq(#lines, 2)
+    T.truthy(lines[2]:find("Fenna Falschgold", 1, true), "trade")
+    Fire("CHAT_MSG_WHISPER", "hallo", "Jule-Plappermaul")
+    T.eq(#lines, 3)
+    now = now + 300
+    Fire("PARTY_INVITE_REQUEST", "Jule Plappermaul")
+    T.eq(#lines, 4)
+  end)
+
+  T.it("stays quiet for a name now in the guild", function()
+    Reset()
+    Fire("NAME_PLATE_UNIT_ADDED", "nameplate2")
+    T.eq(#lines, 0)
+    T.eq(ns.GameBlacklist.Find("Au Tsch"), nil)
+    T.truthy(ns.GameBlacklist.Find("Vexa Nachtschatten"), "listed")
+  end)
+
+  T.it("ignores a secret sender", function()
+    Reset()
+    Fire("CHAT_MSG_WHISPER", "hallo", world.SECRET)
+    Fire("PARTY_INVITE_REQUEST", world.SECRET)
+    T.eq(#lines, 0)
+    T.eq(errors, {})
+  end)
+
+  T.it("respects the option", function()
+    Reset()
+    now = now + 600
+    ns.Settings().blacklistAlert = false
+    Fire("PLAYER_TARGET_CHANGED")
+    T.eq(#lines, 0)
+    ns.Settings().blacklistAlert = true
+    Fire("PLAYER_TARGET_CHANGED")
+    T.eq(#lines, 1)
+    T.eq(ns.Store.DEFAULTS.blacklistAlert, true)
+  end)
+
+  T.it("adds the tooltip line", function()
+    rawset(env.GameTooltip, "GetUnit", function() return "Vexa", "target" end)
+    rawset(env.GameTooltip, "AddLine", function(_, text) tipLines[#tipLines + 1] = text end)
+    local hook = env.GameTooltip:GetScript("OnTooltipSetUnit")
+    T.truthy(hook, "hooked")
+    hook(env.GameTooltip)
+    T.eq(tipLines[1], ns.L.BL_TOOLTIP:format(ns.L.BL_TAG_KOS))
+    T.eq(tipLines[2], "tötet Leute unter 30")
+    T.eq(errors, {})
+  end)
+end)

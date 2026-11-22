@@ -40,6 +40,7 @@ local HANDLERS = {
       hooksecurefunc("SetItemRef", function(link) ns.SafeCall(ns.TradeSkill.OnLinkClicked, link) end)
     end
     ns.Harvest.RestoreSound() -- a run cut off by /reload or a crash left the sound effects off
+    ns.GameBlacklist.HookTooltip()
     ns.Sync.Register()
     ns.Roster.Request(true)
     C_Timer.After(3, function() ns.SafeCall(ns.TradeSkill.ScanSkills) end)
@@ -65,12 +66,23 @@ local HANDLERS = {
   GET_ITEM_INFO_RECEIVED = function(itemID, success) ns.GameGear.OnItemInfo(itemID, success, "GET_ITEM_INFO_RECEIVED") end,
   -- the answer to C_Item.RequestLoadItemDataByID: it fires no GET_ITEM_INFO_RECEIVED
   ITEM_DATA_LOAD_RESULT = function(itemID, success) ns.GameGear.OnItemInfo(itemID, success, "ITEM_DATA_LOAD_RESULT") end,
-  PLAYER_TARGET_CHANGED = function() ns.GameStats.TryUnit("target") end,
+  PLAYER_TARGET_CHANGED = function()
+    ns.GameStats.TryUnit("target")
+    ns.GameBlacklist.OnUnit("target", "seen")
+  end,
+  -- the guild's blacklist (Game/Blacklist.lua): a listed player shows up or deals with the player
+  NAME_PLATE_UNIT_ADDED = function(unit) ns.GameBlacklist.OnUnit(unit, "seen") end,
+  GROUP_ROSTER_UPDATE = function() ns.GameBlacklist.OnGroup() end,
+  PARTY_INVITE_REQUEST = function(name) ns.GameBlacklist.OnName(name, "invite") end,
+  TRADE_SHOW = function() ns.GameBlacklist.OnUnit("NPC", "trade") end,
   PLAYER_EQUIPMENT_CHANGED = function() ns.GameStats.OnEquipmentChanged() end,
   CHARACTER_POINTS_CHANGED = function() ns.GameTalents.OnPointsChanged() end,
   TRAIT_CONFIG_UPDATED = function() ns.GameTalents.OnPointsChanged() end, -- WoW Forever's trait talents
   TRAIT_CONFIG_LIST_UPDATED = function() ns.GameTalents.OnPointsChanged() end, -- the config is ready
-  UPDATE_MOUSEOVER_UNIT = function() ns.GameStats.TryUnit("mouseover") end,
+  UPDATE_MOUSEOVER_UNIT = function()
+    ns.GameStats.TryUnit("mouseover")
+    ns.GameBlacklist.OnUnit("mouseover", "seen")
+  end,
   INSPECT_ACHIEVEMENT_READY = function(guid) ns.GameStats.OnComparisonReady(guid) end,
   INSPECT_READY = function(guid) ns.GameStats.OnInspectReady(guid) end,
   INSPECT_HONOR_UPDATE = function() ns.GameStats.OnInspectHonor() end,
@@ -98,6 +110,7 @@ local HANDLERS = {
   CHAT_MSG_OFFICER = function(text, sender, ...) OnGuildChat("officer", text, sender, ...) end,
   CHAT_MSG_SYSTEM = function(text) ns.Chat.OnSystemMessage(text) end,
   CHAT_MSG_WHISPER = function(text, sender, ...)
+    ns.GameBlacklist.OnName(sender, "whisper")
     ns.Chat.OnWhisper(sender)
     ns.TradeSkill.OnChatMessage(text, sender, select(10, ...))
   end,

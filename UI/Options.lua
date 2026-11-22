@@ -180,11 +180,15 @@ local function BuildGeneral(panel)
   panel.Ding = Check(panel, L.OPTIONS_DING, function(self) ns.Settings().ding60 = Off(self) end)
   panel.Ding:SetPoint("TOPLEFT", scaleLabel, "BOTTOMLEFT", -4, -18)
 
+  -- someone from the guild's blacklist shows up (Game/Blacklist.lua): chat line and sound
+  panel.BlacklistAlert = Check(panel, L.OPTIONS_BLACKLIST_ALERT, function(self) ns.Settings().blacklistAlert = Off(self) end)
+  panel.BlacklistAlert:SetPoint("TOPLEFT", panel.Ding, "BOTTOMLEFT", 0, -4)
+
   local blizzard = W.Button(panel, L.OPEN_BLIZZARD, function()
     options:Hide()
     UI.ShowBlizzard()
   end, 170, { small = true })
-  blizzard:SetPoint("TOPLEFT", panel.Ding, "BOTTOMLEFT", 4, -22)
+  blizzard:SetPoint("TOPLEFT", panel.BlacklistAlert, "BOTTOMLEFT", 4, -22)
 
   -- everything this window changes back to what Guildy ships (sharing is not a look: it stays)
   local reset = W.Button(panel, L.OPTIONS_RESET_ALL, function()
@@ -215,6 +219,7 @@ local function BuildGeneral(panel)
     self.Scale:Set(UI.Scale())
     self.ScaleValue:SetText(Percent(UI.Scale()))
     self.Ding:SetChecked(ns.Settings().ding60 ~= false)
+    self.BlacklistAlert:SetChecked(ns.Settings().blacklistAlert ~= false)
   end
 end
 
