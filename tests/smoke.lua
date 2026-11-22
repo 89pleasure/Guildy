@@ -598,6 +598,36 @@ T.describe("Smoke", function()
     T.eq(errors, {})
   end)
 
+  T.it("names chat lines written through the Discord integration like Blizzard does", function()
+    local before, beforeEnum = env.C_Club, env.Enum
+    local function Id(n) return { epoch = (1700000000 + n) * 1000000, position = n } end
+    local messages = {
+      -- the character the Discord user last played: named and clickable like a member
+      { messageId = Id(1), content = "test aus discord", author = { memberId = 5,
+        discordInfo = { fromDiscord = true, lastOnlineName = "Conoar", globalName = "conoar_dc", type = "Default" } } },
+      -- no character known (or the guild shows Discord names): the Discord name, not "former member"
+      { messageId = Id(2), content = "moin", author = { memberId = 6,
+        discordInfo = { fromDiscord = true, lastOnlineName = "", globalName = "Jack Jasra", type = "Default" } } },
+      { messageId = Id(3), content = "hi", author = { memberId = 7,
+        discordInfo = { fromDiscord = true, lastOnlineName = "Conoar", globalName = "jj", type = "GlobalName" } } },
+      { messageId = Id(4), content = "weg", author = { memberId = 8 } }, -- a member who left: as before
+    }
+    env.Enum = { ClubStreamType = { Guild = 1, Officer = 2 }, DiscordDisplayNameType = { Default = "Default", GlobalName = "GlobalName" } }
+    env.C_Club = {
+      GetGuildClubId = function() return 7 end,
+      GetStreams = function() return { { streamType = 1, streamId = 70 } } end,
+      GetMessageRanges = function() return { { oldestMessageId = Id(1), newestMessageId = Id(4) } } end,
+      GetMessagesInRange = function() return messages end,
+    }
+    local lines = ns.Chat.StreamLines(7, 70, "guild")
+    T.eq({ lines[1].sender, lines[1].unknown, lines[1].discord }, { "Conoar", nil, true })
+    T.eq({ lines[2].sender, lines[2].unknown, lines[2].discord }, { "Jack Jasra", nil, true })
+    T.eq({ lines[3].sender, lines[3].discord }, { "jj", true })
+    T.eq({ lines[4].sender, lines[4].unknown }, { ns.L.UNKNOWN_SENDER, true })
+    env.C_Club, env.Enum = before, beforeEnum
+    T.eq(errors, {})
+  end)
+
   T.it("never leaves the chat scrolled above its first line", function()
     local pane = ns.UI.ChatPane(env.CreateFrame("Frame"), {})
     local frame = pane.Messages

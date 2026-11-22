@@ -25,8 +25,12 @@ local function FormatLine(line)
   if line.system then return Stamp(line.ts) .. "|cffa0a0a0" .. line.text .. "|r" end
   -- an author who left the guild and whose name nobody knows any more: grey, not clickable
   local link = line.unknown and ("|cff8d836e[" .. line.sender .. "]|r")
+    -- a Discord name without a character (Discord integration): Blizzard's Discord blue, not clickable
+    or line.plain and ("|cffe0e3ff[" .. line.sender .. "]|r")
     or ("|Hplayer:" .. (line.senderFull or line.sender) .. "|h[" .. W.ClassName(line.sender, line.classFile) .. "]|h")
-  return Stamp(line.ts) .. link .. ": " .. (line.text or "")
+  -- written in Discord: the Discord icon in front, as in Blizzard's chat
+  local icon = line.discord and "|A:UI-ChatIcon-Discord:0:0|a " or ""
+  return Stamp(line.ts) .. icon .. link .. ": " .. (line.text or "")
 end
 
 -- Weekday of ts from a comma separated list starting with Sunday

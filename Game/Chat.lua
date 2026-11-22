@@ -250,7 +250,24 @@ local function Usable(name)
   return name ~= nil and not ns.IsSecret(name) and type(name) == "string" and name ~= ""
 end
 
+-- A line written in Discord through the guild's Discord integration: its author carries no name,
+-- member id or GUID, only discordInfo. Like Blizzard (ChatFrameUtil.GetNameForDiscordMessage): the
+-- character the Discord user last played, unless the guild shows Discord names or none is known,
+-- then the Discord name. Returns the name and whether it is a character's.
+local function DiscordAuthor(info)
+  if type(info) ~= "table" or info.fromDiscord ~= true then return nil end
+  local enum = rawget(_G, "Enum")
+  local types = enum and enum.DiscordDisplayNameType
+  local globalOnly = types and types.GlobalName ~= nil and info.type == types.GlobalName
+  if not globalOnly and Usable(info.lastOnlineName) then return info.lastOnlineName, true end
+  if Usable(info.globalName) then return info.globalName, false end
+  return nil
+end
+
+-- name, discord ("character" or "name") for a line from Discord
 local function AuthorName(clubId, author)
+  local discord, isCharacter = DiscordAuthor(author.discordInfo)
+  if discord then return discord, isCharacter and "character" or "name" end
   if Usable(author.name) then return author.name end
   local info = author.memberId and C_Club.GetMemberInfo and ns.Try(C_Club.GetMemberInfo, clubId, author.memberId)
   if info and Usable(info.name) then return info.name end
@@ -339,14 +356,19 @@ AddLines = function(lines, clubId, kind, messages, from)
     local msg = messages[i]
     -- a secret author or text is left out as before; one line that fails does not empty the chat
     local usable = not msg.destroyed and msg.author and not ns.AnySecret(msg.content, msg.author.name)
-    local ok, name = true, nil
-    if usable then ok, name = pcall(AuthorName, clubId, msg.author) end
+    local ok, name, discord = true, nil, nil
+    if usable then ok, name, discord = pcall(AuthorName, clubId, msg.author) end
     if usable and ok then
       local classInfo = msg.author.classID and ns.Try(C_CreatureInfo and C_CreatureInfo.GetClassInfo, msg.author.classID)
+      local classFile = classInfo and classInfo.classFile
+      local guid = discord == "character" and msg.author.discordInfo.lastOnlineGUID
+      if not classFile and guid and not ns.IsSecret(guid) then classFile = ClassOfGuid(guid) end
+      -- a Discord name is no character: shown as it is and not clickable
+      local sender = (discord == "name" and name) or (name and ns.Names.Normalize(name)) or ns.L.UNKNOWN_SENDER
       lines[#lines + 1] = {
-        kind = kind, sender = name and ns.Names.Normalize(name) or ns.L.UNKNOWN_SENDER, senderFull = name,
-        unknown = not name or nil,
-        text = msg.content or "", classFile = classInfo and classInfo.classFile,
+        kind = kind, sender = sender, senderFull = discord ~= "name" and name or nil,
+        unknown = not name or nil, discord = discord and true or nil, plain = discord == "name" or nil,
+        text = msg.content or "", classFile = classFile,
         ts = msg.messageId and msg.messageId.epoch and math.floor(msg.messageId.epoch / 1000000) or 0,
       }
     end
