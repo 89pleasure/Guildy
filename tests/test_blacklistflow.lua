@@ -407,6 +407,31 @@ T.describe("The Blacklist tab", function()
     T.eq(ns.GameBlacklist.Book()["leckk eyer"].t, "insult")
   end)
 
+  T.it("edits an entry with a click on its row", function()
+    local view = View()
+    local row
+    for _, r in pairs(view.List.rows) do
+      if r.item and r.item.entry and r.item.entry.n == "Leckk Eyer" then row = r end
+    end
+    T.truthy(row, "row of the entry")
+    row:GetScript("OnMouseUp")(row, "LeftButton")
+    T.eq(view.AddRow:IsShown(), true)
+    T.eq(view.AddName:GetText(), "Leckk Eyer")
+    T.eq(view.AddReason:GetText(), "beleidigt im Handelschannel")
+    T.eq(view.addKind, "insult")
+    T.eq(view.AddSubmit:GetText(), ns.L.BL_SAVE)
+    view:SetAddKind("scam")
+    view.AddReason:SetText("will Gold für nichts")
+    view:Submit()
+    local entry = ns.GameBlacklist.Book()["leckk eyer"]
+    T.eq(entry.t, "scam")
+    T.eq(entry.r, "will Gold für nichts")
+    -- a new entry again says Add
+    view:OpenAdd()
+    T.eq(view.AddSubmit:GetText(), ns.L.BL_ADD)
+    view:CloseAdd()
+  end)
+
   T.it("refuses a guild member from the add row with the message", function()
     local view = View()
     local printed = {}

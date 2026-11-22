@@ -885,4 +885,6 @@ ns.LocaleTables.enUS = {
   BL_ERR_REMOVED = "An officer removed this name; only officers can add it again.",
   BL_ERR_NAME = "Type a name first.",
   BL_MENU = "Add to Guildy blacklist",
+  BL_SAVE = "Save",
+  BL_EDIT_HINT = "Click to change the kind or reason",
 }

@@ -227,12 +227,19 @@ local function Build(panel)
     row:SetScript("OnEnter", function(self)
       self.Action:SetAlpha(1)
       local entry = self.item and self.item.entry
-      if entry and entry.r then
+      if entry and not self.item.removed then
         GameTooltip:SetOwner(self, "ANCHOR_CURSOR")
         GameTooltip:SetText(entry.n, 1, 0.82, 0)
-        GameTooltip:AddLine(entry.r, 1, 1, 1, true)
+        if entry.r then GameTooltip:AddLine(entry.r, 1, 1, 1, true) end
+        GameTooltip:AddLine(L.BL_EDIT_HINT, 0.6, 0.6, 0.6)
         GameTooltip:Show()
       end
+    end)
+    -- a click on a listed name: the add row with its kind and reason, to change them (anyone may)
+    row:SetScript("OnMouseUp", function(self, button)
+      local item = self.item
+      if button ~= "LeftButton" or not item or not item.entry or item.removed then return end
+      view:OpenAdd(item.entry.n, nil, item.entry.t, item.entry.r)
     end)
     row:SetScript("OnLeave", function(self)
       -- moving onto the button leaves the row: the button stays bright then
@@ -306,10 +313,14 @@ local function Build(panel)
   end
 
   -- name: filled in (target, /guildy bl); seen: { c, l, f } of a unit
-  function view:OpenAdd(name, seen, kind)
+  -- reason given: an existing entry is edited (the button says Save)
+  function view:OpenAdd(name, seen, kind, reason)
     self.addSeen = seen
     self.AddName:SetText(name or "")
-    self.AddReason:SetText("")
+    local book = ns.GameBlacklist.Book()
+    local existing = name and book and ns.Blacklist.IsLive(book[ns.Names.Key(name)])
+    self.AddSubmit:SetText(existing and L.BL_SAVE or L.BL_ADD)
+    self.AddReason:SetText(reason and reason:gsub("||", "|") or "")
     self:SetAddKind(kind or self.addKind or "other")
     if seen and seen.l then
       self.AddFrom:SetText(L.BL_FROM_TARGET:format(seen.f == "H" and L.BL_HORDE or seen.f == "A" and L.BL_ALLIANCE or "?",

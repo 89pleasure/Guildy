@@ -884,4 +884,6 @@ ns.LocaleTables.ptBR = {
   BL_ERR_REMOVED = "Um oficial removeu este nome; só oficiais podem adicioná-lo de novo.",
   BL_ERR_NAME = "Digite um nome primeiro.",
   BL_MENU = "Adicionar à lista negra do Guildy",
+  BL_SAVE = "Salvar",
+  BL_EDIT_HINT = "Clique para mudar o tipo ou o motivo",
 }

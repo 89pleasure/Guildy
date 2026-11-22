@@ -884,4 +884,6 @@ ns.LocaleTables.deDE = {
   BL_ERR_REMOVED = "Ein Offizier hat diesen Namen entfernt; nur Offiziere können ihn wieder eintragen.",
   BL_ERR_NAME = "Erst einen Namen eingeben.",
   BL_MENU = "Zur Guildy-Blacklist hinzufügen",
+  BL_SAVE = "Speichern",
+  BL_EDIT_HINT = "Klicken, um Art oder Grund zu ändern",
 }
