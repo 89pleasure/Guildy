@@ -115,7 +115,19 @@ local function Build(panel)
     view:Refresh()
   end)
 
-  view.AddButton = page:Right(W.Button(bar, L.BL_ADD, function() view:OpenAdd() end, 100, { small = true }))
+  -- what is typed in the search box and the kind picked in the filter go into the add row: the toolbar reads
+  -- like a form, and players fill it in first (found in game 2026-11-22)
+  view.AddButton = page:Right(W.Button(bar, L.BL_ADD, function()
+    local name, kind = ns.Names.Trim(search:GetText() or ""), view.kind
+    if name ~= "" or kind then
+      search:SetText("")
+      view.query = ""
+      search.Hint:Show()
+      view.kind = nil
+      view:Refresh()
+    end
+    view:OpenAdd(name ~= "" and name or nil, nil, kind)
+  end, 100, { small = true }))
   view.Summary = page:Right(W.Text(bar, "GameFontDisableSmall"), 10)
   view.Summary:SetJustifyH("RIGHT")
 
@@ -294,11 +306,11 @@ local function Build(panel)
   end
 
   -- name: filled in (target, /guildy bl); seen: { c, l, f } of a unit
-  function view:OpenAdd(name, seen)
+  function view:OpenAdd(name, seen, kind)
     self.addSeen = seen
     self.AddName:SetText(name or "")
     self.AddReason:SetText("")
-    self:SetAddKind(self.addKind or "other")
+    self:SetAddKind(kind or self.addKind or "other")
     if seen and seen.l then
       self.AddFrom:SetText(L.BL_FROM_TARGET:format(seen.f == "H" and L.BL_HORDE or seen.f == "A" and L.BL_ALLIANCE or "?",
         seen.l))
