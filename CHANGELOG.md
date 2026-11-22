@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.11.0
+
+- New: an Events tab with your guild's calendar events. The picked event shows who signed up, in three
+  columns for tanks, healers and damage (by the talents Guildy knows of them), and below them who is
+  tentative, on standby, declined or out. Answer with one click: sign up or tentative, and withdraw
+  again. Ranks who may edit the event set their own status the way Blizzard's calendar does.
+- New: create guild events in Guildy's own form: name, type, date, time, description and lock. For
+  dungeons and raids, pick from all of WoW Forever's dungeons with their picture and level range. These
+  are real events of the game's calendar, so members without Guildy see and answer them there.
+- New: edit and delete events in Guildy. Ranks who may edit an event right-click a name to set that
+  player's status, make them a moderator, remove them or invite them to the group.
+- New: tick the box in the form and Guildy announces the new event in guild chat. 30 minutes before an
+  event starts, Guildy reminds you in your chat (unless you declined) and posts one reminder in guild
+  chat for the whole guild, sent by one Guildy user. WoW Forever lets addons write in guild chat only
+  while you press a key, so these lines go out with your next key press (moving, jumping). Both
+  reminders can be switched off in the options.
+- New: the Events tab glows while there is an event you have neither seen nor answered.
+- New: hide profession cooldowns your guild does not track (Iron to Gold and the other transmutes) in
+  the options, on the Professions page. They disappear from the member tooltip and the Professions
+  tab; Guildy still reads and shares them.
+- Changed: the tabs are ordered by use: Chat, Members, Events, Overview, Professions, Bank, Hall of
+  Fame, Info & Log, Ranks, Blacklist.
+
 ## 1.10.2
 
 - Fixed: with the game's gamepad interface, Guildy's entries in other players' right-click menus
