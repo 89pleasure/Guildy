@@ -23,7 +23,7 @@ const SPEC_SKILLS = new Set([202, 164, 165])
 export const BOOK_SKILLS = new Set([171, 164, 333, 202, 165, 186, 197, 185, 129])
 // The professions' English names: the API lists the profession's own spell among its recipes (Mining's
 // ranks among the smelting), which no book in the game contains
-const EN_PROFESSIONS = { 171: 'Alchemy', 164: 'Blacksmithing', 333: 'Enchanting', 202: 'Engineering', 182: 'Herbalism',
+export const EN_PROFESSIONS = { 171: 'Alchemy', 164: 'Blacksmithing', 333: 'Enchanting', 202: 'Engineering', 182: 'Herbalism',
   165: 'Leatherworking', 186: 'Mining', 393: 'Skinning', 197: 'Tailoring', 185: 'Cooking', 129: 'First Aid', 356: 'Fishing' }
 const SPEC_IDS = new Set([20219, 20222, 17039, 17040, 17041, 9787, 9788, 10656, 10658, 10660])
 // The API's English names, for a client that never saved its own (Core/Specs.lua)
@@ -360,16 +360,14 @@ export function nameBridge(db) {
 }
 
 // The recipes ({ id, name }) with the names of the client's language from names (recipe ID -> name,
-// /data/wow/recipe in that locale); null when one has none yet
+// /data/wow/recipe in that locale); null without a list, and null in place of a recipe without a name in that language (the static API has no entry for a few):
+// it counts as one missing recipe, it no longer costs the whole book (Wuzuw's enchanting, 2026-11-22)
 export function localize(recipes, names) {
   if (!Array.isArray(recipes)) return null
-  const out = []
-  for (const r of recipes) {
+  return recipes.map(r => {
     const name = names.get(r.id)
-    if (typeof name !== 'string') return null
-    out.push(name)
-  }
-  return out
+    return typeof name === 'string' ? name : null
+  })
 }
 
 // The API's locale for a client locale ("deDE" -> "de_DE")

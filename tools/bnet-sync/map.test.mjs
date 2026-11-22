@@ -268,12 +268,23 @@ test('wantNames asks Guildy to save recipe names from the next login on', () => 
   assert.equal(db.get('settings').get('recipeNames'), true)
 })
 
-test('localize gives the recipes the names of the client language, or nothing when one is missing', () => {
+test('localize gives the recipes the names of the client language, null for one without', () => {
   const names = new Map([[1, 'Kräutergebackenes Ei'], [2, 'Magentafarbener Farbstoff']])
   assert.deepEqual(localize([{ id: 1, name: 'Herb Baked Egg' }, { id: 2, name: 'Magenta Dye' }], names),
     ['Kräutergebackenes Ei', 'Magentafarbener Farbstoff'])
-  assert.equal(localize([{ id: 1, name: 'Herb Baked Egg' }, { id: 3, name: 'Basic Campfire' }], names), null)
+  // one recipe the static API has no entry for cost the whole book (Wuzuw's enchanting, 2026-11-22):
+  // it counts as one missing recipe now
+  assert.deepEqual(localize([{ id: 1, name: 'Herb Baked Egg' }, { id: 3, name: 'Basic Campfire' }], names),
+    ['Kräutergebackenes Ei', null])
   assert.equal(localize(undefined, names), null)
+})
+
+test('updateProfessions counts a recipe without a name in the client language as missing', () => {
+  const member = toLua({ name: 'Wuzuw Goldencog', profs: {} })
+  updateProfessions(member, [{ skillLine: 202, rank: 165, max: 225, recipes: ['Sappeurladung', null] }], TS, nameBridge(bridgeDb()))
+  const rec = member.get('profs').get(202)
+  assert.deepEqual(rec.get('recipes').arr, [12760])
+  assert.equal(rec.get('partial'), 1)
 })
 
 test('wantNames hands Guildy the names it could not translate, to look for in the game', () => {

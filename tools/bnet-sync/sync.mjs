@@ -13,7 +13,7 @@ import { basename, dirname, join } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { parse, serialize, LuaTable } from './lua.mjs'
-import { pvpRankValues, PVP_RANK, gearValues, statValues, professions, updateStats, updateProfessions, nameBridge, apiLocale, wantNames, localize, MAX_MISSING, BOOK_SKILLS, nameKey, slugOf, guildSlug, toBytes, fromBytes, gearRecord, updateGear, enchantTexts, craftItems, talentRecord, talentTrees, classSpecs, staticNamespaceOf, updateTalents, talentNames, knownTreeNames, CLASS_FILES } from './map.mjs'
+import { pvpRankValues, PVP_RANK, gearValues, statValues, professions, updateStats, updateProfessions, nameBridge, apiLocale, wantNames, localize, MAX_MISSING, BOOK_SKILLS, EN_PROFESSIONS, nameKey, slugOf, guildSlug, toBytes, fromBytes, gearRecord, updateGear, enchantTexts, craftItems, talentRecord, talentTrees, classSpecs, staticNamespaceOf, updateTalents, talentNames, knownTreeNames, CLASS_FILES } from './map.mjs'
 
 const args = process.argv.slice(2)
 const flag = name => args.includes(name)
@@ -163,7 +163,7 @@ function specsOfClass(classId) {
 
 accessToken = await token()
 const now = Math.floor(Date.now() / 1000)
-const totals = { members: 0, added: 0, stats: 0, profs: 0, books: 0, partial: 0, bookCandidates: 0, gear: 0, talents: 0, ranks: 0, missing: [], failed: [] }
+const totals = { members: 0, added: 0, stats: 0, profs: 0, books: 0, partial: 0, bookCandidates: 0, gear: 0, talents: 0, ranks: 0, missing: [], failed: [], dropped: [] }
 let rankShapeShown = false
 const crafts = [] // [spellID, itemID] of the guild's books: what each recipe makes (GuildyDB.craftItems)
 const unknownNames = new Map() // names no saved one matched -> a recipe ID: Guildy looks for them in the game
@@ -255,11 +255,18 @@ for (const guildKey of db.get('guilds').keys()) {
           }
           if (!BOOK_SKILLS.has(entry.skillLine)) continue
           totals.bookCandidates++
-          const unseen = entry.recipes ? entry.recipes.filter(name => bridge.spells(name).length === 0) : null
-          entry.recipes?.forEach((name, i) => { if (bridge.spells(name).length === 0) unknownNames.set(name, ids[i]) })
+          // a recipe without a name in the client's language (null) counts as missing like an unknown name
+          const unseen = entry.recipes ? entry.recipes.filter(name => name === null || bridge.spells(name).length === 0) : null
+          entry.recipes?.forEach((name, i) => { if (name !== null && bridge.spells(name).length === 0) unknownNames.set(name, ids[i]) })
           const unknown = unseen ? unseen.length : Infinity
           if (unknown === 0) totals.books++
           else if (unknown <= MAX_MISSING) totals.partial++
+          else {
+            // not written: say whose and why, instead of a book quietly missing from the count
+            const nameless = (entry.recipes ?? []).filter(name => name === null).length
+            totals.dropped.push(`${fromBytes(key)} ${EN_PROFESSIONS[entry.skillLine] ?? entry.skillLine}: ${unknown} von ${ids.length} Rezepten`
+              + ` nicht übersetzbar${nameless ? ` (${nameless} ohne Namen in der Sprache des Spiels)` : ''}`)
+          }
         }
         if (updateProfessions(member, list, ts, bridge)) totals.profs++
       }
@@ -280,6 +287,7 @@ if (totals.failed.length) console.log(`Fehlgeschlagen: ${totals.failed.join('; '
 if (bridge) {
   console.log(`Rezeptbücher: ${totals.books} vollständig, ${totals.partial} mit bis zu ${MAX_MISSING} fehlenden Rezepten, von ${totals.bookCandidates} (${namesLooked} Rezeptnamen neu nachgeschlagen).`)
   console.log('Ein Teilbuch wird vollständig, sobald Guildy die fehlenden Rezepte einmal in einem Buch im Spiel liest.')
+  for (const line of totals.dropped) console.log(`Nicht geschrieben: ${line}`)
 }
 
 // from the next login on Guildy saves the names this needs, and looks for those it never saw
