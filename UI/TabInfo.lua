@@ -344,10 +344,8 @@ local function Build(panel)
 
   function view:Refresh()
     local can = ns.Roster.Can()
-    -- C_GuildInfo.GetMOTD is protected on Forever (ADDON_ACTION_BLOCKED even inside pcall):
-    -- only used when the old roster function is missing
-    local getMotd = rawget(_G, "GetGuildRosterMOTD") or (C_GuildInfo and C_GuildInfo.GetMOTD)
-    local motdText = ns.Anon.Motd(ns.Try(getMotd) or "")
+    -- never C_GuildInfo.GetMOTD: protected on Forever (Game/Roster.lua)
+    local motdText = ns.Anon.Motd(ns.Roster.Motd())
     self.Motd:SetText(motdText ~= "" and motdText or ("|cff999999" .. L.EMPTY .. "|r"))
     self.MotdEditor:Update(motdText, can.editMotd)
     local get = (C_GuildInfo and C_GuildInfo.GetInfoText) or rawget(_G, "GetGuildInfoText")

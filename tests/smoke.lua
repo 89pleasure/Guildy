@@ -373,6 +373,21 @@ T.describe("Smoke", function()
     T.eq(errors, {})
   end)
 
+  T.it("shows the message of the day from GUILD_MOTD without the protected getter", function()
+    -- C_GuildInfo.GetMOTD is protected on Forever and GetGuildRosterMOTD is gone (2026-11-22)
+    local getMotd, called = env.C_GuildInfo.GetMOTD, 0
+    env.C_GuildInfo.GetMOTD = function() called = called + 1 return "blocked" end
+    Fire("GUILD_MOTD", "Raid tonight at 8")
+    RunTimers()
+    ns.UI.SelectTab("info")
+    T.eq(ns.UI.TabView("info").Motd:GetText(), "Raid tonight at 8")
+    T.eq(called, 0)
+    -- kept for the next session (GUILD_MOTD may not come again after a /reload)
+    T.eq(ns.GuildData().motd, "Raid tonight at 8")
+    env.C_GuildInfo.GetMOTD = getMotd
+    T.eq(errors, {})
+  end)
+
   T.it("shows specializations and cooldowns on the professions tab, in the tooltip and on the page", function()
     local guild, now, L = ns.GuildData(), ns.Now(), ns.L
     local au = guild.members["au tsch"]

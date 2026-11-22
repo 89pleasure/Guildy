@@ -88,7 +88,10 @@ local HANDLERS = {
     ns.Roster.ScheduleScan()
     ns.Fire("INFO")
   end,
-  GUILD_MOTD = function() ns.Fire("INFO") end,
+  GUILD_MOTD = function(text)
+    ns.Roster.NoteMotd(text)
+    ns.Fire("INFO")
+  end,
   GUILD_RANKS_UPDATE = function() ns.Fire("INFO") end,
   GUILD_PREFERRED_PLAY_SETTINGS_UPDATED = function() ns.Fire("INFO") end,
   CHAT_MSG_GUILD = function(text, sender, ...) OnGuildChat("guild", text, sender, ...) end,

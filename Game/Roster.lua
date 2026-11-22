@@ -292,6 +292,24 @@ function Roster.Can()
   return can
 end
 
+-- The guild's message of the day. C_GuildInfo.GetMOTD is protected on Forever (ADDON_ACTION_BLOCKED
+-- even inside pcall, reported 2026-11-22 from inside an instance) and GetGuildRosterMOTD is gone, so
+-- the text comes only from the GUILD_MOTD event and is kept in GuildyDB, since the event may not come
+-- again after a /reload. Until the guild data is there, it waits here.
+local pendingMotd
+
+function Roster.NoteMotd(text)
+  if ns.AnySecret(text) or type(text) ~= "string" then return end
+  local guild = ns.GuildData()
+  if guild then guild.motd, pendingMotd = text, nil else pendingMotd = text end
+end
+
+function Roster.Motd()
+  local guild = ns.GuildData()
+  if guild and pendingMotd then guild.motd, pendingMotd = pendingMotd, nil end
+  return pendingMotd or (guild and type(guild.motd) == "string" and guild.motd) or ""
+end
+
 -- The player's own roster entry
 function Roster.Me()
   return Roster.Find(ns.Names.FromUnit(UnitName("player")))
