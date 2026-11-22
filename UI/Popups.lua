@@ -151,6 +151,24 @@ function UI.MemberMenu(m, anchor)
   W.OpenMenu(anchor or UI.CursorAnchor(), items, 210)
 end
 
+-- A right-click on a member in Guildy opens Blizzard's guild member menu, not Guildy's (UI/Notes.lua:
+-- the secure pick button right-clicks the member's row in Blizzard's list). Guildy's own entries that
+-- must stay reachable go into that menu (Blizzard's Menu.ModifyMenu).
+function UI.HookMemberMenu()
+  local menu = rawget(_G, "Menu")
+  if not (menu and menu.ModifyMenu) then return end
+  pcall(menu.ModifyMenu, "MENU_UNIT_COMMUNITIES_GUILD_MEMBER", function(_, root, context)
+    if not root or type(context) ~= "table" or ns.AnySecret(context.guid, context.name) then return end
+    local m = ns.Roster.FindByGuid(context.guid) or ns.Roster.Find(context.name)
+    if not m then return end
+    root:CreateDivider()
+    -- professions that are wrong: thrown away, the next reading starts from nothing
+    root:CreateButton(ns.L.MEMBER_FORGET_PROFS, function()
+      if ns.TradeSkill.Forget(m) then ns.Print(ns.L.MEMBER_FORGOT_PROFS:format(m.name)) end
+    end)
+  end)
+end
+
 -- Where a member's tooltip stands (settings.tooltipAnchor, Guildy's options):
 --   "cursor"  = at the mouse (default)
 --   "window"  = beside Guildy's window at the row's height, so it never covers the list

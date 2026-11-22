@@ -593,4 +593,23 @@ T.describe("Right-click entry", function()
     T.eq(#Open("MENU_UNIT_PLAYER", { name = world.SECRET }), 0)
     T.eq(errors, {})
   end)
+
+  -- Guildy's member rows open Blizzard's guild member menu on a right-click (UI/Notes.lua): wrong
+  -- professions are thrown away from there
+  T.it("offers to discard a guild member's professions in Blizzard's guild member menu", function()
+    ns.UI.HookMemberMenu()
+    local tag = "MENU_UNIT_COMMUNITIES_GUILD_MEMBER"
+    T.truthy(callbacks[tag], "hooked")
+    local member = ns.Roster.Find("Makira Farron")
+    local guild = ns.GuildData()
+    guild.members[member.key].profs = { [171] = { ts = 1, src = "link", rank = 279, max = 300 } }
+    local buttons = Open(tag, { name = "Makira-Farron", guid = member.guid })
+    T.eq(#buttons, 1)
+    T.eq(buttons[1].text, ns.L.MEMBER_FORGET_PROFS)
+    buttons[1].onClick()
+    T.eq(next(guild.members[member.key].profs), nil)
+    T.eq(#Open(tag, { name = "Fremder", guid = "Player-9-99" }), 0) -- not in the guild
+    T.eq(#Open(tag, { name = world.SECRET, guid = world.SECRET }), 0)
+    T.eq(errors, {})
+  end)
 end)
