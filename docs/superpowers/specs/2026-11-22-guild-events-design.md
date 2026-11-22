@@ -222,3 +222,5 @@ not zero). Opening an event must not disturb Blizzard's calendar if the player h
   (queued once the server lists the event); the reminder is posted again by one Guildy user (the `EVR`
   claim is back), the winner's line waits for their next key press and is dropped if the line shows up in
   guild chat first. The [Gilde erinnern] link is gone; the announce button stays for events made without the box.
+- Tab order by use (Sven, 2026-11-22): Chat, Mitglieder, Ereignisse, Übersicht, Berufe, Bank, Ruhmeshalle,
+  Info & Log, Ränge, Blacklist (`RegisterTab` orders 1 to 10, the communities side tab 11).
