@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.10.2
+
+- Fixed: with the game's gamepad interface, Guildy's entries in other players' right-click menus
+  ("Add to Guildy blacklist", "Discard professions and read anew") broke the menu, and actions such as
+  Interact or Set Focus stopped working. Guildy no longer adds entries to the game's menus while the
+  gamepad interface is on.
+- Fixed: with the gamepad interface, a right-click on a member in Guildy opened an empty menu at the edge
+  of the screen. It now opens Guildy's own member menu (character page, whisper, invite, copy name,
+  discard professions).
+- Fixed: with the gamepad interface, opening Guildy's tabs took up to several seconds. They now open as
+  fast as with mouse and keyboard.
+
 ## 1.10.1
 
 - Fixed: guild chat lines written in Discord through the guild's Discord integration showed up in
