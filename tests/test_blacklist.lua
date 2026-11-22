@@ -201,4 +201,56 @@ T.describe("Blacklist", function()
     T.eq(#all, 3)
     T.eq(all[1].n, "Bodo Langfinger")
   end)
+  T.it("packs the list into messages of 40", function()
+    local book = {}
+    for i = 1, 85 do BL.Add(book, ("Gegner %03d"):format(i), "kos", nil, "Pell Quellgrund", NOW + i, ctx) end
+    local lists = BL.Wire(book)
+    T.eq(#lists, 3)
+    T.eq(#lists[1], 40)
+    T.eq(#lists[3], 5)
+    T.eq(lists[1][1].n, "Gegner 001")
+    T.eq(lists[3][5].n, "Gegner 085")
+  end)
+
+  T.it("copies only known fields onto the wire", function()
+    local item = BL.Item({ n = "Krag Eisenzahn", t = "kos", a = "Pell Quellgrund", at = NOW, junk = true })
+    T.eq(item, { n = "Krag Eisenzahn", t = "kos", a = "Pell Quellgrund", at = NOW })
+  end)
+
+  T.it("gives the same digest after a whole-list exchange", function()
+    local a, b = {}, {}
+    BL.Add(a, "Krag Eisenzahn", "kos", "Friedhof", "Pell Quellgrund", NOW, ctx)
+    BL.Add(a, "Bodo Langfinger", "ninja", nil, "Pell Quellgrund", NOW + 5, ctx)
+    BL.Remove(a, "Bodo Langfinger", "Alva Abendrot", NOW + 9, ctx)
+    for _, list in ipairs(BL.Wire(a)) do BL.Apply(b, list, NOW + 10, ctx) end
+    T.eq(BL.Digest(b), BL.Digest(a))
+    T.eq(BL.Digest(a), { n = 2, m = NOW + 9, s = (NOW + NOW + 5 + NOW + 9) % 2147483647 })
+    T.eq(BL.Apply(b, "kaputt", NOW, ctx), false)
+  end)
+
+  T.it("changes the digest when one time changes", function()
+    local book = {}
+    BL.Add(book, "Krag Eisenzahn", "kos", nil, "Pell Quellgrund", NOW, ctx)
+    local before = BL.Digest(book)
+    book["krag eisenzahn"].at = NOW + 1
+    T.eq(BL.Differs(before, BL.Digest(book)), true)
+    T.eq(BL.Differs(before, before), false)
+    T.eq(BL.Differs({ n = 1, m = 2, s = 3 }, nil), true)
+    T.eq(BL.Digest(nil), { n = 0, m = 0, s = 0 })
+  end)
+
+  T.it("knows when it is ahead", function()
+    T.eq(BL.Ahead({ n = 1, m = 10, s = 1 }, { n = 5, m = 9, s = 1 }), true)
+    T.eq(BL.Ahead({ n = 3, m = 10, s = 1 }, { n = 2, m = 10, s = 2 }), true)
+    T.eq(BL.Ahead({ n = 2, m = 10, s = 1 }, { n = 2, m = 10, s = 2 }), false)
+    T.eq(BL.Ahead({ n = 9, m = 8, s = 1 }, { n = 2, m = 10, s = 2 }), false)
+  end)
+
+  T.it("warns once every five minutes per name", function()
+    local seen = {}
+    T.eq(BL.ShouldAlert(seen, "krag eisenzahn", NOW), true)
+    T.eq(BL.ShouldAlert(seen, "krag eisenzahn", NOW + 299), false)
+    T.eq(BL.ShouldAlert(seen, "bodo langfinger", NOW + 299), true)
+    T.eq(BL.ShouldAlert(seen, "krag eisenzahn", NOW + 300), true)
+  end)
 end)

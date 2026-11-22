@@ -4,7 +4,11 @@ Copy these into the CurseForge "Create project" form.
 
 ## Project name
 
-Guildy
+Guildy – Guild Window
+
+The name goes into Google's page title, and "guildy" alone reads to Google as a typo of "guilty". CurseForge
+asks not to put the game's name in the title, so "WoW Forever" stays in the summary. The URL
+slug stays `guildy`, and the in-game title stays `Guildy` (`Guildy.toc`).
 
 ## Summary (one line, English)
 

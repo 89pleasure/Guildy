@@ -154,3 +154,77 @@ function Blacklist.Sorted(book, includeRemoved)
   end)
   return list
 end
+
+-- Sharing ---------------------------------------------------------------------------------------------------
+
+Blacklist.WIRE_ENTRIES = 40 -- entries a message carries
+local WIRE_MAX = 2000         -- entries of a message that are looked at
+local FIELDS = { "n", "t", "r", "a", "at", "c", "l", "f", "x", "xb" }
+
+-- An entry as it goes on the wire: the known fields only
+function Blacklist.Item(entry)
+  local item = {}
+  for _, field in ipairs(FIELDS) do item[field] = entry[field] end
+  return item
+end
+
+-- The whole list as messages: lists of WIRE_ENTRIES items, in key order
+function Blacklist.Wire(book)
+  local keys = {}
+  for key, entry in pairs(book or {}) do
+    if type(entry) == "table" and entry.at then keys[#keys + 1] = key end
+  end
+  table.sort(keys)
+  local messages = {}
+  for i, key in ipairs(keys) do
+    local at = math.floor((i - 1) / Blacklist.WIRE_ENTRIES) + 1
+    messages[at] = messages[at] or {}
+    messages[at][#messages[at] + 1] = Blacklist.Item(book[key])
+  end
+  return messages
+end
+
+-- Takes in a received list. Returns whether anything changed.
+function Blacklist.Apply(book, list, now, ctx)
+  if type(list) ~= "table" then return false end
+  local changed = false
+  for i = 1, math.min(#list, WIRE_MAX) do
+    if Blacklist.Merge(book, list[i], now, ctx) then changed = true end
+  end
+  return changed
+end
+
+-- What a client knows, in three numbers: entries (removed ones too), the newest event, a checksum of times
+function Blacklist.Digest(book)
+  local digest = { n = 0, m = 0, s = 0 }
+  for _, entry in pairs(type(book) == "table" and book or {}) do
+    if type(entry) == "table" and type(entry.at) == "number" then
+      digest.n = digest.n + 1
+      digest.m = max(digest.m, Blacklist.EventTime(entry))
+      digest.s = (digest.s + entry.at + (entry.x or 0)) % 2147483647
+    end
+  end
+  return digest
+end
+
+function Blacklist.Differs(mine, theirs)
+  if type(theirs) ~= "table" then return true end
+  return mine.n ~= theirs.n or mine.m ~= theirs.m or mine.s ~= theirs.s
+end
+
+-- Whether this client should offer its list: it knows a newer event, or as new but more entries
+function Blacklist.Ahead(mine, theirs)
+  local m, n = tonumber(theirs.m) or 0, tonumber(theirs.n) or 0
+  return mine.m > m or (mine.m == m and mine.n > n)
+end
+
+-- Warnings -------------------------------------------------------------------------------------------------
+
+Blacklist.ALERT_GAP = 300 -- seconds between two warnings about the same name
+
+-- Whether to warn about key now; remembers the warning in seen
+function Blacklist.ShouldAlert(seen, key, now)
+  if seen[key] and now - seen[key] < Blacklist.ALERT_GAP then return false end
+  seen[key] = now
+  return true
+end

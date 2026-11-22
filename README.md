@@ -2,6 +2,8 @@
 
 <img src="https://raw.githubusercontent.com/svengabr/Guildy/main/media/logo.png" alt="Guildy logo" width="128">
 
+Guildy is a guild window addon for World of Warcraft: Forever.
+
 On WoW Forever I almost never opened the guild window. It has a chat and a plain list, and I rarely needed either. Guildy is what I built to change that. Press **J** and you land in the guild chat, with tabs next to it for members, professions and guild records.
 
 It runs inside Blizzard's own guild window and keeps Blizzard's look. It comes in English, German, French, Spanish, Russian and Brazilian Portuguese.
