@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.9.11
+## 1.10.0
 
 - New: a Blacklist tab, shared with every Guildy user in your guild. Add players your guild should be
   warned about, of either faction: kill on sight, ninja looters, insults, scammers or other, with a short
