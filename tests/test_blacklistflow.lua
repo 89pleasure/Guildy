@@ -267,3 +267,116 @@ T.describe("Seeing blacklisted players", function()
     T.eq(errors, {})
   end)
 end)
+
+T.describe("The Blacklist tab", function()
+  local function View()
+    env.CommunitiesFrame:Show()
+    ns.UI.SelectTab("blacklist")
+    return ns.UI.TabView("blacklist")
+  end
+
+  T.it("opens and lists entries newest first", function()
+    local view = View()
+    T.eq(ns.UI.Current(), "blacklist")
+    local items = view.List.items
+    T.truthy(#items >= 4, "entries listed")
+    for i = 2, #items do
+      if items[i].entry and items[i - 1].entry and not items[i].removed and not items[i - 1].removed then
+        T.truthy(ns.Blacklist.EventTime(items[i - 1].entry) >= ns.Blacklist.EventTime(items[i].entry), "newest first")
+      end
+    end
+    T.eq(errors, {})
+  end)
+
+  T.it("greys a name that is now in the guild", function()
+    local view = View()
+    local found
+    for _, item in ipairs(view.List.items) do
+      if item.entry and item.entry.n == "Au Tsch" then found = item end
+    end
+    T.truthy(found, "listed")
+    T.eq(found.quiet, true)
+  end)
+
+  T.it("filters by kind, reason and text", function()
+    local view = View()
+    view:SetKind("insult")
+    for _, item in ipairs(view.List.items) do
+      if item.entry then T.eq(item.entry.t, "insult") end
+    end
+    view:SetKind(nil)
+    view.NoReasonCheck:SetChecked(true)
+    view.NoReasonCheck:GetScript("OnClick")(view.NoReasonCheck)
+    for _, item in ipairs(view.List.items) do
+      if item.entry then T.eq(item.entry.r, nil) end
+    end
+    view.NoReasonCheck:SetChecked(false)
+    view.NoReasonCheck:GetScript("OnClick")(view.NoReasonCheck)
+    view.Search:SetText("vexa")
+    view.Search:GetScript("OnTextChanged")(view.Search)
+    T.eq(#view.List.items, 1)
+    view.Search:SetText("")
+    view.Search:GetScript("OnTextChanged")(view.Search)
+  end)
+
+  T.it("shows removed entries only to officers with the box ticked", function()
+    local view = View()
+    local function Removed()
+      local n = 0
+      for _, item in ipairs(view.List.items) do if item.removed then n = n + 1 end end
+      return n
+    end
+    T.eq(Removed(), 0)
+    view.RemovedCheck:SetChecked(true)
+    view.RemovedCheck:GetScript("OnClick")(view.RemovedCheck)
+    T.truthy(Removed() >= 1, "removed shown")
+    T.eq(view.canRemove, true)
+    officerOrders[2] = false
+    view:Refresh()
+    T.eq(view.canRemove, false)
+    T.eq(Removed(), 0)
+    officerOrders[2] = true
+    view.RemovedCheck:SetChecked(false)
+    view.RemovedCheck:GetScript("OnClick")(view.RemovedCheck)
+  end)
+
+  T.it("adds from the add row", function()
+    local view = View()
+    view:OpenAdd()
+    T.eq(view.AddRow:IsShown(), true)
+    view.AddName:SetText("Ruk Knochenbrecher")
+    view:SetAddKind("kos")
+    view.AddReason:SetText("jagt Sammler in Felwood")
+    view:Submit()
+    T.eq(view.AddRow:IsShown(), false)
+    local entry = ns.GameBlacklist.Book()["ruk knochenbrecher"]
+    T.eq(entry.t, "kos")
+    T.eq(entry.r, "jagt Sammler in Felwood")
+    T.eq(view.List.items[1].entry.n, "Ruk Knochenbrecher")
+  end)
+
+  T.it("refuses a guild member from the add row with the message", function()
+    local view = View()
+    local printed = {}
+    rawset(env.DEFAULT_CHAT_FRAME, "AddMessage", function(_, text) printed[#printed + 1] = text end)
+    view:OpenAdd()
+    view.AddName:SetText("Makira Farron")
+    view:Submit()
+    T.eq(view.AddRow:IsShown(), true)
+    T.truthy(printed[1] and printed[1]:find(ns.L.BL_ERR_PROTECTED, 1, true), "says why")
+    view:CloseAdd()
+  end)
+
+  T.it("/guildy bl opens the add row with the target", function()
+    env.SlashCmdList.GUILDY("bl")
+    local view = ns.UI.TabView("blacklist")
+    T.eq(ns.UI.Current(), "blacklist")
+    T.eq(view.AddRow:IsShown(), true)
+    T.eq(view.AddName:GetText(), "Vexa Nachtschatten")
+    view:CloseAdd()
+    env.SlashCmdList.GUILDY("bl Lirra Dunkelquell")
+    T.eq(view.AddName:GetText(), "Lirra Dunkelquell")
+    view:CloseAdd()
+    T.eq(errors, {})
+  end)
+end)

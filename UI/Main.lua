@@ -836,7 +836,7 @@ end
 -- was most of the stutter a guild of 1000 reported (2026-11-16): those events redraw the tab at most
 -- once per SYNC_REFRESH seconds while they come from the addon channel (ns.Sync.receiving); the player's
 -- own reads (bank, recipe book) still show at once.
-local SYNC_EVENTS = { PROFS = true, STATS = true, FAMILY = true, BANK = true, USERS = true }
+local SYNC_EVENTS = { PROFS = true, STATS = true, FAMILY = true, BANK = true, USERS = true, BLACKLIST = true }
 UI.SYNC_REFRESH = 1
 local syncTimer
 local function Refresh(event, ...)
@@ -860,7 +860,7 @@ function UI.FlushRefresh()
   syncTimer = nil
   if pending then Refresh(pending.event) end
 end
-for _, event in ipairs({ "ROSTER", "PROFS", "CHAT", "INFO", "HARVEST", "STATS", "USERS", "FAMILY", "GUILD", "COMMUNITY", "BANK" }) do
+for _, event in ipairs({ "ROSTER", "PROFS", "CHAT", "INFO", "HARVEST", "STATS", "USERS", "FAMILY", "GUILD", "COMMUNITY", "BANK", "BLACKLIST" }) do
   if SYNC_EVENTS[event] then
     ns.On(event, function(...)
       if ns.Sync and ns.Sync.receiving then RefreshLater(event) else Refresh(event, ...) end

@@ -234,6 +234,8 @@ SlashCmdList.GUILDY = function(msg)
     C_Timer.After(2, function() ns.TradeSkill.Probe(args) end)
   elseif msg:match("^probe") then
     ns.TradeSkill.Probe(raw:sub(6))
+  elseif msg == "bl" or msg:match("^bl ") then
+    ns.UI.BlacklistAdd(ns.Names.Trim(raw:sub(3)))
   elseif msg == "shots backdrop" then
     ns.UI.ToggleShotBackdrop()
   elseif msg == "shots anon" then

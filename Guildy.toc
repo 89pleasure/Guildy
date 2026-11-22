@@ -95,6 +95,7 @@ UI\TabProfessions.lua
 UI\TabInfo.lua
 UI\TabRanks.lua
 UI\TabBank.lua
+UI\TabBlacklist.lua
 UI\BankWidgets.lua
 UI\BankContents.lua
 UI\TabCommunities.lua
