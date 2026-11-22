@@ -852,7 +852,7 @@ local function Build(panel)
   local function HasCooldownCraft(prof, skillLine)
     local watched = ns.Cooldowns.Watched(ns.DB() and ns.DB().cooldownSpells)
     for _, id in ipairs(prof.recipes or {}) do
-      if watched[id] == skillLine then return true end
+      if watched[id] == skillLine and not UI.CooldownHidden(id) then return true end
     end
     return false
   end

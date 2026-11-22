@@ -39,8 +39,15 @@ function UI.CooldownLeft(entry)
   return L.CD_LEFT:format((unit == "m" and L.CD_M or unit == "h" and L.CD_H or L.SPAN_D):format(count))
 end
 
+-- Whether the player hid a cooldown craft from the displays (options, professions: settings.hiddenCooldowns
+-- = { [spellID] = true }). Only what Guildy shows: the readings are still taken and shared.
+function UI.CooldownHidden(spell)
+  local hidden = ns.Settings().hiddenCooldowns
+  return type(hidden) == "table" and hidden[spell] == true
+end
+
 -- A member's cooldowns { { spell, readyAt, left } }, of one profession or all (skillLine nil), and when
--- they were read; nil when nothing is known of them
+-- they were read; nil when nothing is known of them. Hidden crafts are left out.
 function UI.CooldownsOf(m, skillLine)
   local guild = ns.GuildData()
   local book = guild and guild.cooldowns
@@ -49,7 +56,9 @@ function UI.CooldownsOf(m, skillLine)
   local watched = ns.Cooldowns.Watched(ns.DB() and ns.DB().cooldownSpells)
   local out = {}
   for _, entry in ipairs(list) do
-    if not skillLine or watched[entry.spell] == skillLine then out[#out + 1] = entry end
+    if (not skillLine or watched[entry.spell] == skillLine) and not UI.CooldownHidden(entry.spell) then
+      out[#out + 1] = entry
+    end
   end
   return out, book[m.key].ts
 end

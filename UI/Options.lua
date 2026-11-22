@@ -184,11 +184,17 @@ local function BuildGeneral(panel)
   panel.BlacklistAlert = Check(panel, L.OPTIONS_BLACKLIST_ALERT, function(self) ns.Settings().blacklistAlert = Off(self) end)
   panel.BlacklistAlert:SetPoint("TOPLEFT", panel.Ding, "BOTTOMLEFT", 0, -4)
 
+  -- guild events (Game/Events.lua): the reminder 30 minutes before, and taking part in posting it
+  panel.EventRemind = Check(panel, L.OPTIONS_EVENT_REMIND, function(self) ns.Settings().eventRemind = Off(self) end)
+  panel.EventRemind:SetPoint("TOPLEFT", panel.BlacklistAlert, "BOTTOMLEFT", 0, -4)
+  panel.EventPost = Check(panel, L.OPTIONS_EVENT_POST, function(self) ns.Settings().eventPost = Off(self) end)
+  panel.EventPost:SetPoint("TOPLEFT", panel.EventRemind, "BOTTOMLEFT", 0, -4)
+
   local blizzard = W.Button(panel, L.OPEN_BLIZZARD, function()
     options:Hide()
     UI.ShowBlizzard()
   end, 170, { small = true })
-  blizzard:SetPoint("TOPLEFT", panel.BlacklistAlert, "BOTTOMLEFT", 4, -22)
+  blizzard:SetPoint("TOPLEFT", panel.EventPost, "BOTTOMLEFT", 4, -22)
 
   -- everything this window changes back to what Guildy ships (sharing is not a look: it stays)
   local reset = W.Button(panel, L.OPTIONS_RESET_ALL, function()
@@ -220,6 +226,8 @@ local function BuildGeneral(panel)
     self.ScaleValue:SetText(Percent(UI.Scale()))
     self.Ding:SetChecked(ns.Settings().ding60 ~= false)
     self.BlacklistAlert:SetChecked(ns.Settings().blacklistAlert ~= false)
+    self.EventRemind:SetChecked(ns.Settings().eventRemind ~= false)
+    self.EventPost:SetChecked(ns.Settings().eventPost ~= false)
   end
 end
 
@@ -544,8 +552,60 @@ local function BuildProfessions(panel)
   tip:SetPoint("TOPLEFT", panel.Share, "BOTTOMLEFT", 26, -2)
   tip:SetPoint("RIGHT", -12, 0)
 
+  -- which cooldown crafts Guildy shows (member tooltip, professions tab): every known one, ticked = shown
+  local cdHead = W.Text(panel, "GameFontNormal", L.OPTIONS_CD_HEAD)
+  cdHead:SetPoint("TOPLEFT", tip, "BOTTOMLEFT", -28, -20)
+  local cdTip = W.Text(panel, "GameFontDisableSmall", L.OPTIONS_CD_TIP)
+  cdTip:SetPoint("TOPLEFT", cdHead, "BOTTOMLEFT", 0, -4)
+  cdTip:SetPoint("RIGHT", -12, 0)
+  panel.CooldownChecks = {}
+  local COLUMN = math.floor((WIDTH - 40) / 2)
+
+  local function Crafts()
+    local watched = ns.Cooldowns.Watched(ns.DB() and ns.DB().cooldownSpells)
+    local list = {}
+    for spell, skillLine in pairs(watched) do
+      local name = ns.TradeSkill.RecipeName(spell) or ("#" .. spell)
+      list[#list + 1] = { spell = spell, skillLine = skillLine, name = name }
+    end
+    table.sort(list, function(a, b)
+      if a.skillLine ~= b.skillLine then return a.skillLine < b.skillLine end
+      return a.name < b.name
+    end)
+    return list
+  end
+
   function panel:Refresh()
     self.Share:SetChecked(ns.Settings().share and true or false)
+    local crafts = Crafts()
+    local rows = math.ceil(#crafts / 2)
+    for i, craft in ipairs(crafts) do
+      local check = self.CooldownChecks[i]
+      if not check then
+        check = Check(self, "", function(box)
+          local settings = ns.Settings()
+          local hidden = type(settings.hiddenCooldowns) == "table" and settings.hiddenCooldowns or {}
+          hidden[box.spell] = (not box:GetChecked()) or nil
+          settings.hiddenCooldowns = next(hidden) and hidden or nil
+          RefreshTab("professions")
+        end)
+        self.CooldownChecks[i] = check
+      end
+      local column, row = math.floor((i - 1) / rows), (i - 1) % rows
+      check:ClearAllPoints()
+      check:SetPoint("TOPLEFT", cdTip, "BOTTOMLEFT", column * COLUMN - 2, -6 - row * 22)
+      check.Label:SetWidth(COLUMN - 30)
+      check.Label:SetWordWrap(false)
+      check.spell = craft.spell
+      check.Label:SetText(craft.name)
+      check:SetChecked(not UI.CooldownHidden(craft.spell))
+      check:Show()
+      check.Label:Show()
+    end
+    for i = #crafts + 1, #self.CooldownChecks do
+      self.CooldownChecks[i]:Hide()
+      self.CooldownChecks[i].Label:Hide()
+    end
   end
 end
 

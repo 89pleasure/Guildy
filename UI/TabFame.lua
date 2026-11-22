@@ -150,6 +150,9 @@ local function DungeonTitle(dungeon)
   return ns.L["FAME_DUNGEON_" .. dungeon.key:upper()]
 end
 
+-- shared with the Events tab (its dungeon picker, UI/TabEvents.lua)
+UI.DungeonTitle, UI.DungeonIcon = DungeonTitle, DungeonIcon
+
 -- short tag for a dungeon without an icon: initials of the capitalized words ("Halle der Thanen" →
 -- "HT"), a single word gives its first three letters ("Dalaran" → "Dal")
 local function DungeonTag(name)

@@ -32,6 +32,8 @@
 --   checksum of times), with the first slice only; BL {e = {entry, ...}}: entries of the guild's blacklist,
 --   one change right away or the whole list (40 entries a message). Whoever sees a summary that knows less
 --   offers the whole list once per pair of fingerprints.
+--   EVR  {k = key}: "I post the guild chat reminder of this event" (Game/Events.lua, Core/Events.lua: title@start);
+--   goes first in line, older Guildy versions have no handler and drop it.
 --   HI   {q = true}                         "I use Guildy" (q: please answer); every envelope since 0.3
 --   carries the sender's addon version (v), so any message marks its sender as a Guildy user.
 -- On a SUM, everyone who knows newer data about some member offers it after a random delay, unless
@@ -165,9 +167,13 @@ local function Enqueue(kind, payload)
   -- the bank is one small message a member waits for: ahead of the statistics and professions in line
   -- (behind a message that is already on its way)
   local at = #queue + 1
-  if kind == "BANK" or kind == "HI" then
+  -- an event reminder claim (EVR) is only worth anything within seconds: first of all
+  if kind == "EVR" then
     at = 1
-    while queue[at] and (queue[at].next > 1 or queue[at].kind == "BANK" or queue[at].kind == "HI") do at = at + 1 end
+    while queue[at] and (queue[at].next > 1 or queue[at].kind == "EVR") do at = at + 1 end
+  elseif kind == "BANK" or kind == "HI" then
+    at = 1
+    while queue[at] and (queue[at].next > 1 or queue[at].kind == "BANK" or queue[at].kind == "HI" or queue[at].kind == "EVR") do at = at + 1 end
   end
   table.insert(queue, at, message)
   Debug("queued %s: %d parts, place %d of %d", kind, #message.parts, at, #queue)
@@ -309,6 +315,15 @@ function Sync.ShareBlacklist(entries)
   local guild = ns.GuildData()
   if not guild then return end
   for _, list in ipairs(ns.Blacklist.Wire(guild.blacklist)) do Send("BL", { e = list }) end
+end
+
+-- Claims the guild chat reminder of an event (Game/Events.lua)
+function Sync.SendClaim(key)
+  Send("EVR", { k = key })
+end
+
+local function OnClaim(data, sender)
+  ns.GameEvents.OnClaim(data, sender)
 end
 
 -- Before the roster is there nobody counts as officer or guild member: messages wait for it (at most 50)
@@ -822,7 +837,7 @@ local function OnHello(data)
 end
 
 local HANDLERS = { SUM = OnSummary, PROF = OnProfessions, STAT = OnStats, FAM = OnFamily, BANK = OnBank, JOIN = OnJoined, CD = OnCooldowns,
-  GEAR = OnGear, HI = OnHello, BL = OnBlacklist }
+  GEAR = OnGear, HI = OnHello, BL = OnBlacklist, EVR = OnClaim }
 
 -- CHAT_MSG_ADDON: prefix, text, channel, sender
 function Sync.OnAddonMessage(prefix, text, channel, sender)

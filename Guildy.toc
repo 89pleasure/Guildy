@@ -53,12 +53,14 @@ Core\Activity.lua
 Core\Ding.lua
 Core\Tenure.lua
 Core\Blacklist.lua
+Core\Events.lua
 Core\GuildLog.lua
 Core\Anon.lua
 Core\ShotRun.lua
 Core\Runtime.lua
 Game\Roster.lua
 Game\Blacklist.lua
+Game\Events.lua
 Game\Chat.lua
 Game\Communities.lua
 Game\TradeSkill.lua
@@ -96,6 +98,7 @@ UI\TabInfo.lua
 UI\TabRanks.lua
 UI\TabBank.lua
 UI\TabBlacklist.lua
+UI\TabEvents.lua
 UI\BankWidgets.lua
 UI\BankContents.lua
 UI\TabCommunities.lua

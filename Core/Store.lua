@@ -22,6 +22,8 @@ Store.DEFAULTS = {
   listSort = "level",  -- online list sort on the chat tab
   statMouseover = true, -- read statistics of guild members under the mouse (/guildy statmouse)
   blacklistAlert = true, -- warn when someone from the guild's blacklist shows up (Game/Blacklist.lua)
+  eventRemind = true,  -- a line 30 minutes before a guild event (Game/Events.lua)
+  eventPost = true,    -- take part in posting that reminder in guild chat
 }
 
 function Store.Init(db)

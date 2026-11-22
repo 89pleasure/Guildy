@@ -439,6 +439,7 @@ local function Build()
     end
   end
   if rawget(_G, "PanelTemplates_SetNumTabs") then pcall(PanelTemplates_SetNumTabs, frame, buttons) end
+  for key, on in pairs(UI.tabFlash) do UI.SetTabFlash(key, on) end
 
   W.ResizeGrip(frame, function() SavePosition() end)
   frame:SetScript("OnSizeChanged", function()
@@ -558,6 +559,39 @@ end
 
 function UI.Current()
   return current and current.key
+end
+
+-- A bottom tab glows (pulsing) while it has something new, e.g. an event not yet seen (UI/TabEvents.lua).
+-- Kept while the window is not built yet and applied once it is.
+UI.tabFlash = {}
+local FLASH_PERIOD = 1.6
+function UI.SetTabFlash(key, on)
+  on = on and true or nil
+  UI.tabFlash[key] = on
+  local tab = byKey[key]
+  local button = tab and tab.button
+  if not button then return end
+  if on and not rawget(button, "guildyGlow") then
+    local glow = button:CreateTexture(nil, "OVERLAY")
+    glow:SetTexture("Interface\\PaperDollInfoFrame\\UI-Character-Tab-Highlight")
+    if glow.SetBlendMode then glow:SetBlendMode("ADD") end
+    glow:SetPoint("TOPLEFT", 6, -4)
+    glow:SetPoint("BOTTOMRIGHT", -6, 2)
+    glow:SetVertexColor(1, 0.82, 0.2)
+    rawset(button, "guildyGlow", glow)
+    local pulse = ns.CreateFrame("Frame", nil, button)
+    pulse.elapsed = 0
+    pulse:SetScript("OnUpdate", function(self, elapsed)
+      self.elapsed = (self.elapsed + (elapsed or 0)) % FLASH_PERIOD
+      glow:SetAlpha(0.35 + 0.65 * math.abs(math.sin(self.elapsed / FLASH_PERIOD * math.pi)))
+    end)
+    rawset(button, "guildyPulse", pulse)
+  end
+  local glow, pulse = rawget(button, "guildyGlow"), rawget(button, "guildyPulse")
+  if glow then
+    glow:SetShown(on == true)
+    pulse:SetShown(on == true)
+  end
 end
 
 -- The view of a tab once it was built (tests, cross-tab calls)
@@ -860,7 +894,7 @@ function UI.FlushRefresh()
   syncTimer = nil
   if pending then Refresh(pending.event) end
 end
-for _, event in ipairs({ "ROSTER", "PROFS", "CHAT", "INFO", "HARVEST", "STATS", "USERS", "FAMILY", "GUILD", "COMMUNITY", "BANK", "BLACKLIST" }) do
+for _, event in ipairs({ "ROSTER", "PROFS", "CHAT", "INFO", "HARVEST", "STATS", "USERS", "FAMILY", "GUILD", "COMMUNITY", "BANK", "BLACKLIST", "EVENTS" }) do
   if SYNC_EVENTS[event] then
     ns.On(event, function(...)
       if ns.Sync and ns.Sync.receiving then RefreshLater(event) else Refresh(event, ...) end

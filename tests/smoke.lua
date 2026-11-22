@@ -411,7 +411,7 @@ T.describe("Smoke", function()
     env.CommunitiesFrame:Show() -- J opens Blizzard's guild window
     T.truthy(ns.UI.IsShown(), "Guildy shows inside Blizzard's guild window")
     T.eq(ns.UI.Current(), "chat")
-    for _, key in ipairs({ "members", "overview", "fame", "professions", "info", "ranks", "bank", "blacklist", "chat" }) do
+    for _, key in ipairs({ "members", "overview", "fame", "professions", "info", "ranks", "bank", "blacklist", "events", "chat" }) do
       ns.UI.SelectTab(key)
       T.eq(ns.UI.Current(), key)
     end
@@ -2017,6 +2017,32 @@ T.describe("Hall of Fame", function()
     Toggle(share, true)
     T.eq(ns.Settings().share, true)
     ns.Settings().share = shared
+    -- professions: a cooldown craft unticked is left out of what Guildy shows, its reading stays
+    local panel = options.Panels.professions
+    panel:Refresh()
+    local arcanite
+    for _, check in ipairs(panel.CooldownChecks) do
+      if check.spell == 17187 then arcanite = check end
+    end
+    T.truthy(arcanite, "Transmute: Arcanite in the list")
+    T.eq(arcanite:GetChecked(), true)
+    local me = ns.Roster.Find("Ran Fred")
+    ns.GuildData().cooldowns = ns.GuildData().cooldowns or {}
+    ns.GuildData().cooldowns["ran fred"] = { ts = ns.Now(), v = ns.Cooldowns.REV, cd = { [17187] = 0, [18560] = 0 } }
+    local function Shows(spell)
+      for _, entry in ipairs(ns.UI.CooldownsOf(me) or {}) do
+        if entry.spell == spell then return true end
+      end
+      return false
+    end
+    T.eq(Shows(17187), true)
+    Toggle(arcanite, false)
+    T.eq(ns.Settings().hiddenCooldowns, { [17187] = true })
+    T.eq(Shows(17187), false)
+    T.truthy(ns.GuildData().cooldowns["ran fred"].cd[17187], "still read and shared")
+    Toggle(arcanite, true)
+    T.eq(ns.Settings().hiddenCooldowns, nil)
+    T.eq(Shows(17187), true)
     -- every tooltip position draws a member's tooltip
     for _, mode in ipairs(ns.UI.TOOLTIP_ANCHORS) do
       ns.Settings().tooltipAnchor = mode

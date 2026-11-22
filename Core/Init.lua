@@ -17,6 +17,7 @@ end
 local function OnGuildChat(kind, text, sender, ...)
   local guid = select(10, ...)
   ns.Chat.OnGuildMessage(kind, text, sender, guid)
+  if kind == "guild" then ns.GameEvents.OnGuildLine(text) end
   ns.TradeSkill.OnChatMessage(text, sender, guid)
 end
 
@@ -55,6 +56,7 @@ local HANDLERS = {
     ns.Sync.Start()
     ns.GameStats.Start()
     ns.GameDing.Start()
+    ns.GameEvents.Start()
     C_Timer.After(9, function() ns.SafeCall(ns.GameGear.Start) end)
     -- items, stats and the index of the guild upgrades in before the character page is opened
     C_Timer.After(ns.GameGear.WARM_DELAY, function() ns.SafeCall(ns.GameGear.WarmUp) end)
@@ -156,6 +158,17 @@ local HANDLERS = {
     ns.Chat.OnHistoryReceived(clubId, streamId)
     ns.Fire("CHAT")
   end,
+  -- the guild's calendar events (Game/Events.lua)
+  CALENDAR_UPDATE_GUILD_EVENTS = function() ns.GameEvents.OnGuildEvents() end,
+  CALENDAR_UPDATE_EVENT_LIST = function() ns.GameEvents.OnGuildEvents() end,
+  CALENDAR_OPEN_EVENT = function(calendarType) ns.GameEvents.OnOpenEvent(calendarType) end,
+  CALENDAR_UPDATE_INVITE_LIST = function() ns.GameEvents.OnEventChanged() end,
+  CALENDAR_NEW_EVENT = function() ns.GameEvents.CheckCreated() end,
+  CALENDAR_ACTION_PENDING = function() ns.GameEvents.CheckCreated() end,
+  CALENDAR_UPDATE_EVENT = function() ns.GameEvents.OnEventChanged() end,
+  CALENDAR_UPDATE_ERROR = function(message) ns.GameEvents.OnError(message) end,
+  CALENDAR_UPDATE_ERROR_WITH_COUNT = function(message, count) ns.GameEvents.OnError(message, count) end,
+  CALENDAR_UPDATE_ERROR_WITH_PLAYER_NAME = function(message, name) ns.GameEvents.OnError(message, name) end,
   TRADE_SKILL_SHOW = ScheduleTradeScan,
   TRADE_SKILL_LIST_UPDATE = ScheduleTradeScan,
   CRAFT_SHOW = ScheduleTradeScan,
@@ -303,6 +316,8 @@ SlashCmdList.GUILDY = function(msg)
     ns.GameBank.OnChanged()
     ns.GameBank.AskAgain()
     for _, line in ipairs(ns.GameBank.Debug()) do ns.Print(line) end
+  elseif msg == "events" then
+    for _, line in ipairs(ns.GameEvents.Debug()) do ns.Print(line) end
   elseif msg == "ding" then
     ns.GameDing.Test()
   elseif msg == "activity" then
