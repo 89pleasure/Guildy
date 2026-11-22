@@ -1454,4 +1454,4 @@ local function MemberTable(titleText, cols, fill)
   return view
 end
 
-UI.RegisterTab("fame", 3.5, "TAB_FAME", Build)
+UI.RegisterTab("fame", 7, "TAB_FAME", Build)

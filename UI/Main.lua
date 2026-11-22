@@ -564,7 +564,32 @@ end
 -- A bottom tab glows (pulsing) while it has something new, e.g. an event not yet seen (UI/TabEvents.lua).
 -- Kept while the window is not built yet and applied once it is.
 UI.tabFlash = {}
-local FLASH_PERIOD = 1.6
+local FLASH_PERIOD = 1.2
+local FLASH_COLOR = { 1, 0.62, 0.12 } -- a warm gold, unlike any other tab
+
+-- A copy of each of the tab's own texture pieces (left, middle, right, active or not), drawn added on top in
+-- FLASH_COLOR: the whole tab lights up in its own outline. Each copy shows while its piece shows.
+local function GlowCopies(button)
+  local copies = {}
+  local regions = { button:GetRegions() }
+  for _, region in ipairs(regions) do
+    if type(region) == "table" and region.GetObjectType and region:GetObjectType() == "Texture" and region ~= button:GetHighlightTexture() then
+      local atlas = region.GetAtlas and region:GetAtlas()
+      local file = region.GetTexture and region:GetTexture()
+      if atlas or file then
+        local copy = button:CreateTexture(nil, "OVERLAY", nil, 2)
+        if atlas then copy:SetAtlas(atlas) else copy:SetTexture(file) end
+        if not atlas and region.GetTexCoord then copy:SetTexCoord(region:GetTexCoord()) end
+        copy:SetAllPoints(region)
+        if copy.SetBlendMode then copy:SetBlendMode("ADD") end
+        copy:SetVertexColor(FLASH_COLOR[1], FLASH_COLOR[2], FLASH_COLOR[3])
+        copies[#copies + 1] = { copy = copy, source = region }
+      end
+    end
+  end
+  return copies
+end
+
 function UI.SetTabFlash(key, on)
   on = on and true or nil
   UI.tabFlash[key] = on
@@ -572,26 +597,29 @@ function UI.SetTabFlash(key, on)
   local button = tab and tab.button
   if not button then return end
   if on and not rawget(button, "guildyGlow") then
-    local glow = button:CreateTexture(nil, "OVERLAY")
-    glow:SetTexture("Interface\\PaperDollInfoFrame\\UI-Character-Tab-Highlight")
-    if glow.SetBlendMode then glow:SetBlendMode("ADD") end
-    glow:SetPoint("TOPLEFT", 6, -4)
-    glow:SetPoint("BOTTOMRIGHT", -6, 2)
-    glow:SetVertexColor(1, 0.82, 0.2)
-    rawset(button, "guildyGlow", glow)
+    local copies = GlowCopies(button)
+    rawset(button, "guildyGlow", copies)
+    local label = button.GetFontString and button:GetFontString()
     local pulse = ns.CreateFrame("Frame", nil, button)
     pulse.elapsed = 0
     pulse:SetScript("OnUpdate", function(self, elapsed)
       self.elapsed = (self.elapsed + (elapsed or 0)) % FLASH_PERIOD
-      glow:SetAlpha(0.35 + 0.65 * math.abs(math.sin(self.elapsed / FLASH_PERIOD * math.pi)))
+      local wave = math.abs(math.sin(self.elapsed / FLASH_PERIOD * math.pi))
+      for _, entry in ipairs(copies) do
+        entry.copy:SetShown(entry.source:IsShown())
+        entry.copy:SetAlpha(0.35 + 0.65 * wave)
+      end
+      -- the tab's name brightens with it
+      if label and label.SetTextColor then label:SetTextColor(1, 0.82 + 0.18 * wave, 0.2 + 0.8 * wave) end
+    end)
+    pulse:SetScript("OnHide", function()
+      for _, entry in ipairs(copies) do entry.copy:Hide() end
+      if label and label.SetTextColor then label:SetTextColor(1, 0.82, 0) end
     end)
     rawset(button, "guildyPulse", pulse)
   end
-  local glow, pulse = rawget(button, "guildyGlow"), rawget(button, "guildyPulse")
-  if glow then
-    glow:SetShown(on == true)
-    pulse:SetShown(on == true)
-  end
+  local pulse = rawget(button, "guildyPulse")
+  if pulse then pulse:SetShown(on == true) end
 end
 
 -- The view of a tab once it was built (tests, cross-tab calls)

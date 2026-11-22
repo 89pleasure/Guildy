@@ -194,4 +194,4 @@ local function Build(panel)
   return view
 end
 
-UI.RegisterTab("ranks", 6, "TAB_RANKS", Build)
+UI.RegisterTab("ranks", 9, "TAB_RANKS", Build)

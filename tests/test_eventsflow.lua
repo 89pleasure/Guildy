@@ -56,6 +56,21 @@ local function Setup(env)
     EventAvailable = function() Count("EventAvailable") events[openedIndex].status = 1 end,
     EventTentative = function() Count("EventTentative") events[openedIndex].status = 8 end,
     EventDecline = function() Count("EventDecline") events[openedIndex].status = 2 end,
+    RemoveEvent = function() Count("RemoveEvent") events[openedIndex].status = 7 end,
+    EventGetStatusOptions = function()
+      return { { status = 4, statusString = "NOPE_OUT" }, { status = 5, statusString = "NOPE_STANDBY" },
+        { status = 8, statusString = "NOPE_TENTATIVE" }, { status = 3, statusString = "NOPE_CONFIRMED" } }
+    end,
+    EventSetInviteStatus = function(index, status)
+      Count("SetInviteStatus")
+      local e = events[openedIndex]
+      local invite = e.invites and e.invites[index]
+      if invite then invite.inviteStatus = status end
+      if invite and invite.inviteIsMine then e.status = status end
+    end,
+    EventSetModerator = function(index) Count("SetModerator") events[openedIndex].invites[index].modStatus = "MODERATOR" end,
+    EventClearModerator = function(index) Count("ClearModerator") events[openedIndex].invites[index].modStatus = nil end,
+    EventRemoveInvite = function(index) Count("RemoveInvite") table.remove(events[openedIndex].invites, index) end,
     EventGetTextures = function() return {} end,
     CreateGuildSignUpEvent = function() created = {} end,
     EventSetTitle = function(title) created.title = title end,
@@ -162,6 +177,74 @@ T.describe("Guild events", function()
     Fire("CALENDAR_OPEN_EVENT", "GUILD_EVENT")
     GE.Answer(GE.List()[2], "yes")
     T.eq(calls.EventAvailable, 1)
+    T.eq(errors, {})
+  end)
+
+  T.it("offers what Blizzard's calendar offers: sign up or tentative, then only withdraw", function()
+    Reset()
+    Event("Kern", 20, 0, { inviteType = 1, status = 7 })
+    local item = GE.List()[1]
+    GE.Open(item)
+    Fire("CALENDAR_OPEN_EVENT", "GUILD_EVENT")
+    T.eq(GE.Choices(item), { "yes", "maybe" })
+    GE.Answer(item, "maybe")
+    T.eq(events[1].status, 8)
+    Fire("CALENDAR_UPDATE_INVITE_LIST")
+    item = GE.List()[1]
+    T.eq(item.answer, "maybe")
+    T.eq(GE.Choices(item), { "remove" })
+    GE.Answer(item, "remove")
+    T.eq(calls.RemoveEvent, 1)
+    T.eq(events[1].status, 7)
+    Fire("CALENDAR_UPDATE_INVITE_LIST")
+    T.eq(GE.Choices(GE.List()[1]), { "yes", "maybe" })
+    -- invited by name: available, tentative, decline but the current answer
+    events[1].inviteType, events[1].status = 0, 1
+    Fire("CALENDAR_UPDATE_INVITE_LIST")
+    T.eq(GE.Choices(GE.List()[1]), { "maybe", "no" })
+    T.eq(errors, {})
+  end)
+
+  T.it("lets who may edit set their own status and manage the others from a right-click", function()
+    Reset()
+    env.canEdit = true
+    Event("Kern", 20, 0, { inviteType = 1, status = 3, creator = "Ran Fred", invites = {
+      { name = "Ran Fred", classFilename = "MAGE", inviteStatus = 3, modStatus = "CREATOR", inviteIsMine = true },
+      { name = "Au Tsch", classFilename = "WARRIOR", inviteStatus = 6 },
+    } })
+    env.CommunitiesFrame:Show()
+    ns.UI.SelectTab("events")
+    Fire("CALENDAR_OPEN_EVENT", "GUILD_EVENT")
+    local item = GE.List()[1]
+    T.eq(GE.Choices(item), { 4, 5, 8 }, "the calendar's statuses but the current one")
+    GE.Answer(item, 8)
+    T.eq(events[1].invites[1].inviteStatus, 8)
+    Fire("CALENDAR_UPDATE_INVITE_LIST")
+    T.eq(GE.Choices(GE.List()[1]), { 4, 5, 3 })
+    -- the menu on Au Tsch: remove, moderator, the statuses, invite to the group
+    local view = ns.UI.TabView("events")
+    local au
+    for _, invite in ipairs(GE.Detail(item.key).invites) do
+      if invite.name == "Au Tsch" then au = invite end
+    end
+    view:NameMenu(env.UIParent, au)
+    GE.SetStatus(item, au, 5)
+    T.eq(events[1].invites[au.index].inviteStatus, 5)
+    -- Warteposition gets a line of its own and a count in the top line
+    Fire("CALENDAR_UPDATE_INVITE_LIST")
+    local d = view.Detail
+    local standby
+    for _, row in ipairs(d.Rest) do
+      if row:IsShown() and row:GetText():find("Warteposition", 1, true) then standby = row:GetText() end
+    end
+    T.truthy(standby and standby:find("Au Tsch", 1, true), "Au Tsch under Warteposition")
+    T.truthy(d.TotalNo:GetText():find("1 Warteposition", 1, true))
+    GE.SetModerator(item, au, true)
+    T.eq(calls.SetModerator, 1)
+    GE.RemoveInvite(item, au)
+    T.eq(#events[1].invites, 1)
+    ns.UI.SelectTab("chat")
+    env.canEdit = nil
     T.eq(errors, {})
   end)
 
@@ -393,6 +476,12 @@ T.describe("Guild events", function()
     T.eq(ns.UI.tabFlash.events, true)
     ns.UI.SelectTab("events")
     ns.UI.SelectTab("chat")
+    -- /guildy events glow: on at once, off once the tab is opened
+    env.SlashCmdList.GUILDY("events glow")
+    T.eq(ns.UI.tabFlash.events, true)
+    ns.UI.SelectTab("events")
+    T.eq(ns.UI.tabFlash.events, nil)
+    ns.UI.SelectTab("chat")
     T.eq(errors, {})
   end)
 
@@ -491,6 +580,36 @@ T.describe("Guild events", function()
     T.eq(events[1].title, "Bleibt")
     env.canEdit = nil
     T.eq(GE.CanEdit(GE.List()[1]), false)
+    T.eq(errors, {})
+  end)
+
+  T.it("shows the signed-up in role columns and the rest in lines under them", function()
+    Reset()
+    Event("Kern", 20, 0, { invites = {
+      { name = "Au Tsch", classFilename = "WARRIOR", inviteStatus = 6 },
+      { name = "Makira Farron", classFilename = "MAGE", inviteStatus = 3 },
+      { name = "Ran Fred", classFilename = "MAGE", inviteStatus = 8, inviteIsMine = true },
+      { name = "Krag Fremd", classFilename = "ROGUE", inviteStatus = 2 },
+    } })
+    env.CommunitiesFrame:Show()
+    ns.UI.SelectTab("events")
+    Fire("CALENDAR_OPEN_EVENT", "GUILD_EVENT")
+    local d = ns.UI.TabView("events").Detail
+    T.eq(d.Total:GetText(), "2")
+    T.truthy(d.TotalMaybe:GetText():find("1 vorläufig", 1, true))
+    T.truthy(d.TotalNo:GetText():find("1 abgelehnt", 1, true))
+    -- a mage is damage without talents known; the warrior's role is not known
+    T.truthy(d.Columns.dps.Count:GetText():find("1", 1, true))
+    T.truthy(d.Columns.tank.Count:GetText():find("0", 1, true))
+    local lines = {}
+    for _, line in ipairs(d.Rest) do
+      if line:IsShown() then lines[#lines + 1] = line:GetText() end
+    end
+    T.eq(#lines, 3, "role unknown, tentative, declined")
+    T.truthy(lines[1]:find("Au Tsch", 1, true))
+    T.truthy(lines[2]:find("Ran Fred", 1, true))
+    T.truthy(lines[3]:find("Krag Fremd", 1, true))
+    ns.UI.SelectTab("chat")
     T.eq(errors, {})
   end)
 

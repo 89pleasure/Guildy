@@ -1019,4 +1019,4 @@ local function Build(panel)
   return view
 end
 
-UI.RegisterTab("bank", 7, "TAB_BANK", Build)
+UI.RegisterTab("bank", 6, "TAB_BANK", Build)

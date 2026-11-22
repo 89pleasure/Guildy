@@ -503,4 +503,4 @@ local function Build(panel)
   return view
 end
 
-UI.RegisterTab("communities", 8, "TAB_COMMUNITIES", Build, true)
+UI.RegisterTab("communities", 11, "TAB_COMMUNITIES", Build, true)

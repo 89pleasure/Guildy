@@ -11,6 +11,7 @@ local ROW = 36
 local LEFT_W = 380
 local COLORS = { raid = "ff9230", dungeon = "4aa8ff", pvp = "ff4848", meeting = "40c860", other = "b0a896" }
 local ANSWER_COLORS = { yes = "40ff40", maybe = "f0e060", no = "ff4848", open = "ffd100" }
+local STANDBY_COLOR, OUT_COLOR = "7fb4ff", "c8643c" -- Warteposition, Nicht dabei (Enum.CalendarStatus 5, 4)
 local DOT = "|TInterface\\AddOns\\Guildy\\Textures\\Dot:8:8:0:0:32:32:0:32:0:32:%d:%d:%d|t"
 local ICONS = { yes = W.ICON_YES, maybe = W.ICON_WAIT, no = W.ICON_NO }
 local GE
@@ -32,18 +33,15 @@ local function Colored(hex, text)
   return "|cff" .. hex .. text .. "|r"
 end
 
-local function ClassIcon(classFile)
+local function ClassIcon(classFile, size)
   local coords = rawget(_G, "CLASS_ICON_TCOORDS")
   local c = classFile and coords and coords[classFile]
   if not c then return "" end
-  return ("|TInterface\\TargetingFrame\\UI-Classes-Circles:12:12:0:0:256:256:%d:%d:%d:%d|t "):format(
-    c[1] * 256, c[2] * 256, c[3] * 256, c[4] * 256)
+  size = size or 12
+  return ("|TInterface\\TargetingFrame\\UI-Classes-Circles:%d:%d:0:0:256:256:%d:%d:%d:%d|t "):format(
+    size, size, c[1] * 256, c[2] * 256, c[3] * 256, c[4] * 256)
 end
 
-local function ClassLabel(classFile)
-  local names = rawget(_G, "LOCALIZED_CLASS_NAMES_MALE")
-  return (names and names[classFile]) or classFile or "?"
-end
 
 -- The calendar's name of an answer; invited players answer "available" instead of signing up
 local function StatusName(answer, inviteType)
@@ -127,7 +125,7 @@ local function OpenBlizzard(item)
   if item and open then
     pcall(open, item.index)
   elseif rawget(_G, "ToggleCalendar") then
-    pcall(ToggleCalendar)
+    pcall(rawget(_G, "ToggleCalendar"))
   end
 end
 
@@ -140,6 +138,12 @@ local function Check(parent, label)
 end
 
 -- The detail of the picked event -----------------------------------------------------------------------------
+
+local ROLE_COLORS = { tank = "5a96f0", heal = "5ad764", dps = "e65440", none = "968e7c" }
+local COL_GAP = 12
+local NAME_ROW = 22
+local FOOTER = 40   -- the row of actions at the bottom
+local REST_ROW = 22 -- a line under the columns (role unknown, tentative, declined, not answered)
 
 local function BuildDetail(view, box)
   local L = ns.L
@@ -163,85 +167,106 @@ local function BuildDetail(view, box)
   d.Desc:SetPoint("TOPLEFT", d.When, "BOTTOMLEFT", 0, -8)
   d.Desc:SetPoint("RIGHT", d, "RIGHT", 0, 0)
   d.Desc:SetJustifyV("TOP")
-  if d.Desc.SetMaxLines then d.Desc:SetMaxLines(4) end
+  if d.Desc.SetMaxLines then d.Desc:SetMaxLines(2) end
   d.Desc:SetTextColor(0.85, 0.82, 0.74)
 
+  -- the player's answer, the other answers as buttons on the same line
   d.State = W.Text(d, "GameFontNormal")
-  d.State:SetPoint("TOPLEFT", d.Desc, "BOTTOMLEFT", 0, -12)
+  d.State:SetPoint("TOPLEFT", d.Desc, "BOTTOMLEFT", 0, -14)
   d.Buttons = {}
-  local previous
-  for _, answer in ipairs({ "yes", "maybe", "no" }) do
-    local button = W.Button(d, "", function()
+  for i = 1, 4 do
+    d.Buttons[i] = W.Button(d, "", function(self)
       local item = view:PickedItem()
-      if item then GE.Answer(item, answer) end
-    end, 100, { small = true })
-    if previous then button:SetPoint("LEFT", previous, "RIGHT", 6, 0) else button:SetPoint("TOPLEFT", d.State, "BOTTOMLEFT", 0, -6) end
-    previous = button
-    d.Buttons[answer] = button
+      if item and self.choice ~= nil then GE.Answer(item, self.choice) end
+    end, 110, { small = true })
   end
 
-  -- the bar split by signed / tentative / declined
-  d.Bar = ns.CreateFrame("Frame", nil, d)
-  d.Bar:SetHeight(8)
-  d.Bar:SetPoint("TOPLEFT", d.Buttons.yes, "BOTTOMLEFT", 0, -12)
-  d.Bar:SetPoint("RIGHT", d, "RIGHT", 0, 0)
-  d.Bar.Track = d.Bar:CreateTexture(nil, "BACKGROUND")
-  d.Bar.Track:SetAllPoints()
-  d.Bar.Track:SetColorTexture(0.13, 0.11, 0.08, 1)
-  d.Bar.Parts = {}
-  for _, answer in ipairs({ "yes", "maybe", "no" }) do
-    local part = d.Bar:CreateTexture(nil, "ARTWORK")
-    part:SetPoint("TOP")
-    part:SetPoint("BOTTOM")
-    local r, g, b = Rgb(ANSWER_COLORS[answer])
-    part:SetColorTexture(r, g, b, 0.85)
-    d.Bar.Parts[answer] = part
+  -- the count: "25 angemeldet  3 vorläufig  2 abgelehnt", the classes of the signed-up on the right
+  d.Total = W.Text(d, "GameFontNormalHuge")
+  d.Total:SetPoint("TOPLEFT", d.State, "BOTTOMLEFT", 0, -18)
+  d.Total:SetTextColor(Rgb(ANSWER_COLORS.yes))
+  d.TotalLabel = W.Text(d, "GameFontNormal")
+  d.TotalLabel:SetPoint("BOTTOMLEFT", d.Total, "BOTTOMRIGHT", 6, 2)
+  d.TotalMaybe = W.Text(d, "GameFontNormal")
+  d.TotalMaybe:SetPoint("BOTTOMLEFT", d.TotalLabel, "BOTTOMRIGHT", 18, 0)
+  d.TotalNo = W.Text(d, "GameFontNormal")
+  d.TotalNo:SetPoint("BOTTOMLEFT", d.TotalMaybe, "BOTTOMRIGHT", 18, 0)
+  d.Classes = W.Text(d, "GameFontHighlight")
+  d.Classes:SetPoint("BOTTOM", d.Total, "BOTTOM", 0, 2)
+  d.Classes:SetPoint("RIGHT", d, "RIGHT", 0, 0)
+  d.Classes:SetJustifyH("RIGHT")
+
+  -- the three role columns
+  d.Columns = {}
+  for _, role in ipairs({ "tank", "heal", "dps" }) do
+    local col = W.Box(d)
+    col.role = role
+    col.Head = W.Text(col, "GameFontNormal")
+    col.Head:SetPoint("TOPLEFT", 10, -10)
+    col.Count = W.Text(col, "GameFontNormalLarge")
+    col.Count:SetPoint("TOPRIGHT", -10, -8)
+    col.Count:SetJustifyH("RIGHT")
+    local line = col:CreateTexture(nil, "ARTWORK")
+    line:SetHeight(1)
+    line:SetPoint("TOPLEFT", 8, -32)
+    line:SetPoint("TOPRIGHT", -8, -32)
+    line:SetColorTexture(W.GOLD[1], W.GOLD[2], W.GOLD[3], 0.3)
+    col.Names = {}
+    d.Columns[role] = col
   end
 
-  -- who answered: groups of names in four columns, in a scroll frame
-  d.Scroll = ns.CreateFrame("ScrollFrame", nil, d, "UIPanelScrollFrameTemplate")
-  d.Scroll:SetPoint("TOPLEFT", d.Bar, "BOTTOMLEFT", 0, -10)
-  d.Scroll:SetPoint("BOTTOMRIGHT", d, "BOTTOMRIGHT", -22, 28)
-  local function NamesBar()
-    local bar = d.Scroll.ScrollBar
-    if type(bar) ~= "table" or not bar.SetShown then return end
-    local range = d.Scroll.GetVerticalScrollRange and d.Scroll:GetVerticalScrollRange() or 0
-    bar:SetShown((tonumber(range) or 0) > 0.5)
+  -- the lines under the columns
+  d.Rest = {}
+  for i = 1, 6 do
+    local row = ns.CreateFrame("Frame", nil, d)
+    row:SetHeight(REST_ROW)
+    row.view = view
+    row.Head = W.Text(row, "GameFontHighlightSmall")
+    row.Head:SetPoint("LEFT", 0, 0)
+    row.Names = {}
+    function row:GetText() return self.text end
+    d.Rest[i] = row
   end
-  d.NamesBar = NamesBar
-  if d.Scroll.HookScript then d.Scroll:HookScript("OnScrollRangeChanged", NamesBar) end
-  d.Names = ns.CreateFrame("Frame", nil, d.Scroll)
-  d.Names:SetSize(400, 10)
-  d.Scroll:SetScrollChild(d.Names)
-  d.Pool = {}
+  for _, col in pairs(d.Columns) do col.view = view end
   d.Message = W.Text(d, "GameFontDisable")
-  d.Message:SetPoint("TOPLEFT", d.Scroll, "TOPLEFT", 0, -6)
+  d.Message:SetPoint("TOPLEFT", d.State, "BOTTOMLEFT", 0, -28)
   d.Message:SetPoint("RIGHT", d, "RIGHT", 0, 0)
 
-  d.Link = W.Button(d, L.EV_OPEN_BLIZZARD, function() OpenBlizzard(view:PickedItem()) end, 180, { small = true })
+  -- actions: calendar, edit, announce as buttons; delete as a quiet red link on the right, never the same
+  -- weight as the rest
+  d.FooterLine = d:CreateTexture(nil, "ARTWORK")
+  d.FooterLine:SetHeight(1)
+  d.FooterLine:SetPoint("BOTTOMLEFT", 0, FOOTER - 8)
+  d.FooterLine:SetPoint("BOTTOMRIGHT", 0, FOOTER - 8)
+  d.FooterLine:SetColorTexture(1, 1, 1, 0.1)
+  d.Link = W.Button(d, L.EV_OPEN_BLIZZARD, function() OpenBlizzard(view:PickedItem()) end, 200, { small = true })
   d.Link:SetPoint("BOTTOMLEFT", 0, 0)
-  d.Announce = W.Button(d, L.EV_ANNOUNCE_BUTTON, function()
-    local item = view:PickedItem()
-    if item then GE.Announce(item) end
-  end, 180, { small = true })
-  d.Announce:SetPoint("LEFT", d.Link, "RIGHT", 8, 0)
+  W.Tooltip(d.Link, L.EV_OPEN_BLIZZARD, L.EV_EDIT_HINT)
   d.Edit = W.Button(d, L.EV_EDIT, function()
     local item = view:PickedItem()
     if item then view:OpenForm(item) end
-  end, 110, { small = true })
-  d.Delete = W.Button(d, L.EV_DELETE, function()
+  end, 120, { small = true })
+  d.Announce = W.Button(d, L.EV_ANNOUNCE_BUTTON, function()
+    local item = view:PickedItem()
+    if item then GE.Announce(item) end
+  end, 200, { small = true })
+  d.Delete = ns.CreateFrame("Button", nil, d)
+  d.Delete:SetSize(90, 22)
+  d.Delete:SetPoint("BOTTOMRIGHT", 0, 0)
+  d.Delete.Label = W.Text(d.Delete, "GameFontNormal", L.EV_DELETE)
+  d.Delete.Label:SetPoint("RIGHT", 0, 0)
+  d.Delete.Label:SetJustifyH("RIGHT")
+  d.Delete.Label:SetTextColor(0.86, 0.31, 0.24)
+  d.Delete:SetScript("OnEnter", function(self) self.Label:SetTextColor(1, 0.42, 0.33) end)
+  d.Delete:SetScript("OnLeave", function(self) self.Label:SetTextColor(0.86, 0.31, 0.24) end)
+  d.Delete:SetScript("OnClick", function()
     local item = view:PickedItem()
     if not item then return end
     local date, clock = DateText(item.stamp)
     UI.Confirm(L.EV_DELETE_CONFIRM:format(item.name, date .. ", " .. clock), { run = function() GE.Delete(item) end },
       L.EV_DELETE, true)
-  end, 110, { small = true })
-  local deleteLabel = d.Delete:GetFontString()
-  if deleteLabel then deleteLabel:SetTextColor(1, 0.3, 0.25) end
-  d.EditHint = W.Text(d, "GameFontDisableSmall", L.EV_EDIT_HINT)
-  d.EditHint:SetPoint("LEFT", d.Link, "RIGHT", 10, 0)
-  d.EditHint:SetPoint("RIGHT", d, "RIGHT", 0, 0)
-  d.EditHint:SetWordWrap(false)
+  end)
+  d:SetScript("OnSizeChanged", function() if view.RenderDetail then view:RenderDetail() end end)
   return d
 end
 
@@ -261,106 +286,183 @@ end
 -- The game's small role icons (tank, healer, damage), nothing where the client lacks them
 local ROLE_ICON = "Interface\\LFGFrame\\UI-LFG-ICON-ROLES"
 local ROLE_COORDS = { tank = "0:67:67:134", heal = "67:134:0:67", dps = "67:134:67:134" }
-local function RoleMark(role)
+local function RoleMark(role, size)
   if not (role and ROLE_COORDS[role] and W.TextureExists(ROLE_ICON)) then return "" end
-  return ("|T%s:14:14:0:0:256:256:%s|t "):format(ROLE_ICON, ROLE_COORDS[role])
+  size = size or 14
+  return ("|T%s:%d:%d:0:0:256:256:%s|t "):format(ROLE_ICON, size, size, ROLE_COORDS[role])
 end
 
-local function NameLabel(d, i)
-  local label = d.Pool[i]
+-- A name that opens the menu on a right-click (Blizzard's menu of an invite)
+local function NameButton(parent, font)
+  local button = ns.CreateFrame("Button", nil, parent)
+  button:SetHeight(NAME_ROW)
+  button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+  button.Text = W.Text(button, font)
+  button.Text:SetPoint("LEFT", 0, 0)
+  button.Text:SetPoint("RIGHT", 0, 0)
+  button.Text:SetWordWrap(false)
+  local light = button:CreateTexture(nil, "HIGHLIGHT")
+  light:SetAllPoints()
+  light:SetColorTexture(1, 0.82, 0, 0.08)
+  button:SetScript("OnClick", function(self, mouse)
+    if mouse == "RightButton" and self.invite and parent.view then parent.view:NameMenu(self, self.invite) end
+  end)
+  function button:SetText(text) self.Text:SetText(text) end
+  return button
+end
+
+local function NameIn(col, i)
+  local label = col.Names[i]
   if not label then
-    label = W.Text(d.Names, "GameFontHighlightSmall")
-    label:SetWordWrap(false)
-    d.Pool[i] = label
+    label = NameButton(col, "GameFontHighlight")
+    col.Names[i] = label
   end
+  label.invite = nil
   label:Show()
   return label
 end
 
--- Lays out the groups of names; returns the height used
-local function FillNames(d, detail)
+local function NameText(invite, dim, size)
+  size = size or 16
+  if dim then return ClassIcon(invite.classFile, size) .. "|cff6e685a" .. invite.name .. "|r" end
+  return ClassIcon(invite.classFile, size) .. W.ClassName(invite.name, invite.classFile)
+end
+
+-- A role column: its sign, name and count, then the names (damage in two lists); "+ n" when they do not fit
+local function FillColumn(col, list, lists)
   local L = ns.L
-  local width = math.max(200, (d.Scroll:GetWidth() or 400))
-  d.Names:SetWidth(width)
-  local column = math.floor(width / 4)
-  local used, y = 0, 0
-  local function Put(text, x, top, w)
+  local labels = { tank = L.EV_ROLE_TANK, heal = L.EV_ROLE_HEAL, dps = L.EV_ROLE_DPS }
+  local hex = ROLE_COLORS[col.role]
+  col.Head:SetText(RoleMark(col.role, 20) .. Colored(hex, labels[col.role]))
+  col.Count:SetText(Colored(hex, tostring(#list)))
+  local width = col:GetWidth()
+  local height = col:GetHeight()
+  if type(width) ~= "number" or width < 40 then width = 200 end
+  local rows = (type(height) == "number" and height > 80) and math.floor((height - 48) / NAME_ROW) or 12
+  local per = math.max(1, rows)
+  local capacity = per * lists
+  local inner = (width - 20) / lists
+  local shown = #list > capacity and capacity - 1 or #list
+  local used = 0
+  for i = 1, shown do
     used = used + 1
-    local label = NameLabel(d, used)
+    local sub, row = math.floor((i - 1) / per), (i - 1) % per
+    local label = NameIn(col, used)
     label:ClearAllPoints()
-    label:SetPoint("TOPLEFT", x, -top)
-    label:SetWidth(w)
-    label:SetText(text)
-    return label
+    label:SetPoint("TOPLEFT", 10 + sub * inner, -44 - row * NAME_ROW)
+    label:SetWidth(inner - 6)
+    label:SetText(NameText(list[i]))
+    label.invite = list[i]
   end
-  local groups = { { "yes", L.EV_GROUP_YES }, { "maybe", L.EV_GROUP_MAYBE }, { "no", L.EV_GROUP_NO }, { "open", L.EV_GROUP_OPEN } }
+  if shown < #list then
+    used = used + 1
+    local sub, row = math.floor(shown / per), shown % per
+    local label = NameIn(col, used)
+    label:ClearAllPoints()
+    label:SetPoint("TOPLEFT", 10 + sub * inner, -44 - row * NAME_ROW)
+    label:SetWidth(inner - 6)
+    label:SetText("|cff9d9d9d+ " .. (#list - shown) .. "|r")
+  end
+  for i = used + 1, #col.Names do col.Names[i]:Hide() end
+end
+
+-- The signed-up by role and the rest of the answers; lays out the columns and the lines under them
+local function FillRoster(d, detail)
+  local L = ns.L
+  local byRole = { tank = {}, heal = {}, dps = {}, none = {} }
+  local byAnswer = { yes = 0, maybe = {}, standby = {}, no = {}, out = {}, open = {} }
   local byClass, classOrder = {}, {}
-  for _, group in ipairs(groups) do
-    local names = {}
-    for _, invite in ipairs(detail.invites) do
-      if invite.answer == group[1] then names[#names + 1] = invite end
-    end
-    if #names > 0 then
-      local head = Put(Colored(ANSWER_COLORS[group[1]], group[2]:format(#names)), 0, y, width)
-      head:SetFontObject("GameFontNormalSmall")
-      y = y + 18
-      local function Names(list, indent)
-        for i, invite in ipairs(list) do
-          local col = (i - 1) % 4
-          local label = Put(ClassIcon(invite.classFile) .. W.ClassName(invite.name, invite.classFile), indent + col * column,
-            y + math.floor((i - 1) / 4) * 16, column - 6)
-          label:SetFontObject("GameFontHighlightSmall")
-        end
-        y = y + math.ceil(#list / 4) * 16
+  for _, invite in ipairs(detail.invites) do
+    if invite.answer == "yes" then
+      byAnswer.yes = byAnswer.yes + 1
+      local role = RoleOfInvite(invite) or "none"
+      byRole[role][#byRole[role] + 1] = invite
+      if invite.classFile then
+        if not byClass[invite.classFile] then classOrder[#classOrder + 1] = invite.classFile end
+        byClass[invite.classFile] = (byClass[invite.classFile] or 0) + 1
       end
-      if group[1] == "yes" then
-        -- the signed-up by role: tank, healer, damage, then those whose role Guildy does not know
-        local byRole = { tank = {}, heal = {}, dps = {}, none = {} }
-        for _, invite in ipairs(names) do
-          local role = RoleOfInvite(invite) or "none"
-          byRole[role][#byRole[role] + 1] = invite
-          if invite.classFile then
-            if not byClass[invite.classFile] then classOrder[#classOrder + 1] = invite.classFile end
-            byClass[invite.classFile] = (byClass[invite.classFile] or 0) + 1
-          end
-        end
-        local labels = { tank = L.EV_ROLE_TANK, heal = L.EV_ROLE_HEAL, dps = L.EV_ROLE_DPS, none = L.EV_ROLE_NONE }
-        for _, role in ipairs({ "tank", "heal", "dps", "none" }) do
-          local list = byRole[role]
-          if #list > 0 then
-            local sub = Put(RoleMark(role) .. labels[role] .. " · " .. #list, 8, y, width - 8)
-            sub:SetFontObject("GameFontNormalSmall")
-            y = y + 16
-            Names(list, 8)
-            y = y + 4
-          end
-        end
-      else
-        Names(names, 0)
-      end
-      y = y + 8
+    else
+      -- Warteposition and Nicht dabei as the calendar names them (not lumped into tentative and declined)
+      local list = invite.status == 5 and byAnswer.standby or invite.status == 4 and byAnswer.out
+        or byAnswer[invite.answer] or byAnswer.open
+      list[#list + 1] = invite
     end
   end
-  if #classOrder > 0 then
-    table.sort(classOrder, function(a, b)
-      if byClass[a] ~= byClass[b] then return byClass[a] > byClass[b] end
-      return a < b
-    end)
-    local head = Put(L.EV_BY_CLASS, 0, y, width)
-    head:SetFontObject("GameFontNormalSmall")
-    y = y + 18
-    local parts = {}
-    for _, classFile in ipairs(classOrder) do
-      parts[#parts + 1] = W.ClassName(ClassLabel(classFile), classFile) .. " " .. byClass[classFile]
-    end
-    local line = Put(table.concat(parts, "   "), 0, y, width)
-    line:SetFontObject("GameFontHighlightSmall")
-    line:SetWordWrap(true)
-    y = y + 32
+  d.Total:SetText(tostring(byAnswer.yes))
+  d.TotalLabel:SetText(Colored(ANSWER_COLORS.yes, L.EV_COUNT_YES))
+  d.TotalMaybe:SetText(Colored(ANSWER_COLORS.maybe, L.EV_COUNT_MAYBE:format(#byAnswer.maybe)))
+  local no = Colored(ANSWER_COLORS.no, L.EV_COUNT_NO:format(#byAnswer.no + #byAnswer.out))
+  if #byAnswer.standby > 0 then no = no .. "      " .. Colored(STANDBY_COLOR, L.EV_COUNT_STANDBY:format(#byAnswer.standby)) end
+  d.TotalNo:SetText(no)
+  table.sort(classOrder, function(a, b)
+    if byClass[a] ~= byClass[b] then return byClass[a] > byClass[b] end
+    return a < b
+  end)
+  local parts = {}
+  for _, classFile in ipairs(classOrder) do
+    parts[#parts + 1] = ClassIcon(classFile, 18) .. "|c" .. W.ClassHex(classFile) .. byClass[classFile] .. "|r"
   end
-  for i = used + 1, #d.Pool do d.Pool[i]:Hide() end
-  d.Names:SetHeight(math.max(10, y))
-  return y
+  d.Classes:SetText(table.concat(parts, "   "))
+
+  -- the lines under the columns, then the columns down to them
+  local rest = {}
+  local function Line(head, hex, list, dim)
+    if #list == 0 then return end
+    rest[#rest + 1] = { head = Colored(hex, head), list = list, dim = dim }
+  end
+  Line(L.EV_ROLE_NONE .. " · " .. #byRole.none, ROLE_COLORS.none, byRole.none)
+  Line(L.EV_GROUP_MAYBE:format(#byAnswer.maybe), ANSWER_COLORS.maybe, byAnswer.maybe)
+  Line(L.EV_GROUP_STANDBY:format(#byAnswer.standby), STANDBY_COLOR, byAnswer.standby)
+  Line(L.EV_GROUP_NO:format(#byAnswer.no), ANSWER_COLORS.no, byAnswer.no, true)
+  Line(L.EV_GROUP_OUT:format(#byAnswer.out), OUT_COLOR, byAnswer.out, true)
+  Line(L.EV_GROUP_OPEN:format(#byAnswer.open), "9d9d9d", byAnswer.open, true)
+  for i, row in ipairs(d.Rest) do
+    local line = rest[i]
+    row:SetShown(line ~= nil)
+    if line then
+      row:ClearAllPoints()
+      row:SetPoint("BOTTOMLEFT", d, "BOTTOMLEFT", 0, FOOTER + 6 + (#rest - i) * REST_ROW)
+      row:SetPoint("RIGHT", d, "RIGHT", 0, 0)
+      row.Head:SetText(line.head)
+      local x = math.max(150, (row.Head:GetStringWidth() or 0) + 24)
+      local plain = { line.head }
+      for n, invite in ipairs(line.list) do
+        local button = row.Names[n]
+        if not button then
+          button = NameButton(row, "GameFontHighlightSmall")
+          row.Names[n] = button
+        end
+        button:SetText(NameText(invite, line.dim, 14))
+        button.invite = invite
+        local width = (button.Text:GetStringWidth() or 0)
+        if type(width) ~= "number" or width < 10 then width = 140 end
+        button:ClearAllPoints()
+        button:SetPoint("LEFT", row, "LEFT", x, 0)
+        button:SetWidth(width + 4)
+        button:Show()
+        x = x + width + 22
+        plain[#plain + 1] = invite.name
+      end
+      for n = #line.list + 1, #row.Names do row.Names[n]:Hide() end
+      row.text = table.concat(plain, " ")
+    end
+  end
+  local bottom = FOOTER + (#rest > 0 and (#rest * REST_ROW + 14) or 6)
+  local width = d:GetWidth()
+  if type(width) ~= "number" or width < 200 then width = 900 end
+  local unit = (width - 2 * COL_GAP) / 4
+  local x = 0
+  for _, entry in ipairs({ { "tank", 1 }, { "heal", 1 }, { "dps", 2 } }) do
+    local col = d.Columns[entry[1]]
+    local w = unit * entry[2] + (entry[2] - 1) * 0
+    col:ClearAllPoints()
+    col:SetPoint("TOPLEFT", d.Total, "BOTTOMLEFT", x, -12)
+    col:SetPoint("BOTTOMLEFT", d, "BOTTOMLEFT", x, bottom)
+    col:SetWidth(w)
+    col:Show()
+    FillColumn(col, byRole[entry[1]], entry[2])
+    x = x + w + COL_GAP
+  end
 end
 
 -- The form ----------------------------------------------------------------------------------------------------
@@ -627,7 +729,14 @@ local function Build(panel)
       row.Answer:SetText("")
       row.Counts:SetText("")
     else
-      row.Answer:SetText(Colored(ANSWER_COLORS[item.answer], StatusName(item.answer, detail and detail.inviteType)))
+      -- Bestätigt, Nicht dabei, Warteposition by the calendar's own names
+      local status = item.status
+      if status == 3 or status == 4 or status == 5 then
+        local hex = status == 5 and STANDBY_COLOR or status == 4 and OUT_COLOR or ANSWER_COLORS.yes
+        row.Answer:SetText(Colored(hex, GE.StatusLabel(status)))
+      else
+        row.Answer:SetText(Colored(ANSWER_COLORS[item.answer], StatusName(item.answer, detail and detail.inviteType)))
+      end
       row.Counts:SetText(detail and CountsText(detail.counts) or "")
     end
   end)
@@ -675,6 +784,48 @@ local function Build(panel)
     self:Refresh()
   end
 
+  -- Right-click on a name: Blizzard's menu of an invite. Who may edit sets the status, the moderator, or
+  -- removes them; everyone may invite them to the group.
+  function view:NameMenu(anchor, invite)
+    local item = self:PickedItem()
+    if not item then return end
+    GE.WithOpen(item, function()
+      local detail = GE.Detail(item.key)
+      local current
+      for _, entry in ipairs(detail and detail.invites or {}) do
+        if entry.name == invite.name then current = entry end
+      end
+      current = current or invite
+      local items = { { text = W.ClassName(current.name, current.classFile), isTitle = true } }
+      local blizzard = function(name, fallback)
+        local text = rawget(_G, name)
+        return type(text) == "string" and text ~= "" and text or fallback
+      end
+      if detail and detail.canEdit then
+        if current.mod ~= "CREATOR" then
+          items[#items + 1] = { text = blizzard("REMOVE", L.EV_MENU_REMOVE), onClick = function() GE.RemoveInvite(item, current) end }
+          local isMod = current.mod == "MODERATOR"
+          items[#items + 1] = { text = isMod and blizzard("CALENDAR_INVITELIST_CLEARMODERATOR", L.EV_MENU_MOD_CLEAR)
+            or blizzard("CALENDAR_INVITELIST_SETMODERATOR", L.EV_MENU_MOD_SET),
+            onClick = function() GE.SetModerator(item, current, not isMod) end }
+        end
+        items[#items + 1] = { text = blizzard("CALENDAR_INVITELIST_SETINVITESTATUS", L.EV_MENU_STATUS), isTitle = true }
+        for _, option in ipairs(GE.StatusOptionsAt(current.index)) do
+          items[#items + 1] = { text = "   " .. option.label, checked = option.status == current.status,
+            onClick = function() GE.SetStatus(item, current, option.status) end }
+        end
+      end
+      if not ns.Names.Same(current.name, ns.PlayerName()) then
+        items[#items + 1] = { text = blizzard("CALENDAR_INVITELIST_INVITETORAID", L.EV_MENU_INVITE), onClick = function()
+          local party = rawget(_G, "C_PartyInfo")
+          local inviteUnit = (party and party.InviteUnit) or rawget(_G, "InviteUnit")
+          if inviteUnit then pcall(inviteUnit, current.name) end
+        end }
+      end
+      if #items > 1 then W.OpenMenu(anchor, items, 240) end
+    end)
+  end
+
   function view:RenderDetail()
     local d = self.Detail
     local item = self:PickedItem()
@@ -701,48 +852,39 @@ local function Build(panel)
       d.State:SetText(L.EV_ANNOUNCEMENT)
     elseif locked then
       d.State:SetText(L.EV_LOCKED .. "  ·  " .. L.EV_YOU:format(StatusName(item.answer, inviteType)))
+    elseif detail and detail.myOptions and detail.myStatus then
+      local hex = detail.myStatus == 5 and STANDBY_COLOR or detail.myStatus == 4 and OUT_COLOR
+        or ANSWER_COLORS[E.Answer(detail.myStatus)]
+      d.State:SetText(L.EV_YOU:format(Colored(hex, GE.StatusLabel(detail.myStatus))))
     elseif item.answer == "open" then
       d.State:SetText(L.EV_YOU_OPEN)
     else
       d.State:SetText(L.EV_YOU:format(Colored(ANSWER_COLORS[item.answer], StatusName(item.answer, inviteType))))
     end
-    local buttons = item.answerable and not locked and not item.started
-    local previous, first
-    for _, answer in ipairs({ "yes", "maybe", "no" }) do
-      local button = d.Buttons[answer]
-      local shown = buttons and item.answer ~= answer
+    -- the answers the calendar takes now (Game/Events.lua Choices: a sign-up has no "decline", only taking
+    -- the sign-up back once given; who may edit picks a status like Blizzard's "Einladungsstatus festlegen")
+    local choices = GE.Choices(item)
+    local labels = { yes = inviteType == 0 and L.EV_ANSWER_AVAILABLE or L.EV_ANSWER_YES, maybe = L.EV_ANSWER_MAYBE,
+      no = L.EV_ANSWER_NO, remove = L.EV_ANSWER_REMOVE }
+    local previous
+    for i, button in ipairs(d.Buttons) do
+      local choice = choices[i]
+      button.choice = choice
+      local shown = choice ~= nil
       button:SetShown(shown)
       if shown then
+        button:SetText(type(choice) == "number" and GE.StatusLabel(choice) or labels[choice])
         button:ClearAllPoints()
-        if previous then button:SetPoint("LEFT", previous, "RIGHT", 6, 0) else button:SetPoint("TOPLEFT", d.State, "BOTTOMLEFT", 0, -6) end
+        if previous then
+          button:SetPoint("LEFT", previous, "RIGHT", 8, 0)
+        else
+          button:SetPoint("LEFT", d.State, "RIGHT", 18, 0)
+        end
         previous = button
-        first = first or button
       end
     end
-    d.Buttons.yes:SetText(inviteType == 0 and L.EV_ANSWER_AVAILABLE or L.EV_ANSWER_YES)
-    d.Buttons.maybe:SetText(L.EV_ANSWER_MAYBE)
-    d.Buttons.no:SetText(L.EV_ANSWER_NO)
-    d.Bar:ClearAllPoints()
-    d.Bar:SetPoint("TOPLEFT", first or d.State, "BOTTOMLEFT", 0, first and -12 or -10)
-    d.Bar:SetPoint("RIGHT", d, "RIGHT", 0, 0)
 
-    -- the bar and the names
-    local counts = detail and detail.counts
-    local total = counts and (counts.yes + counts.maybe + counts.no) or 0
-    d.Bar:SetShown(item.answerable and total > 0)
-    if total > 0 then
-      local width, x = math.max(1, d.Bar:GetWidth() or 300), 0
-      for _, answer in ipairs({ "yes", "maybe", "no" }) do
-        local part = d.Bar.Parts[answer]
-        local w = width * counts[answer] / total
-        part:ClearAllPoints()
-        part:SetPoint("TOPLEFT", x, 0)
-        part:SetPoint("BOTTOMLEFT", x, 0)
-        part:SetWidth(math.max(0.01, w))
-        part:SetShown(w > 0)
-        x = x + w
-      end
-    end
+    -- the count, the role columns and the lines under them; a message in their place while nothing is known
     local message
     if not item.answerable then
       message = ""
@@ -754,15 +896,18 @@ local function Build(panel)
     end
     d.Message:SetText(message or "")
     d.Message:SetShown(message ~= nil)
-    d.Scroll:SetShown(message == nil)
-    if message == nil then
-      FillNames(d, detail)
-      d.NamesBar()
+    local roster = message == nil
+    for _, part in ipairs({ d.Total, d.TotalLabel, d.TotalMaybe, d.TotalNo, d.Classes }) do part:SetShown(roster) end
+    for _, col in pairs(d.Columns) do col:SetShown(roster) end
+    if roster then
+      FillRoster(d, detail)
+    else
+      for _, line in ipairs(d.Rest) do line:Hide() end
     end
-    -- the buttons at the bottom: calendar, announce, edit, delete, then the hint
+    -- the actions: calendar, edit, announce; delete on the far right
     local canEdit = GE.CanEdit(item)
     local last = d.Link
-    for _, entry in ipairs({ { d.Announce, GE.CanAnnounce(item) }, { d.Edit, canEdit }, { d.Delete, canEdit } }) do
+    for _, entry in ipairs({ { d.Edit, canEdit }, { d.Announce, GE.CanAnnounce(item) } }) do
       local button, shown = entry[1], entry[2] and true or false
       button:SetShown(shown)
       if shown then
@@ -771,10 +916,7 @@ local function Build(panel)
         last = button
       end
     end
-    d.EditHint:ClearAllPoints()
-    d.EditHint:SetPoint("LEFT", last, "RIGHT", 10, 0)
-    d.EditHint:SetPoint("RIGHT", d, "RIGHT", 0, 0)
-    d.EditHint:SetShown(canEdit)
+    d.Delete:SetShown(canEdit)
   end
 
   function view:Refresh(_, kind, key)
@@ -965,4 +1107,4 @@ function UI.ShowEvents(key)
   if view and key and view.Pick then view:Pick(key) end
 end
 
-UI.RegisterTab("events", 7.2, "TAB_EVENTS", Build)
+UI.RegisterTab("events", 3, "TAB_EVENTS", Build)

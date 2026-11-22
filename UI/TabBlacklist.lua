@@ -434,4 +434,4 @@ function UI.BlacklistAdd(name)
   if view then view:OpenAdd(name ~= "" and name or nil, seen) end
 end
 
-UI.RegisterTab("blacklist", 7.5, "TAB_BLACKLIST", Build)
+UI.RegisterTab("blacklist", 10, "TAB_BLACKLIST", Build)

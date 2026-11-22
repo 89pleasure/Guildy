@@ -316,6 +316,8 @@ SlashCmdList.GUILDY = function(msg)
     ns.GameBank.OnChanged()
     ns.GameBank.AskAgain()
     for _, line in ipairs(ns.GameBank.Debug()) do ns.Print(line) end
+  elseif msg == "events glow" then
+    ns.GameEvents.TestGlow()
   elseif msg == "events" then
     for _, line in ipairs(ns.GameEvents.Debug()) do ns.Print(line) end
   elseif msg == "ding" then

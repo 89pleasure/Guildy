@@ -482,4 +482,4 @@ local function Build(panel)
   return view
 end
 
-UI.RegisterTab("overview", 3, "TAB_OVERVIEW", Build)
+UI.RegisterTab("overview", 4, "TAB_OVERVIEW", Build)

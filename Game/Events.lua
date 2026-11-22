@@ -23,6 +23,7 @@ local cache = {}        -- key -> { creator, description, inviteType, locked, in
 local opened            -- key of the event the client holds open
 local pendingOpen       -- { key, at }: asked to open, not open yet
 local pendingAnswer     -- { key, answer }: answer once that event is open
+local pendingAction     -- { key, run }: run once that event is open (the menu on a name)
 local posted = {}       -- key -> true: the guild chat reminder went out (here or seen in chat)
 local created = {}      -- key -> true: created from this client in this session
 local creating          -- { title, stamp, key, at }
@@ -114,7 +115,7 @@ function GE.List()
           index = i, id = info.eventID, key = E.Key(info.title, stamp), title = info.title, name = name,
           kind = typed or E.TypeOf(info.eventType), typed = typed ~= nil, stamp = stamp,
           calendarType = info.calendarType, answerable = info.calendarType ~= "GUILD_ANNOUNCEMENT",
-          answer = E.Answer(info.inviteStatus), started = stamp <= now,
+          answer = E.Answer(info.inviteStatus), status = info.inviteStatus, started = stamp <= now,
         }
       end
     end
@@ -209,6 +210,32 @@ function GE.CanEdit(item)
   return can ~= nil and can ~= false
 end
 
+-- The statuses the calendar lets the player set for an invite of the opened event (Enum.CalendarStatus),
+-- with the game's own names: { { status, label } }
+local STATUS_KEYS = { [0] = "EV_ST_INVITED", "EV_ST_AVAILABLE", "EV_ST_NO", "EV_ST_CONFIRMED", "EV_ST_OUT", "EV_ST_STANDBY",
+  "EV_ST_YES", "EV_OPEN_ANSWER", "EV_ST_MAYBE" }
+function GE.StatusLabel(status, statusString)
+  local text = type(statusString) == "string" and rawget(_G, statusString)
+  if type(text) == "string" and text ~= "" then return text end
+  local L = ns.L
+  local names = { [0] = L.EV_ST_INVITED, L.EV_ST_AVAILABLE, L.EV_ST_NO, L.EV_ST_CONFIRMED, L.EV_ST_OUT, L.EV_ST_STANDBY,
+    L.EV_ST_YES, L.EV_OPEN_ANSWER, L.EV_ST_MAYBE }
+  return names[status] or tostring(status)
+end
+GE.STATUS_KEYS = STATUS_KEYS
+
+function GE.StatusOptionsAt(index)
+  local C = Cal()
+  local raw = C and ns.Try(C.EventGetStatusOptions, index)
+  local options = {}
+  for _, option in ipairs(type(raw) == "table" and raw or {}) do
+    if type(option) == "table" and type(option.status) == "number" then
+      options[#options + 1] = { status = option.status, label = GE.StatusLabel(option.status, option.statusString) }
+    end
+  end
+  return options
+end
+
 local function ReadOpened()
   local C = Cal()
   local info = C and ns.Try(C.GetEventInfo)
@@ -219,21 +246,30 @@ local function ReadOpened()
   local t = info.time
   local stamp = E.Stamp(t.year, t.month, t.monthDay, t.hour or 0, t.minute or 0)
   local key = E.Key(info.title, stamp)
-  local invites, creator = {}, info.creator
+  local invites, creator, myIndex = {}, info.creator, nil
   -- (GetNumInvites: Blizzard's calendar counts with it; EventGetNumInvites does not exist on WoW Forever)
   local count = tonumber(ns.Try(C.GetNumInvites)) or tonumber(ns.Try(C.EventGetNumInvites)) or 0
   for i = 1, count do
     local invite = ns.Try(C.EventGetInvite, i)
     if type(invite) == "table" and type(invite.name) == "string" and invite.name ~= "" and not ns.AnySecret(invite.name) then
       invites[#invites + 1] = { name = invite.name, classFile = invite.classFilename, answer = E.Answer(invite.inviteStatus),
-        mine = invite.inviteIsMine or nil }
+        mine = invite.inviteIsMine or nil, index = i, status = invite.inviteStatus, mod = invite.modStatus }
+      if invite.inviteIsMine then myIndex = i end
       if invite.modStatus == "CREATOR" then creator = creator or invite.name end
     end
   end
   table.sort(invites, function(a, b) return ns.Names.Key(a.name) < ns.Names.Key(b.name) end)
   Trace("read %s: %d answers", key, #invites)
+  local can = ns.Try(C.EventCanEdit)
+  can = can ~= nil and can ~= false
+  local myStatus
+  for _, invite in ipairs(invites) do
+    if invite.index == myIndex then myStatus = invite.status end
+  end
   cache[key] = { creator = creator, description = info.description, inviteType = info.inviteType,
-    locked = info.isLocked == true, canEdit = (function() local can = ns.Try(C.EventCanEdit) return can ~= nil and can ~= false end)(),
+    locked = info.isLocked == true, canEdit = can, myIndex = myIndex, myStatus = myStatus,
+    -- who may edit sets their own answer like anyone else's (Blizzard: "Einladungsstatus festlegen")
+    myOptions = (can and myIndex) and GE.StatusOptionsAt(myIndex) or nil,
     status = info.inviteStatus, invites = invites, counts = E.Counts(invites), at = Clock() }
   return key
 end
@@ -253,6 +289,11 @@ function GE.OnOpenEvent(calendarType)
     pendingAnswer = nil
     GE.Answer(GE.Find(key), answer)
   end
+  if pendingAction and pendingAction.key == key then
+    local run = pendingAction.run
+    pendingAction = nil
+    ns.SafeCall(run)
+  end
   ns.Fire("EVENTS", "detail", key)
   if filling and not fillTimer then FillNext() end
 end
@@ -271,7 +312,39 @@ end
 
 local INVITE_NORMAL = 0 -- Enum.CalendarInviteType.Normal: invited by name (answered "available")
 
--- answer: "yes" | "maybe" | "no". Opens the event first when another one is open.
+local INVITE_SIGNUP = 1 -- Enum.CalendarInviteType.Signup
+local NOT_SIGNED_UP = 7 -- Enum.CalendarStatus.NotSignedup
+
+-- The answers the player can give now, in order, as Blizzard's own window offers them: a sign-up event
+-- (a guild event with invite type Signup) has "yes" and "maybe" until answered, then only "remove" (and
+-- nothing for its creator); an event the player is invited to has "yes" (available), "maybe", "no" but the
+-- current answer. Empty for announcements, locked and started events.
+function GE.Choices(item)
+  if not (item and item.answerable) or item.started then return {} end
+  local detail = cache[item.key]
+  if detail and detail.locked then return {} end
+  if detail and detail.myOptions and #detail.myOptions > 0 then
+    local choices = {}
+    for _, option in ipairs(detail.myOptions) do
+      if option.status ~= detail.myStatus then choices[#choices + 1] = option.status end
+    end
+    return choices
+  end
+  local signup = detail == nil or detail.inviteType == INVITE_SIGNUP or detail.inviteType == nil
+  if signup then
+    if item.answer == "open" or (detail and detail.status == NOT_SIGNED_UP) then return { "yes", "maybe" } end
+    if GE.IsCreator(item.key) then return {} end
+    return { "remove" }
+  end
+  local choices = {}
+  for _, answer in ipairs({ "yes", "maybe", "no" }) do
+    if item.answer ~= answer then choices[#choices + 1] = answer end
+  end
+  return choices
+end
+
+-- answer: "yes" | "maybe" | "no" | "remove" (take back a sign-up). Opens the event first when another one is
+-- open.
 function GE.Answer(item, answer)
   local C = Cal()
   if not (C and item and item.answerable) then return false end
@@ -289,12 +362,45 @@ function GE.Answer(item, answer)
     ok = Call(C.EventTentative)
   elseif answer == "no" then
     ok = Call(C.EventDecline)
+  elseif answer == "remove" then
+    ok = Call(C.RemoveEvent)
+  elseif type(answer) == "number" and detail and detail.myIndex then
+    ok = Call(C.EventSetInviteStatus, detail.myIndex, answer)
   end
+  Trace("answer %s %s -> %s", item.key, tostring(answer), tostring(ok))
   if ok then
-    item.answer = answer
+    item.answer = type(answer) == "number" and E.Answer(answer) or answer == "remove" and "open" or answer
     ns.Fire("EVENTS", "answer", item.key)
   end
   return ok == true
+end
+
+-- Who may edit the event manages its invites (Blizzard's menu on a name): their status, moderator, removal.
+-- The event must be open; when it is not, it is opened and run(true) comes once it is.
+function GE.WithOpen(item, run)
+  if opened == item.key then return run(false) end
+  pendingAction = { key = item.key, run = function() run(true) end }
+  GE.Open(item)
+end
+
+function GE.SetStatus(item, invite, status)
+  local C = Cal()
+  if not (C and invite and invite.index) or opened ~= item.key then return false end
+  local ok = Call(C.EventSetInviteStatus, invite.index, status)
+  Trace("status %s %s -> %s", invite.name, tostring(status), tostring(ok))
+  return ok
+end
+
+function GE.SetModerator(item, invite, on)
+  local C = Cal()
+  if not (C and invite and invite.index) or opened ~= item.key then return false end
+  return Call(on and C.EventSetModerator or C.EventClearModerator, invite.index)
+end
+
+function GE.RemoveInvite(item, invite)
+  local C = Cal()
+  if not (C and invite and invite.index) or opened ~= item.key then return false end
+  return Call(C.EventRemoveInvite, invite.index)
 end
 
 -- Creating ------------------------------------------------------------------------------------------------
@@ -587,6 +693,15 @@ function GE.MarkSeen(items)
   ns.UI.SetTabFlash("events", false)
 end
 
+-- /guildy events glow: this character has seen no event, and the tab glows now (to see the glow; opening
+-- the Events tab ends it like any other time)
+function GE.TestGlow()
+  local db = ns.DB()
+  if db and type(db.eventSeen) == "table" then db.eventSeen[ns.Names.Key(ns.PlayerName())] = nil end
+  ns.UI.SetTabFlash("events", true)
+  ns.Print(ns.L.EV_GLOW_TEST:format(GE.Unseen()))
+end
+
 function GE.UpdateFlash()
   local shown = ns.UI.IsShown() and ns.UI.Current() == "events"
   if shown then return end -- the tab marks what it shows
@@ -755,13 +870,13 @@ function GE.Debug()
   for _, item in ipairs(GE.List()) do
     local sel = C and ns.Try(C.GetGuildEventSelectionInfo, item.index)
     local byId = C and item.id and ns.Try(C.GetEventIndexInfo, item.id)
-    local function Place(t)
+    local function Where(t)
       if type(t) ~= "table" then return tostring(t) end
       return ("%s/%s/%s"):format(tostring(t.offsetMonths or t.offsetMonth), tostring(t.monthDay), tostring(t.eventIndex))
     end
     local detail = cache[item.key]
     lines[#lines + 1] = ("%d %s id %s %s answer %s place %s byId %s detail %s"):format(item.index, item.key,
-      tostring(item.id), tostring(item.calendarType), item.answer, Place(sel), Place(byId),
+      tostring(item.id), tostring(item.calendarType), item.answer, Where(sel), Where(byId),
       detail and (#detail.invites .. " answers") or "none")
   end
   lines[#lines + 1] = "open: " .. tostring(opened) .. ", waiting: " .. tostring(pendingOpen and pendingOpen.key)
