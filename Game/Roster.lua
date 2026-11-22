@@ -292,6 +292,19 @@ function Roster.Can()
   return can
 end
 
+-- Whether a member holds an officer rank: the rank's flags allow reading officer chat (flag 3 of
+-- C_GuildInfo.GuildControlGetRankFlags, rank order = rank index + 1). Where the game gives no flags, the
+-- guild master and the rank below count. Decides who may remove names from the blacklist (Game/Blacklist.lua).
+function Roster.IsOfficer(name)
+  local m = Roster.Find(name)
+  local rank = m and tonumber(m.rankIndex)
+  if not rank then return false end
+  local getFlags = C_GuildInfo and C_GuildInfo.GuildControlGetRankFlags
+  local flags = ns.Try(getFlags, rank + 1)
+  if type(flags) == "table" and type(flags[3]) == "boolean" then return flags[3] end
+  return rank <= 1
+end
+
 -- The guild's message of the day. C_GuildInfo.GetMOTD is protected on Forever (ADDON_ACTION_BLOCKED
 -- even inside pcall, reported 2026-11-22 from inside an instance) and GetGuildRosterMOTD is gone, so
 -- the text comes only from the GUILD_MOTD event and is kept in GuildyDB, since the event may not come

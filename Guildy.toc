@@ -58,6 +58,7 @@ Core\Anon.lua
 Core\ShotRun.lua
 Core\Runtime.lua
 Game\Roster.lua
+Game\Blacklist.lua
 Game\Chat.lua
 Game\Communities.lua
 Game\TradeSkill.lua

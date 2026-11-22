@@ -28,6 +28,10 @@
 --   hundred members on), the summary goes out in n slices, each naming only the members of slice i; b and
 --   j ride in every slice and count with the first. A Guildy before it reads a slice as a whole summary
 --   and offers too much, at most MAX_OFFERS records of each kind per slice.
+--   SUM also carries x = {n, m, s} (Core/Blacklist.lua: entries incl. removed ones, newest event, a
+--   checksum of times), with the first slice only; BL {e = {entry, ...}}: entries of the guild's blacklist,
+--   one change right away or the whole list (40 entries a message). Whoever sees a summary that knows less
+--   offers the whole list once per pair of fingerprints.
 --   HI   {q = true}                         "I use Guildy" (q: please answer); every envelope since 0.3
 --   carries the sender's addon version (v), so any message marks its sender as a Guildy user.
 -- On a SUM, everyone who knows newer data about some member offers it after a random delay, unless
@@ -60,6 +64,8 @@ local seenTalents = {}   -- same for talents (they ride in GEAR)
 local seenBank, bankMessages = 0, 0 -- newest bank reading seen on the channel, how many of them
 local joinMessages = 0   -- JOIN messages seen on the channel
 local joinOffered = {}   -- nameKey of a member -> the state of my dates I offered on their summary
+local blacklistMessages = 0 -- BL messages seen on the channel
+local blacklistOffered = {} -- nameKey of a member -> "mine|theirs" fingerprints I offered the list on
 local MAX_BYTES = 14000  -- a message of more parts than Protocol.MAX_PARTS is dropped by its receivers
 local warnedNewer = false
 local ownTimer
@@ -248,7 +254,7 @@ local SUMMARY_MAPS = { "d", "s", "f", "c", "g", "k" }
 local function SendSummarySlice(full, i, n)
   if not IsInGuild() then return end
   local slice = n > 1 and { i, n } or nil
-  local data = { b = full.b, j = full.j, r = slice }
+  local data = { b = full.b, j = full.j, x = (not slice or i == 0) and full.x or nil, r = slice }
   for _, field in ipairs(SUMMARY_MAPS) do data[field] = Proto.SliceMap(full[field], slice) end
   local payload = Proto.Encode("SUM", data, ns.Version())
   if Proto.PartCount(payload) > SUMMARY_PARTS and n < Proto.MAX_SLICES then
@@ -266,7 +272,7 @@ function Sync.SendSummary()
   local full = { d = P.Digest(guild), s = ns.Stats.Digest(guild), f = ns.Family.Digest(guild),
     b = ns.Bank.Digest(guild.bank) or { at = 0, ts = 0, n = 0 }, j = ns.Tenure.Digest(guild.joined),
     c = ns.Cooldowns.Digest(guild.cooldowns, ns.Now()), g = ns.Gear.Digest(guild.gear, ns.Now()),
-    k = ns.Talents.Digest(guild.talents, ns.Now()) }
+    k = ns.Talents.Digest(guild.talents, ns.Now()), x = ns.Blacklist.Digest(guild.blacklist) }
   local entries = 0
   for _, field in ipairs(SUMMARY_MAPS) do
     for _ in pairs(type(full[field]) == "table" and full[field] or {}) do entries = entries + 1 end
@@ -290,6 +296,28 @@ local function SendJoins()
     Send("JOIN", { j = list })
   end
   joinMessages = joinMessages + 1
+end
+
+-- The blacklist: the given entries (one change) or, without them, the whole list in messages of 40
+function Sync.ShareBlacklist(entries)
+  if entries then
+    local items = {}
+    for i, entry in ipairs(entries) do items[i] = ns.Blacklist.Item(entry) end
+    Send("BL", { e = items })
+    return
+  end
+  local guild = ns.GuildData()
+  if not guild then return end
+  for _, list in ipairs(ns.Blacklist.Wire(guild.blacklist)) do Send("BL", { e = list }) end
+end
+
+local function OnBlacklist(data)
+  local guild = ns.GuildData()
+  if not guild or (ns.Anon and ns.Anon.on) then return end
+  blacklistMessages = blacklistMessages + 1
+  if ns.Blacklist.Apply(ns.Blacklist.Book(guild), data.e, ns.Now(), ns.GameBlacklist.Ctx()) then
+    ns.Fire("BLACKLIST")
+  end
 end
 
 -- The guild bank as far as it is newer than `since` (a time, nil: all of it). Too much for one message:
@@ -460,6 +488,21 @@ local function OnSummary(data, sender)
         if joinMessages > before then return end -- someone else sent theirs meanwhile
         joinOffered[senderKey] = state
         SendJoins()
+      end)
+    end
+  end
+  -- the blacklist: the whole list once per pair of fingerprints, when this client knows more (a Guildy
+  -- before it sends no x and could not use it)
+  if whole and type(data.x) == "table" then
+    local mine = ns.Blacklist.Digest(guild.blacklist)
+    local pair = mine.n .. "/" .. mine.m .. "/" .. mine.s .. "|" .. tostring(data.x.n) .. "/" .. tostring(data.x.m)
+      .. "/" .. tostring(data.x.s)
+    if ns.Blacklist.Differs(mine, data.x) and ns.Blacklist.Ahead(mine, data.x) and blacklistOffered[senderKey] ~= pair then
+      blacklistOffered[senderKey] = pair
+      local before = blacklistMessages
+      C_Timer.After(7 + math.random() * 8, function()
+        if blacklistMessages > before then return end -- someone else sent theirs meanwhile
+        Sync.ShareBlacklist()
       end)
     end
   end
@@ -759,7 +802,7 @@ local function OnHello(data)
 end
 
 local HANDLERS = { SUM = OnSummary, PROF = OnProfessions, STAT = OnStats, FAM = OnFamily, BANK = OnBank, JOIN = OnJoined, CD = OnCooldowns,
-  GEAR = OnGear, HI = OnHello }
+  GEAR = OnGear, HI = OnHello, BL = OnBlacklist }
 
 -- CHAT_MSG_ADDON: prefix, text, channel, sender
 function Sync.OnAddonMessage(prefix, text, channel, sender)
