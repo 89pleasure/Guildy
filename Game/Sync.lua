@@ -514,10 +514,10 @@ local function OnSummary(data, sender)
   -- the blacklist: the whole list once per pair of fingerprints, when this client knows more (a Guildy
   -- before it sends no x and could not use it)
   if whole and type(data.x) == "table" then
-    local mine = ns.Blacklist.Digest(guild.blacklist)
-    local pair = mine.n .. "/" .. mine.m .. "/" .. mine.s .. "|" .. tostring(data.x.n) .. "/" .. tostring(data.x.m)
+    local myList = ns.Blacklist.Digest(guild.blacklist)
+    local pair = myList.n .. "/" .. myList.m .. "/" .. myList.s .. "|" .. tostring(data.x.n) .. "/" .. tostring(data.x.m)
       .. "/" .. tostring(data.x.s)
-    if ns.Blacklist.Differs(mine, data.x) and ns.Blacklist.Ahead(mine, data.x) and blacklistOffered[senderKey] ~= pair then
+    if ns.Blacklist.Differs(myList, data.x) and ns.Blacklist.Ahead(myList, data.x) and blacklistOffered[senderKey] ~= pair then
       blacklistOffered[senderKey] = pair
       local before = blacklistMessages
       C_Timer.After(7 + math.random() * 8, function()

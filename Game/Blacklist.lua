@@ -102,7 +102,8 @@ function GameBlacklist.Alert(entry, trigger)
   else
     ns.Print(ns.L.BL_ALERT_PLAIN:format(name, Phrase(trigger), label, entry.a or "?"))
   end
-  local sound = rawget(_G, "SOUNDKIT") and SOUNDKIT.RAID_WARNING
+  local kit = rawget(_G, "SOUNDKIT")
+  local sound = kit and kit.RAID_WARNING
   local play = rawget(_G, "PlaySound")
   if sound and play then pcall(play, sound, "Master") end
 end
