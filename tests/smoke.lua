@@ -1504,6 +1504,8 @@ T.describe("Harvest", function()
     RunTimers(2)
     T.truthy(ns.Harvest.IsRunning(), "still running in combat")
     T.truthy(ns.Harvest.InCombatPause(), "paused in combat")
+    T.eq(cvars.Sound_EnableSFX, "1") -- the game's sound is back during the combat pause
+    T.truthy(env.GuildyDB.harvestSfx == nil, "nothing left to restore while paused")
     env.InCombatLockdown = function() return false end
     RunTimers(60)
     T.eq(ns.Harvest.IsRunning(), false)

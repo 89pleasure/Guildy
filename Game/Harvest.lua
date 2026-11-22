@@ -166,9 +166,12 @@ local function SetHidden(hidden)
 end
 
 -- Blizzard's window plays its open and close sound on every look. A single sound can't be muted
--- without its file id, so the game's sound effects are off while Guildy reads (music and ambience stay)
--- and come back afterwards. The old value is kept in GuildyDB until restored, so a /reload or crash in
--- the middle of a run gives it back at the next login (Harvest.RestoreSound).
+-- without its file id, so the game's sound effects are off while a look is open (music and ambience
+-- stay) and come back in the pause after it and during a combat pause (2026-11-22: a player reported
+-- the game silent through a whole fight while the run waited for combat to end). The old value is kept
+-- in GuildyDB until restored, so a /reload or crash in the middle of a look gives it back at the next
+-- login (Harvest.RestoreSound).
+Harvest.UNMUTE_DELAY = 0.5 -- seconds after closing the window before the sound comes back (its close sound)
 local SFX = "Sound_EnableSFX"
 
 local function GetCVarValue(name)
@@ -339,6 +342,13 @@ local function Check(entry, startedAt)
   end
   CloseWindow()
   state.current = nil
+  if InCombatLockdown() then
+    Harvest.RestoreSound()
+  else
+    C_Timer.After(Harvest.UNMUTE_DELAY, function()
+      if not (state and state.current) then Harvest.RestoreSound() end
+    end)
+  end
   local pause = NextPause()
   state.waitUntil = GetTime() + pause
   state.slowed = pause > Harvest.PAUSE
@@ -379,6 +389,7 @@ Step = function()
   if InCombatLockdown() then
     -- paused in combat: tried again every 3 seconds, the status column says so
     state.inCombat = true
+    Harvest.RestoreSound()
     ns.Fire("HARVEST")
     C_Timer.After(3, Step)
     return
@@ -415,6 +426,7 @@ Step = function()
         state.current = entry
         local startedAt = GetTime()
         state.startedAt = startedAt
+        MuteSound()
         SetHidden(true)
         pcall(setItemRef, link, "[" .. ns.TradeSkill.Name(entry.skillLine) .. "]", "LeftButton")
         SetHidden(true) -- the frame may only exist after the first link
@@ -458,7 +470,6 @@ function Harvest.Start()
   Harvest.log = {} -- a new run starts with an empty log (a stopped run's log stays until then)
   state = { queue = queue, index = 0, totalMembers = total, doneMembers = 0, found = 0, looks = {}, answered = {},
     skip = {}, myServer = myServer, serverAnswered = {}, serverMisses = {}, badServer = {}, streak = 0 }
-  MuteSound()
   -- watchdog: a look without a decision or a pause that ended long ago means a timer got lost; go on
   state.watchdog = C_Timer.NewTicker(5, function()
     ns.SafeCall(function()
