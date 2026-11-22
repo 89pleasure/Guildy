@@ -73,9 +73,9 @@ local function IsLetter(cp)
 end
 
 -- One part of a character name as the game writes it: the first letter upper case, the rest lower case,
--- 2 to NAME_PART_MAX letters (generous: Forever's limit for last names is not known for sure, and a real
--- name must never be refused). nil when it has anything but letters or the wrong length.
-Names.NAME_PART_MAX = 24
+-- 2 to NAME_PART_MAX letters (Forever's limit for first and last names, confirmed by Sven 2026-11-22).
+-- nil when it has anything but letters or the wrong length.
+Names.NAME_PART_MAX = 12
 function Names.NamePart(word)
   if type(word) ~= "string" then return nil end
   local cps = CodePoints(word)

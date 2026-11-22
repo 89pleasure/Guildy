@@ -176,8 +176,8 @@ end)
 T.describe("Seeing blacklisted players", function()
   local lines, sounds, tipLines = {}, 0, {}
   local units = {
-    nameplate1 = { "Vexa", "Nachtschatten", "WARLOCK", 58, "Horde" },
-    target = { "Vexa", "Nachtschatten", "WARLOCK", 58, "Horde" },
+    nameplate1 = { "Vexa", "Nachtschatt", "WARLOCK", 58, "Horde" },
+    target = { "Vexa", "Nachtschatt", "WARLOCK", 58, "Horde" },
     party1 = { "Gerd", "Großmaul", "PALADIN", 44, "Alliance" },
     NPC = { "Fenna", "Falschgold", "MAGE", 37, "Alliance" },
     nameplate2 = { "Au", "Tsch", "ROGUE", 21, "Alliance" },
@@ -200,7 +200,7 @@ T.describe("Seeing blacklisted players", function()
   local function Reset() lines, sounds = {}, 0 end
 
   local book = ns.GameBlacklist.Book()
-  ns.Blacklist.Add(book, "Vexa Nachtschatten", "kos", "tötet Leute unter 30", "Makira Farron", now, ns.GameBlacklist.Ctx())
+  ns.Blacklist.Add(book, "Vexa Nachtschatt", "kos", "tötet Leute unter 30", "Makira Farron", now, ns.GameBlacklist.Ctx())
   ns.Blacklist.Add(book, "Gerd Großmaul", "insult", "beleidigt im Handel", "Makira Farron", now, ns.GameBlacklist.Ctx())
   ns.Blacklist.Add(book, "Fenna Falschgold", "scam", nil, "Makira Farron", now, ns.GameBlacklist.Ctx())
   ns.Blacklist.Add(book, "Jule Plappermaul", "insult", nil, "Makira Farron", now, ns.GameBlacklist.Ctx())
@@ -213,7 +213,7 @@ T.describe("Seeing blacklisted players", function()
     Fire("PLAYER_TARGET_CHANGED")
     T.eq(#lines, 1)
     T.eq(sounds, 1)
-    T.truthy(lines[1]:find("Vexa Nachtschatten", 1, true), "names the player")
+    T.truthy(lines[1]:find("Vexa Nachtschatt", 1, true), "names the player")
     T.truthy(lines[1]:find("tötet Leute unter 30", 1, true), "gives the reason")
     now = now + 300
     Fire("PLAYER_TARGET_CHANGED")
@@ -222,7 +222,7 @@ T.describe("Seeing blacklisted players", function()
   end)
 
   T.it("fills class, level and faction from a seen unit", function()
-    local entry = ns.GameBlacklist.Book()["vexa nachtschatten"]
+    local entry = ns.GameBlacklist.Book()["vexa nachtschatt"]
     T.eq(entry.c, "WARLOCK")
     T.eq(entry.l, 58)
     T.eq(entry.f, "H")
@@ -248,7 +248,7 @@ T.describe("Seeing blacklisted players", function()
     Fire("NAME_PLATE_UNIT_ADDED", "nameplate2")
     T.eq(#lines, 0)
     T.eq(ns.GameBlacklist.Find("Au Tsch"), nil)
-    T.truthy(ns.GameBlacklist.Find("Vexa Nachtschatten"), "listed")
+    T.truthy(ns.GameBlacklist.Find("Vexa Nachtschatt"), "listed")
   end)
 
   T.it("ignores a secret sender", function()
@@ -383,15 +383,15 @@ T.describe("The Blacklist tab", function()
     local view = View()
     view:OpenAdd()
     T.eq(view.AddRow:IsShown(), true)
-    view.AddName:SetText("Ruk Knochenbrecher")
+    view.AddName:SetText("Ruk Knochenbruch")
     view:SetAddKind("kos")
     view.AddReason:SetText("jagt Sammler in Felwood")
     view:Submit()
     T.eq(view.AddRow:IsShown(), false)
-    local entry = ns.GameBlacklist.Book()["ruk knochenbrecher"]
+    local entry = ns.GameBlacklist.Book()["ruk knochenbruch"]
     T.eq(entry.t, "kos")
     T.eq(entry.r, "jagt Sammler in Felwood")
-    T.eq(view.List.items[1].entry.n, "Ruk Knochenbrecher")
+    T.eq(view.List.items[1].entry.n, "Ruk Knochenbruch")
   end)
 
   T.it("Add takes the name from the search box and the kind from the filter", function()
@@ -551,7 +551,7 @@ T.describe("The Blacklist tab", function()
     local view = ns.UI.TabView("blacklist")
     T.eq(ns.UI.Current(), "blacklist")
     T.eq(view.AddRow:IsShown(), true)
-    T.eq(view.AddName:GetText(), "Vexa Nachtschatten")
+    T.eq(view.AddName:GetText(), "Vexa Nachtschatt")
     view:CloseAdd()
     env.SlashCmdList.GUILDY("bl Lirra Dunkelquell")
     T.eq(view.AddName:GetText(), "Lirra Dunkelquell")

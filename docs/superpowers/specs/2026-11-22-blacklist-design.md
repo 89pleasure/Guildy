@@ -97,8 +97,8 @@ of either faction. Typed names are accepted on that basis too.
 
 **Names (Sven, 2026-11-22).** Only names a Forever character can have: first and last name, letters only,
 each part capitalized. Guildy fixes the case itself ("hakuna matata" -> "Hakuna Matata") and refuses digits,
-marks, a missing last name or a third word, locally and on receipt. Length 2 to 24 letters per part
-(generous until Forever's real limit is known). Entries stored before the check can still be removed.
+marks, a missing last name or a third word, locally and on receipt. Length 2 to 12 letters per part
+(Forever's limit, confirmed by Sven). Entries stored before the check can still be removed.
 
 **Who can't be added.** Current guild members and the player's own characters (`GuildyDB.ownChars`). Checked
 when adding and again when receiving, so a crafted add of a guildmate is ignored too.

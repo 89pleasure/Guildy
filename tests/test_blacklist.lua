@@ -356,11 +356,12 @@ T.describe("Blacklist", function()
     T.eq(BL.Add(book, "élan äpfelkern", "kos", nil, "Pell Quellgrund", NOW, ctx).n, "Élan Äpfelkern")
     T.eq(BL.Add(book, "Hakuna-Matata", "kos", nil, "Pell Quellgrund", NOW, ctx).n, "Hakuna Matata")
     T.eq(BL.FormatName("zora kälte"), "Zora Kälte")
+    T.eq(BL.FormatName("Abcdefghijkl Mnopqrstuvwx"), "Abcdefghijkl Mnopqrstuvwx") -- 12 letters each
   end)
 
   T.it("refuses names no character can have", function()
     local book = {}
-    for _, bad in ipairs({ "Hakuna Markarta2", "Hakuna", "Ab Cd Ef", "A Bcd", "Hakuna Abcdefghijklmnopqrstuvwxy", "Ha'kuna Matata",
+    for _, bad in ipairs({ "Hakuna Markarta2", "Hakuna", "Ab Cd Ef", "A Bcd", "Hakuna Abcdefghijklm", "Ha'kuna Matata",
       "Hakuna Ma.tata", "Hakuna 123" }) do
       local entry, err = BL.Add(book, bad, "kos", nil, "Pell Quellgrund", NOW, ctx)
       T.eq(entry, nil, bad)
