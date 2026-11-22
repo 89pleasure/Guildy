@@ -883,4 +883,5 @@ ns.LocaleTables.deDE = {
   BL_ERR_PROTECTED = "Gildenmitglieder und eigene Charaktere kommen nicht auf die Blacklist.",
   BL_ERR_REMOVED = "Ein Offizier hat diesen Namen entfernt; nur Offiziere können ihn wieder eintragen.",
   BL_ERR_NAME = "Erst einen Namen eingeben.",
+  BL_MENU = "Zur Guildy-Blacklist hinzufügen",
 }

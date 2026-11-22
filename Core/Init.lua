@@ -41,6 +41,7 @@ local HANDLERS = {
     end
     ns.Harvest.RestoreSound() -- a run cut off by /reload or a crash left the sound effects off
     ns.GameBlacklist.HookTooltip()
+    ns.GameBlacklist.HookMenu()
     ns.Sync.Register()
     ns.Roster.Request(true)
     C_Timer.After(3, function() ns.SafeCall(ns.TradeSkill.ScanSkills) end)

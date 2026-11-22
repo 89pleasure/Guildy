@@ -884,4 +884,5 @@ ns.LocaleTables.enUS = {
   BL_ERR_PROTECTED = "Guild members and your own characters can't be blacklisted.",
   BL_ERR_REMOVED = "An officer removed this name; only officers can add it again.",
   BL_ERR_NAME = "Type a name first.",
+  BL_MENU = "Add to Guildy blacklist",
 }

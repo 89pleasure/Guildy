@@ -883,4 +883,5 @@ ns.LocaleTables.frFR = {
   BL_ERR_PROTECTED = "Les membres de la guilde et vos propres personnages ne peuvent pas être ajoutés.",
   BL_ERR_REMOVED = "Un officier a retiré ce nom ; seuls les officiers peuvent l'ajouter à nouveau.",
   BL_ERR_NAME = "Saisissez d'abord un nom.",
+  BL_MENU = "Ajouter à la liste noire Guildy",
 }

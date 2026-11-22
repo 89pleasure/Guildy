@@ -883,4 +883,5 @@ ns.LocaleTables.esES = {
   BL_ERR_PROTECTED = "Los miembros de la hermandad y tus propios personajes no pueden añadirse.",
   BL_ERR_REMOVED = "Un oficial quitó este nombre; solo los oficiales pueden volver a añadirlo.",
   BL_ERR_NAME = "Escribe primero un nombre.",
+  BL_MENU = "Añadir a la lista negra de Guildy",
 }

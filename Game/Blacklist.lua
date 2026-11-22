@@ -162,3 +162,33 @@ function GameBlacklist.HookTooltip()
     GameTooltip:HookScript("OnTooltipSetUnit", function(tooltip) ns.SafeCall(OnTooltip, tooltip) end)
   end
 end
+
+-- "Add to Guildy blacklist" in the right-click menu of other players (Blizzard's Menu.ModifyMenu; unit menus
+-- are tagged MENU_UNIT_<type>). Opens the Blacklist tab's add row with the name.
+local MENU_TAGS = { "PLAYER", "ENEMY_PLAYER", "PARTY", "RAID_PLAYER", "FRIEND", "TARGET", "FOCUS" }
+
+local function MenuName(context)
+  if type(context) ~= "table" then return nil end
+  if ns.AnySecret(context.name, context.server, context.unit) then return nil end
+  local name
+  if type(context.unit) == "string" and ns.Try(rawget(_G, "UnitIsPlayer"), context.unit) then
+    name = ns.Names.FromUnit(ns.Try(UnitName, context.unit))
+  else
+    name = ns.Names.FromUnit(context.name, context.server)
+  end
+  if name == "" or IsProtected(name) then return nil end
+  return name
+end
+
+function GameBlacklist.HookMenu()
+  local menu = rawget(_G, "Menu")
+  if not (menu and menu.ModifyMenu) then return end
+  for _, which in ipairs(MENU_TAGS) do
+    pcall(menu.ModifyMenu, "MENU_UNIT_" .. which, function(_, root, context)
+      local name = MenuName(context)
+      if not name or not root then return end
+      root:CreateDivider()
+      root:CreateButton(ns.L.BL_MENU, function() ns.UI.BlacklistAdd(name) end)
+    end)
+  end
+end

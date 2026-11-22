@@ -23,6 +23,7 @@ More screenshots are in the gallery on [CurseForge](https://www.curseforge.com/w
 | Hall of Fame | Guild records from Forever's character statistics: kills, quests, deaths (including by Hogger), gold, dungeons, reputation and PvP. Each page is yours to arrange: which boxes, where and how large, which totals and titles. |
 | Ranks | Every rank with its members and permissions. The guild master edits them right there. |
 | Bank | The guild bank for everyone in the guild: gold over 30 days and a ledger of every deposit, withdrawal and repair, read whenever a Guildy user opens the bank at a guild banker. |
+| Blacklist | Players your guild wants to be warned about, of either faction: kill on sight, ninja looters, insults, scammers. Shared with every Guildy user in the guild; anyone adds, officers remove. When a listed player shows up, joins your group, whispers you or wants to trade, Guildy warns you in chat. |
 | Info & log | Message of the day, guild information and the guild log. |
 | Communities | Your communities with their chat and members. Works without a guild too. |
 

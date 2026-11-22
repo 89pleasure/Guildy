@@ -380,3 +380,38 @@ T.describe("The Blacklist tab", function()
     T.eq(errors, {})
   end)
 end)
+
+T.describe("Right-click entry", function()
+  local callbacks = {}
+  env.Menu = { ModifyMenu = function(tag, fn) callbacks[tag] = fn end }
+  ns.GameBlacklist.HookMenu()
+
+  local function Open(tag, context)
+    local buttons = {}
+    local root = {
+      CreateDivider = function() end,
+      CreateButton = function(_, text, onClick) buttons[#buttons + 1] = { text = text, onClick = onClick } end,
+    }
+    callbacks[tag](nil, root, context)
+    return buttons
+  end
+
+  T.it("adds the menu entry for other players", function()
+    T.truthy(callbacks.MENU_UNIT_PLAYER and callbacks.MENU_UNIT_ENEMY_PLAYER, "hooked")
+    local buttons = Open("MENU_UNIT_ENEMY_PLAYER", { name = "Grom", server = "Blutfaust" })
+    T.eq(#buttons, 1)
+    T.eq(buttons[1].text, ns.L.BL_MENU)
+    buttons[1].onClick()
+    local view = ns.UI.TabView("blacklist")
+    T.eq(view.AddRow:IsShown(), true)
+    T.eq(view.AddName:GetText(), "Grom Blutfaust")
+    view:CloseAdd()
+  end)
+
+  T.it("leaves guild members and the player alone", function()
+    T.eq(#Open("MENU_UNIT_PLAYER", { name = "Makira", server = "Farron" }), 0)
+    T.eq(#Open("MENU_UNIT_PLAYER", { name = "Ran", server = "Fred" }), 0)
+    T.eq(#Open("MENU_UNIT_PLAYER", { name = world.SECRET }), 0)
+    T.eq(errors, {})
+  end)
+end)

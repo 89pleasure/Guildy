@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.9.11
+
+- New: a Blacklist tab, shared with every Guildy user in your guild. Add players your guild should be
+  warned about, of either faction: kill on sight, ninja looters, insults, scammers or other, with a short
+  reason. Anyone can add a name; only officers can remove one or add a removed name back. Every change
+  reaches the other Guildy users at once, and whoever was offline gets the list at their next login.
+- New: when someone from the blacklist shows up near you, you target or hover them, they join your group,
+  invite you, whisper you or open a trade, Guildy writes a warning in your chat and plays a sound (at most
+  once every 5 minutes per player; you can switch it off in the options). Their tooltip shows why they
+  are on the list.
+- New: add a player from their right-click menu ("Add to Guildy blacklist") or with /guildy bl on your
+  target. Guild members and your own characters can't be added.
+- Fixed: "Read online members" on the Professions tab turned off the game's sound effects for the whole
+  scan, and if a fight started, the game stayed silent until the scan ended. Sound effects are now only
+  off for the moment each recipe book is read, and come back right away when you are in combat.
+- Fixed: an error ("Guildy tried to call a protected function") when the Info & Log tab showed the
+  message of the day, for example inside a dungeon. Guildy now remembers the message of the day the game
+  sends at login and when it changes.
+
 ## 1.9.10
 
 - Fixed: when two people play on the same WoW account, Guildy showed all of its characters as one
