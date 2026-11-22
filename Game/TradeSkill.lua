@@ -434,7 +434,7 @@ end
 
 -- Skill levels of all professions of the current character (no recipes). Professions it no longer has
 -- are removed, but only when the client really handed out the skill list (it can be empty right after login).
-function TradeSkill.ScanSkills()
+local function ScanOwnSkills()
   local getProfessions, getInfo = rawget(_G, "GetProfessions"), rawget(_G, "GetProfessionInfo")
   local present, seen = {}, false
   if getProfessions and getInfo then
@@ -476,6 +476,17 @@ function TradeSkill.ScanSkills()
   -- header (the player folded it in the skill window) hides its professions
   if lines > 0 and not collapsed and not scanTarget then PruneOwn(present) end
   if not scanTarget then NoteOwnSpecs(present) end
+end
+
+-- The skill list is always the own character's. The member whose linked book was read last stays
+-- the scan target until the next window, and the skill-up scans in between stored the reader's own
+-- levels on that member (seen in game 2026-11-22: a member listed with the reader's alchemy).
+function TradeSkill.ScanSkills()
+  local target = scanTarget
+  scanTarget = nil
+  local ok, err = pcall(ScanOwnSkills)
+  scanTarget = target
+  if not ok then error(err, 0) end
 end
 
 local function IdFromLink(link)

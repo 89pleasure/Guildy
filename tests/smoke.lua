@@ -63,6 +63,15 @@ T.describe("Smoke", function()
     T.eq(ns.TradeSkill.RecipeIcon(11), 5011) -- the made item's icon, remembered from the open book
     T.eq(ns.TradeSkill.RecipeIcon(99), nil)
     T.eq(guild.members["ran fred"].profs[171].recipes, nil)
+    -- the own skill levels (read on every skill-up) are the own character's, even while or after the
+    -- book of another member was open (seen in game 2026-11-22: a member listed with the reader's alchemy)
+    local auRank = guild.members["au tsch"].profs[171].rank
+    ns.TradeSkill.ScanSkills()
+    T.eq(guild.members["au tsch"].profs[171].rank, auRank)
+    ns.TradeSkill.OnClose()
+    ns.TradeSkill.ScanSkills()
+    T.eq(guild.members["au tsch"].profs[171].rank, auRank)
+    T.eq(guild.members["ran fred"].profs[171].rank, 120)
     -- own window again
     linked = false
     ns.TradeSkill.ScanOpen()
