@@ -519,6 +519,21 @@ T.describe("The Blacklist tab", function()
     view.Search:GetScript("OnTextChanged")(view.Search)
   end)
 
+  T.it("refuses a name no character can have and says how names look", function()
+    local view = View()
+    local printed = {}
+    rawset(env.DEFAULT_CHAT_FRAME, "AddMessage", function(_, text) printed[#printed + 1] = text end)
+    view:OpenAdd()
+    view.AddName:SetText("Hakuna Markarta2")
+    view:Submit()
+    T.eq(view.AddRow:IsShown(), true)
+    T.eq(ns.GameBlacklist.Book()["hakuna markarta2"] ~= nil and ns.GameBlacklist.Book()["hakuna markarta2"].at == now, false)
+    T.truthy(printed[1] and printed[1]:find(ns.L.BL_ERR_FORMAT, 1, true), "says how names look")
+    view.AddName:SetText("seshi feuerkopf")
+    view:Submit()
+    T.eq(ns.GameBlacklist.Book()["seshi feuerkopf"].n, "Seshi Feuerkopf")
+  end)
+
   T.it("refuses a guild member from the add row with the message", function()
     local view = View()
     local printed = {}

@@ -203,13 +203,14 @@ T.describe("Blacklist", function()
   end)
   T.it("packs the list into messages of 40", function()
     local book = {}
-    for i = 1, 85 do BL.Add(book, ("Gegner %03d"):format(i), "kos", nil, "Pell Quellgrund", NOW + i, ctx) end
+    local function Name(i) return "Gegner Q" .. string.char(97 + math.floor(i / 26), 97 + i % 26) end
+    for i = 1, 85 do BL.Add(book, Name(i), "kos", nil, "Pell Quellgrund", NOW + i, ctx) end
     local lists = BL.Wire(book)
     T.eq(#lists, 3)
     T.eq(#lists[1], 40)
     T.eq(#lists[3], 5)
-    T.eq(lists[1][1].n, "Gegner 001")
-    T.eq(lists[3][5].n, "Gegner 085")
+    T.eq(lists[1][1].n, "Gegner Qab")
+    T.eq(lists[3][5].n, "Gegner Qdh")
   end)
 
   T.it("copies only known fields onto the wire", function()
@@ -347,5 +348,32 @@ T.describe("Blacklist", function()
     BL.Remove(book, "Holz Elliot", "Alva Abendrot", NOW + 20, ctx)
     local _, again = BL.Add(book, "Holz Elliot", "kos", nil, "Tara Kiesel", NOW + 30, ctx)
     T.eq(again, "removed")
+  end)
+  T.it("writes names the way Forever does", function()
+    local book = {}
+    T.eq(BL.Add(book, "hakuna matata", "kos", nil, "Pell Quellgrund", NOW, ctx).n, "Hakuna Matata")
+    T.eq(BL.Add(book, "HOLZ ELLIOT", "kos", nil, "Pell Quellgrund", NOW, ctx).n, "Holz Elliot")
+    T.eq(BL.Add(book, "élan äpfelkern", "kos", nil, "Pell Quellgrund", NOW, ctx).n, "Élan Äpfelkern")
+    T.eq(BL.Add(book, "Hakuna-Matata", "kos", nil, "Pell Quellgrund", NOW, ctx).n, "Hakuna Matata")
+    T.eq(BL.FormatName("zora kälte"), "Zora Kälte")
+  end)
+
+  T.it("refuses names no character can have", function()
+    local book = {}
+    for _, bad in ipairs({ "Hakuna Markarta2", "Hakuna", "Ab Cd Ef", "A Bcd", "Hakuna Abcdefghijklmnopqrstuvwxy", "Ha'kuna Matata",
+      "Hakuna Ma.tata", "Hakuna 123" }) do
+      local entry, err = BL.Add(book, bad, "kos", nil, "Pell Quellgrund", NOW, ctx)
+      T.eq(entry, nil, bad)
+      T.eq(err, "format", bad)
+    end
+    T.eq(book, {})
+    T.eq(BL.Merge(book, { n = "Fat Tekk2", t = "kos", a = "Pell Quellgrund", at = NOW }, NOW, ctx), false)
+    T.eq(book, {})
+  end)
+  T.it("still removes an entry whose name was stored before names were checked", function()
+    local book = { ["hakuna markarta2"] = { n = "Hakuna Markarta2", t = "kos", a = "Pell Quellgrund", at = NOW } }
+    local entry = BL.Remove(book, "Hakuna Markarta2", "Pell Quellgrund", NOW + 5, ctx)
+    T.truthy(entry, "removed")
+    T.eq(BL.IsLive(book["hakuna markarta2"]), false)
   end)
 end)

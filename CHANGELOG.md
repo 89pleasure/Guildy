@@ -13,7 +13,8 @@
   once every 5 minutes per player; you can switch it off in the options). Their tooltip shows why they
   are on the list.
 - New: add a player from their right-click menu ("Add to Guildy blacklist") or with /guildy bl on your
-  target. Guild members and your own characters can't be added.
+  target. Guild members and your own characters can't be added, and only names a character can have
+  (first and last name, letters only); Guildy writes them with capitals itself.
 - Fixed: "Read online members" on the Professions tab turned off the game's sound effects for the whole
   scan, and if a fight started, the game stayed silent until the scan ended. Sound effects are now only
   off for the moment each recipe book is read, and come back right away when you are in combat.

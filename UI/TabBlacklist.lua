@@ -63,7 +63,8 @@ local function Place(parent, cells)
   cells.reason:SetPoint("RIGHT", cells.faction, "LEFT", -8, 0)
 end
 
-local ERRORS = { protected = "BL_ERR_PROTECTED", removed = "BL_ERR_REMOVED", name = "BL_ERR_NAME" }
+local ERRORS = { protected = "BL_ERR_PROTECTED", removed = "BL_ERR_REMOVED", name = "BL_ERR_NAME",
+  format = "BL_ERR_FORMAT" }
 
 local function Build(panel)
   local L = ns.L

@@ -888,4 +888,5 @@ ns.LocaleTables.esES = {
   BL_EDIT_HINT = "Haz clic para cambiar el tipo o el motivo",
   BL_ERR_RENAME = "Solo los oficiales y quien añadió la entrada pueden renombrarla. Cambia el tipo o el motivo, o pide ayuda a un oficial.",
   BL_REMOVE_CONFIRM = "¿Quitar a %s de la lista negra de la hermandad? La entrada desaparece para todos los usuarios de Guildy de la hermandad.",
+  BL_ERR_FORMAT = "Ningún personaje puede llamarse así: nombre y apellido, solo letras, como Hakuna Matata.",
 }

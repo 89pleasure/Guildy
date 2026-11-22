@@ -53,6 +53,41 @@ local function LowerCodePoint(cp)
   return cp
 end
 
+local function UpperCodePoint(cp)
+  if cp >= 97 and cp <= 122 then return cp - 32 end
+  if cp >= 0xE0 and cp <= 0xFE and cp ~= 0xF7 then return cp - 32 end
+  if cp == 0xFF then return 0x178 end
+  if cp >= 0x100 and cp <= 0x17F and LowerCodePoint(cp) == cp then
+    -- the capital is the code point whose lower case this is (one below, the pairs of Latin Extended-A)
+    if LowerCodePoint(cp - 1) == cp then return cp - 1 end
+  end
+  return cp
+end
+
+-- A letter of a character name: ASCII letters, Latin-1 and Latin Extended-A letters, and other scripts
+-- (Cyrillic and beyond, whose case Guildy leaves alone); no digits, marks or the multiplication signs
+local function IsLetter(cp)
+  if (cp >= 65 and cp <= 90) or (cp >= 97 and cp <= 122) then return true end
+  if cp >= 0xC0 and cp <= 0x24F then return cp ~= 0xD7 and cp ~= 0xF7 end
+  return cp >= 0x370
+end
+
+-- One part of a character name as the game writes it: the first letter upper case, the rest lower case,
+-- 2 to NAME_PART_MAX letters (generous: Forever's limit for last names is not known for sure, and a real
+-- name must never be refused). nil when it has anything but letters or the wrong length.
+Names.NAME_PART_MAX = 24
+function Names.NamePart(word)
+  if type(word) ~= "string" then return nil end
+  local cps = CodePoints(word)
+  if #cps < 2 or #cps > Names.NAME_PART_MAX then return nil end
+  local out = {}
+  for i, cp in ipairs(cps) do
+    if not IsLetter(cp) then return nil end
+    out[i] = Utf8(i == 1 and UpperCodePoint(LowerCodePoint(cp)) or LowerCodePoint(cp))
+  end
+  return concat(out)
+end
+
 function Names.Lower(s)
   local out = {}
   for i, cp in ipairs(CodePoints(s or "")) do out[i] = Utf8(LowerCodePoint(cp)) end

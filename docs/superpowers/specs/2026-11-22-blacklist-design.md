@@ -95,6 +95,11 @@ more than an hour after their own clock, so a fake future date can't pin an entr
 **Who can be listed (Sven).** Any player who is not in the guild and not one of the player's own characters,
 of either faction. Typed names are accepted on that basis too.
 
+**Names (Sven, 2026-11-22).** Only names a Forever character can have: first and last name, letters only,
+each part capitalized. Guildy fixes the case itself ("hakuna matata" -> "Hakuna Matata") and refuses digits,
+marks, a missing last name or a third word, locally and on receipt. Length 2 to 24 letters per part
+(generous until Forever's real limit is known). Entries stored before the check can still be removed.
+
 **Who can't be added.** Current guild members and the player's own characters (`GuildyDB.ownChars`). Checked
 when adding and again when receiving, so a crafted add of a guildmate is ignored too.
 

@@ -84,10 +84,21 @@ local function Class(c)
   return (type(c) == "string" and c:match("^%u+$") and #c <= 16) and c or nil
 end
 
-local function ValidName(name)
+-- A character name as WoW Forever writes it: first and last name, letters only, each part capitalized and
+-- 2 to Names.NAME_PART_MAX letters long ("hakuna matata" -> "Hakuna Matata"). nil for a name no character can have.
+function Blacklist.FormatName(name)
   if type(name) ~= "string" or #name > Blacklist.NAME_MAX or name:find("|", 1, true) then return nil end
-  local shown = ns.Names.Normalize(name)
-  if shown == "" then return nil end
+  local first, last, more = ns.Names.Normalize(name):match("^(%S+) (%S+)(.*)$")
+  if not first or more ~= "" then return nil end
+  first, last = ns.Names.NamePart(first), ns.Names.NamePart(last)
+  return first and last and (first .. " " .. last) or nil
+end
+
+-- shown name and key; nil, "name" for nothing typed, nil, "format" for a name no character can have
+local function ValidName(name)
+  if type(name) ~= "string" or ns.Names.Normalize(name) == "" then return nil, "name" end
+  local shown = Blacklist.FormatName(name)
+  if not shown then return nil, "format" end
   return shown, ns.Names.Key(shown)
 end
 
@@ -121,7 +132,7 @@ end
 -- Adds or updates a name from this client. Returns the entry, or nil and "name" | "protected" | "removed".
 function Blacklist.Add(book, name, tag, reason, adder, now, ctx, seen)
   local shown, key = ValidName(name)
-  if not shown then return nil, "name" end
+  if not shown then return nil, key end
   if ctx.isProtected(shown) then return nil, "protected" end
   local entry = book[key]
   if entry and entry.x and not Blacklist.IsLive(entry) and not MayReAdd(adder, entry.xb, ctx) then
@@ -136,7 +147,8 @@ end
 
 -- Removes a name (officers, or the one who added it). Returns the entry, or nil and "officer" | "missing".
 function Blacklist.Remove(book, name, remover, now, ctx)
-  local _, key = ValidName(name)
+  -- by key only: an entry stored before names were checked must still go
+  local key = type(name) == "string" and ns.Names.Key(name) or nil
   local entry = key and book[key]
   if not Blacklist.IsLive(entry) then return nil, "missing" end
   if not Blacklist.CanRemove(entry, remover, ctx) then return nil, "officer" end
