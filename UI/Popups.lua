@@ -69,7 +69,7 @@ end
 -- A 1x1 frame at the mouse, for menus opened where no frame sits (names in the chat)
 local cursorAnchor
 function UI.CursorAnchor()
-  cursorAnchor = cursorAnchor or CreateFrame("Frame", nil, UIParent)
+  cursorAnchor = cursorAnchor or ns.CreateFrame("Frame", nil, UIParent)
   cursorAnchor:SetSize(1, 1)
   local x, y = GetCursorPosition()
   local scale = UIParent:GetEffectiveScale() or 1
@@ -158,7 +158,8 @@ function UI.HookMemberMenu()
   local menu = rawget(_G, "Menu")
   if not (menu and menu.ModifyMenu) then return end
   pcall(menu.ModifyMenu, "MENU_UNIT_COMMUNITIES_GUILD_MEMBER", function(_, root, context)
-    if not root or type(context) ~= "table" or ns.AnySecret(context.guid, context.name) then return end
+    -- the gamepad interface: the entry would break the menu's protected actions (ns.GamepadUI)
+    if ns.GamepadUI() or not root or type(context) ~= "table" or ns.AnySecret(context.guid, context.name) then return end
     local m = ns.Roster.FindByGuid(context.guid) or ns.Roster.Find(context.name)
     if not m then return end
     root:CreateDivider()

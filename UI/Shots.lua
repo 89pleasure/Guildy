@@ -283,7 +283,7 @@ local function Backdrop(on)
     return
   end
   if not backdrop then
-    backdrop = CreateFrame("Frame", nil, UIParent)
+    backdrop = ns.CreateFrame("Frame", nil, UIParent)
     backdrop:SetAllPoints(UIParent)
     backdrop.Fill = backdrop:CreateTexture(nil, "BACKGROUND")
     -- beyond UIParent's edges too (an ultrawide screen, a UI scale that leaves a margin)

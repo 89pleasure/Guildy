@@ -42,7 +42,7 @@ function UI.BankWidgets(parent, view)
   end
 
   -- figures in a row: each can be switched off in the box's options ----------------------------------
-  local tiles = CreateFrame("Frame", nil, parent)
+  local tiles = ns.CreateFrame("Frame", nil, parent)
   -- worth and total: what the items fetch at the auction house and that with the gold, only while a price
   -- addon is in use (UI.BankPrices)
   local TILES = { "gold", "paid", "taken", "repairs", "worth", "total", "slots" }
@@ -156,13 +156,13 @@ function UI.BankWidgets(parent, view)
       end
     end
   end
-  local head = CreateFrame("Frame", nil, balance)
+  local head = ns.CreateFrame("Frame", nil, balance)
   head:SetPoint("TOPLEFT", 8, -28)
   head:SetPoint("RIGHT", -28, 0)
   head:SetHeight(16)
   balance.Heads = {}
   for _, key in ipairs(KEYS) do
-    local button = CreateFrame("Button", nil, head)
+    local button = ns.CreateFrame("Button", nil, head)
     button:SetHeight(16)
     button.Text = W.Text(button, "GameFontDisableSmall", HEADS[key])
     button.Text:SetAllPoints()
@@ -195,7 +195,7 @@ function UI.BankWidgets(parent, view)
     row.Mid:SetSize(1, ROW - 4)
     row.Bar = row:CreateTexture(nil, "ARTWORK")
     row.Bar:SetHeight(ROW - 10)
-    row.Click = CreateFrame("Button", nil, row)
+    row.Click = ns.CreateFrame("Button", nil, row)
     row.Click:SetAllPoints()
     row.Click:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
     row.Click:SetScript("OnClick", function()
@@ -269,7 +269,7 @@ function UI.BankWidgets(parent, view)
   detail.Hint = W.Text(detail, "GameFontDisable", L.BANK_DETAIL_HINT)
   detail.Hint:SetPoint("TOPLEFT", 12, -34)
   detail.Hint:SetPoint("RIGHT", -12, 0)
-  detail.Body = CreateFrame("Frame", nil, detail)
+  detail.Body = ns.CreateFrame("Frame", nil, detail)
   detail.Body:SetPoint("TOPLEFT", 0, -28)
   detail.Body:SetPoint("BOTTOMRIGHT", 0, 0)
   detail.Figures = {}

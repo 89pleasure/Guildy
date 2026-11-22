@@ -19,6 +19,43 @@ T.describe("Widgets", function()
   end)
 end)
 
+T.describe("Gamepad interface", function()
+  -- In the gamepad interface the game hooks CreateFrame: every frame created with a parent makes it search
+  -- the whole window it belongs to for buttons again. Guildy's tabs create thousands of frames: building
+  -- the bank tab took 2.5 s (measured in game 2026-11-22). ns.CreateFrame attaches a plain frame after
+  -- creating it, which the hook does not see.
+  T.it("creates every frame through ns.CreateFrame", function()
+    for _, file in ipairs(T.tocFiles()) do
+      if file:match("^Core/") or file:match("^Game/") or file:match("^UI/") then
+        local source = T.readFile(T.addonDir .. "/" .. file):gsub("%-%-[^\n]*", "")
+        if file ~= "Core/Runtime.lua" then
+          T.truthy(not source:find("[^%w_.]CreateFrame[%(,]"), file .. " calls CreateFrame directly")
+        end
+      end
+    end
+  end)
+
+  T.it("keeps plain frames out of the game's hook while the gamepad interface is on", function()
+    local saved, input = env.CreateFrame, env.InputUtil
+    local parents = {}
+    env.CreateFrame = function(kind, name, parent, template)
+      parents[#parents + 1] = parent or "none"
+      return saved(kind, name, parent, template)
+    end
+    local parent = saved("Frame")
+    env.InputUtil = { IsGamepadUIEnabled = function() return true end }
+    local plain = ns.CreateFrame("Button", nil, parent)
+    local backdrop = ns.CreateFrame("Frame", nil, parent, "BackdropTemplate")
+    local button = ns.CreateFrame("Button", nil, parent, "UIPanelButtonTemplate") -- its OnLoad needs no parent
+    ns.CreateFrame("ScrollFrame", nil, parent, "UIPanelScrollFrameTemplate") -- a template may need its parent at once
+    env.InputUtil = { IsGamepadUIEnabled = function() return false end }
+    ns.CreateFrame("Button", nil, parent)
+    T.eq(parents, { "none", "none", "none", parent, parent })
+    T.eq({ plain:GetParent(), backdrop:GetParent(), button:GetParent() }, { parent, parent, parent })
+    env.CreateFrame, env.InputUtil = saved, input
+  end)
+end)
+
 T.describe("Secret values", function()
   T.it("checks a value for secret before comparing it", function()
     for _, file in ipairs(T.tocFiles()) do
@@ -1469,8 +1506,36 @@ T.describe("Harvest", function()
     blizzardSelected = 7
     ns.UI.Notes.HoverLink(env.CommunitiesFrame, { guid = otherGuid }, function() end)
     T.eq(env.GuildyNotePick and env.GuildyNotePick:IsShown() or false, false)
-    blizzardSelected = 9
     env.issecretvalue = isSecret
+    -- a member row in Guildy: the pick button right-clicks Blizzard's row (its guild member menu) ...
+    memberRow.memberInfo.guid = "Player-1-AB"
+    local m = { guid = "Player-1-AB", name = "Au Tsch" }
+    local owner = env.CreateFrame("Button")
+    owner.member = m
+    for key, value in pairs({ GetLeft = 100, GetBottom = 200, GetWidth = 300, GetHeight = 20, GetEffectiveScale = 1 }) do
+      rawset(owner, key, function() return value end)
+    end
+    local parentScale = rawget(env.UIParent, "GetEffectiveScale")
+    rawset(env.UIParent, "GetEffectiveScale", function() return 1 end)
+    local got
+    owner:SetScript("OnMouseUp", function(_, button) got = button end)
+    ns.UI.Notes.HoverMember(owner, m)
+    local pick = env.GuildyNotePick
+    T.eq({ pick:IsShown(), pick:GetAttribute("type2"), pick:GetAttribute("clickbutton2") }, { true, "click", memberRow })
+    pick:GetScript("PostClick")(pick, "RightButton", false)
+    T.eq(got, nil)
+    -- ... but not in the gamepad interface: Blizzard's list is off screen, and the game puts the menu
+    -- beside it, empty at the screen's edge (seen in game 2026-11-22). Guildy's own menu opens instead.
+    local input = env.InputUtil
+    env.InputUtil = { IsGamepadUIEnabled = function() return true end }
+    ns.UI.Notes.HoverMember(owner, m)
+    T.eq({ pick:IsShown(), pick:GetAttribute("type2"), pick:GetAttribute("clickbutton2") }, { true, nil, nil })
+    pick:GetScript("PostClick")(pick, "RightButton", false)
+    T.eq(got, "RightButton")
+    env.InputUtil = input
+    rawset(env.UIParent, "GetEffectiveScale", parentScale)
+    pick:Hide()
+    blizzardSelected = 9
     rawset(env.CommunitiesFrame, "MemberList", nil)
     rawset(env.CommunitiesFrame, "CommunitiesList", nil)
     rawset(env.CommunitiesFrame, "InviteButton", nil)

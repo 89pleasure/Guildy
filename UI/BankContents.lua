@@ -25,7 +25,7 @@ end
 -- running down the columns. onPick(slot entry) on a click on a filled slot.
 local function SlotGrid(parent, onPick)
   local H = UI.Bank
-  local grid = CreateFrame("Frame", nil, parent)
+  local grid = ns.CreateFrame("Frame", nil, parent)
   grid.Pairs, grid.Buttons = {}, {}
   for p = 1, 7 do
     local edge = grid:CreateTexture(nil, "BACKGROUND", nil, -8)
@@ -35,7 +35,7 @@ local function SlotGrid(parent, onPick)
     grid.Pairs[p] = { edge = edge, fill = fill }
   end
   for slot = 1, B.SLOTS do
-    local button = CreateFrame("Button", nil, grid)
+    local button = ns.CreateFrame("Button", nil, grid)
     -- the gold edge of a slot the search found or the picked item lies in: 1 px around the slot
     button.Edge = button:CreateTexture(nil, "BACKGROUND", nil, -6)
     button.Edge:SetPoint("TOPLEFT", -1, 1)
@@ -234,13 +234,13 @@ function UI.BankContents(parent, view)
       end
     end
   end
-  local head = CreateFrame("Frame", nil, contents)
+  local head = ns.CreateFrame("Frame", nil, contents)
   head:SetPoint("TOPLEFT", 8, -68)
   head:SetPoint("RIGHT", -28, 0)
   head:SetHeight(16)
   contents.Heads = {}
   for _, key in ipairs(KEYS) do
-    local button = CreateFrame("Button", nil, head)
+    local button = ns.CreateFrame("Button", nil, head)
     button:SetHeight(16)
     button.Text = W.Text(button, "GameFontDisableSmall", HEADS[key])
     button.Text:SetAllPoints()
@@ -276,7 +276,7 @@ function UI.BankContents(parent, view)
       row.Cells[key] = cell
     end
     row.Cells.name.indent = ROW + 4
-    row.Click = CreateFrame("Button", nil, row)
+    row.Click = ns.CreateFrame("Button", nil, row)
     row.Click:SetAllPoints()
     row.Click:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
     row.Click:SetScript("OnClick", function()
@@ -416,7 +416,7 @@ function UI.BankContents(parent, view)
   local function TabRow(position)
     local row = where.Rows[position]
     if not row then
-      row = CreateFrame("Button", nil, where)
+      row = ns.CreateFrame("Button", nil, where)
       row:SetHeight(22)
       row:SetPoint("TOPLEFT", 6, -54 - (position - 1) * 24)
       row:SetPoint("RIGHT", -6, 0)

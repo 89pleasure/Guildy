@@ -135,7 +135,7 @@ local function Disc(frame, layer, sublevel, inset, r, g, b)
 end
 
 local function Portrait(parent, size, badge)
-  local frame = CreateFrame("Frame", nil, parent)
+  local frame = ns.CreateFrame("Frame", nil, parent)
   frame:SetSize(size, size)
   local rim = math.max(2, math.floor(size * 0.035 + 0.5))
   frame.Ring = Disc(frame, "BACKGROUND", 1, 0, 1, 1, 1)
@@ -150,7 +150,7 @@ local function Portrait(parent, size, badge)
     frame.Picture:AddMaskTexture(mask)
   end
   if badge then
-    frame.Badge = CreateFrame("Frame", nil, frame)
+    frame.Badge = ns.CreateFrame("Frame", nil, frame)
     frame.Badge:SetSize(badge, badge)
     frame.Badge:SetPoint("BOTTOMRIGHT", badge * 0.1, -badge * 0.1)
     frame.Badge:SetFrameLevel(frame:GetFrameLevel() + 2)
@@ -293,7 +293,7 @@ end
 
 -- A line of the family list: name in the class color, level and class; click opens their page
 local function FamilyLine(parent)
-  local line = CreateFrame("Button", nil, parent)
+  local line = ns.CreateFrame("Button", nil, parent)
   line:SetHeight(LINE_H)
   line:RegisterForClicks("LeftButtonUp", "RightButtonUp")
   local glow = line:CreateTexture(nil, "HIGHLIGHT")
@@ -367,8 +367,8 @@ UI.ItemTips = Tips
 
 function Tips.Get()
   if not itemTip then
-    itemTip = CreateFrame("GameTooltip", "GuildyItemTooltip", UIParent, "GameTooltipTemplate")
-    wornTip = CreateFrame("GameTooltip", "GuildyWornTooltip", UIParent, "GameTooltipTemplate")
+    itemTip = ns.CreateFrame("GameTooltip", "GuildyItemTooltip", UIParent, "GameTooltipTemplate")
+    wornTip = ns.CreateFrame("GameTooltip", "GuildyWornTooltip", UIParent, "GameTooltipTemplate")
     for _, tip in ipairs({ itemTip, wornTip }) do
       tip.supportsItemComparison = false
       W.FloatingPanel(tip, { tooltip = true })
@@ -421,7 +421,7 @@ end
 
 -- A row of the gear list: slot, icon, item name, enchantment, item level bar with the ready tick, level
 local function GearRow(parent)
-  local row = CreateFrame("Button", nil, parent)
+  local row = ns.CreateFrame("Button", nil, parent)
   local shade = row:CreateTexture(nil, "BACKGROUND")
   shade:SetAllPoints()
   shade:SetColorTexture(1, 1, 1, 0.025)
@@ -481,7 +481,7 @@ end
 
 local function Build()
   local L = ns.L
-  page = CreateFrame("Frame", nil, UI.Content())
+  page = ns.CreateFrame("Frame", nil, UI.Content())
   UI.ItemTips.Get()
   page:SetAllPoints()
   page:Hide()
@@ -500,7 +500,7 @@ local function Build()
   -- sex, the race portrait
   -- its size is set, never left to anchors: the background reads it, and during a size change the
   -- client does not know a size that only follows from anchors yet
-  hero.ModelArea = CreateFrame("Frame", nil, hero)
+  hero.ModelArea = ns.CreateFrame("Frame", nil, hero)
   hero.ModelArea:SetPoint("TOPLEFT", MODEL_INSET, -MODEL_INSET)
   hero.ModelArea:SetSize(HERO_WIDTH - 2 * MODEL_INSET, 200)
   page.ModelArea = hero.ModelArea
@@ -528,7 +528,7 @@ local function Build()
   hero.Portrait:SetPoint("CENTER", 0, 0)
   -- the character in its gear, a model scene with the game's player actor (Game/Gear.lua): drag turns the
   -- actor, the wheel brings the camera closer. Without the template the page keeps the portrait.
-  local okScene, model = pcall(CreateFrame, "ModelScene", nil, hero.ModelArea, "ModelSceneMixinTemplate")
+  local okScene, model = pcall(ns.CreateFrame, "ModelScene", nil, hero.ModelArea, "ModelSceneMixinTemplate")
   if not okScene or type(model) ~= "table" or type(model.TransitionToModelSceneID) ~= "function"
     or type(model.GetPlayerActor) ~= "function" then
     model = nil
@@ -536,7 +536,7 @@ local function Build()
   page.Model = model
   -- the drag and zoom hint: small, at the model area's bottom edge over its shade, only while the mouse
   -- is over the model
-  hero.HintLayer = CreateFrame("Frame", nil, hero.ModelArea)
+  hero.HintLayer = ns.CreateFrame("Frame", nil, hero.ModelArea)
   hero.HintLayer:SetAllPoints()
   hero.HintLayer:SetFrameLevel((model and model:GetFrameLevel() or hero.ModelArea:GetFrameLevel()) + 2)
   hero.ModelHint = W.Text(hero.HintLayer, "GameFontHighlightSmall", L.MODEL_HINT)
@@ -598,7 +598,7 @@ local function Build()
   end
   -- a gold frame around the picture, as Blizzard frames its portraits: the picture sits in the card
   -- instead of running into its edge
-  hero.ModelFrame = CreateFrame("Frame", nil, hero, BackdropTemplateMixin and "BackdropTemplate" or nil)
+  hero.ModelFrame = ns.CreateFrame("Frame", nil, hero, BackdropTemplateMixin and "BackdropTemplate" or nil)
   hero.ModelFrame:SetPoint("TOPLEFT", hero.ModelArea, "TOPLEFT", -FRAME_OUTSET, FRAME_OUTSET)
   hero.ModelFrame:SetPoint("BOTTOMRIGHT", hero.ModelArea, "BOTTOMRIGHT", FRAME_OUTSET, -FRAME_OUTSET)
   if hero.ModelFrame.SetBackdrop then
@@ -607,7 +607,7 @@ local function Build()
   end
   hero.ModelFrame:SetFrameLevel(hero.HintLayer:GetFrameLevel() + 1)
   hero.ModelFrame:Show()
-  hero.LevelRing = CreateFrame("Frame", nil, hero)
+  hero.LevelRing = ns.CreateFrame("Frame", nil, hero)
   hero.LevelRing:SetSize(34, 34)
   hero.LevelRing:SetPoint("TOPRIGHT", hero.ModelArea, "TOPRIGHT", -8, -8)
   hero.LevelRing:SetFrameLevel(hero.ModelFrame:GetFrameLevel() + 1)
@@ -630,7 +630,7 @@ local function Build()
   -- facts: label left in muted gold, value right in white
   hero.Facts = {}
   for _, key in ipairs(FACTS) do
-    local row = CreateFrame("Frame", nil, hero)
+    local row = ns.CreateFrame("Frame", nil, hero)
     row.Label = W.Text(row, "GameFontNormalSmall")
     row.Label:SetTextColor(W.GOLD[1], W.GOLD[2], W.GOLD[3])
     row.Label:SetPoint("TOPLEFT", 0, 0)
@@ -646,7 +646,7 @@ local function Build()
   -- notes: a small heading, the text under it, at most NOTE_LINES lines
   hero.NoteBlocks = {}
   for key, title in pairs({ note = L.NOTE, officer = L.OFFICER_NOTE }) do
-    local block = CreateFrame("Frame", nil, hero)
+    local block = ns.CreateFrame("Frame", nil, hero)
     block.Heading = W.Text(block, "GameFontNormalSmall", title)
     block.Heading:SetTextColor(W.GOLD[1], W.GOLD[2], W.GOLD[3])
     block.Heading:SetPoint("TOPLEFT", 0, 0)
@@ -678,7 +678,7 @@ local function Build()
   end, 80, { small = true })
 
   -- right side -------------------------------------------------------------------------------------
-  local right = CreateFrame("Frame", nil, pageBody)
+  local right = ns.CreateFrame("Frame", nil, pageBody)
   right:SetPoint("TOPLEFT", hero, "TOPRIGHT", 8, 0)
   page.Right = right
 
@@ -778,7 +778,7 @@ local function Build()
   -- a block per piece: the icon in its quality border, the item name over slot and makers, the gain
   -- big at the right over the levels it is made of
   for i = 1, ns.Upgrades.MAX_ROWS do
-    local row = CreateFrame("Frame", nil, upgrades)
+    local row = ns.CreateFrame("Frame", nil, upgrades)
     row:SetHeight(UPGRADE_H)
     row:SetPoint("TOPLEFT", 12, -UPGRADE_TOP - (i - 1) * UPGRADE_H)
     row:SetPoint("RIGHT", -12, 0)
@@ -789,7 +789,7 @@ local function Build()
       row.Rule:SetPoint("TOPRIGHT", 0, 0)
       row.Rule:SetColorTexture(W.GOLD[1], W.GOLD[2], W.GOLD[3], 0.18)
     end
-    row.Item = CreateFrame("Button", nil, row)
+    row.Item = ns.CreateFrame("Button", nil, row)
     row.Item:SetSize(UPGRADE_ICON, UPGRADE_ICON)
     row.Item:SetPoint("LEFT", 0, 0)
     row.Item:SetScript("OnEnter", ItemTooltip)
@@ -811,7 +811,7 @@ local function Build()
     row.Name = W.Text(row, "GameFontHighlightSmall")
     row.Name:SetPoint("TOPLEFT", UPGRADE_ICON + 8, -8)
     row.Name:SetWordWrap(false)
-    row.NameHit = CreateFrame("Button", nil, row)
+    row.NameHit = ns.CreateFrame("Button", nil, row)
     row.NameHit:SetAllPoints(row.Name)
     row.NameHit:SetScript("OnEnter", ItemTooltip)
     row.NameHit:SetScript("OnLeave", UI.ItemTips.Hide)
@@ -820,7 +820,7 @@ local function Build()
     row.Sub:SetWordWrap(false)
     row.Makers = {}
     for j = 1, 2 do
-      local maker = CreateFrame("Button", nil, row)
+      local maker = ns.CreateFrame("Button", nil, row)
       maker:SetHeight(14)
       maker.Name = W.Text(maker, "GameFontHighlightSmall")
       maker.Name:SetPoint("LEFT", 0, 0)
@@ -841,7 +841,7 @@ local function Build()
   page.Profs = profs
   profs.Rows = {}
   for i = 1, PROF_ROWS do
-    local row = CreateFrame("Frame", nil, profs)
+    local row = ns.CreateFrame("Frame", nil, profs)
     row:SetHeight(PROF_H)
     row:SetPoint("TOPLEFT", 12, -28 - (i - 1) * PROF_H)
     row:SetPoint("RIGHT", -12, 0)
@@ -1266,7 +1266,7 @@ local function Build()
   end
 
   -- while the model waits for a player of the member's sex: looks again when one may have come in sight
-  local watcher = CreateFrame("Frame")
+  local watcher = ns.CreateFrame("Frame")
   for _, event in ipairs({ "PLAYER_TARGET_CHANGED", "NAME_PLATE_UNIT_ADDED", "GROUP_ROSTER_UPDATE", "UPDATE_MOUSEOVER_UNIT" }) do
     watcher:RegisterEvent(event)
   end

@@ -134,6 +134,13 @@ return function(T, opts)
         if frame == self then table.remove(registered[event], i) return end
       end
     end
+    -- attributes (secure buttons) are kept, as in the game
+    function methods:SetAttribute(key, value)
+      local attrs = rawget(self, "_attrs") or {}
+      attrs[key] = value
+      rawset(self, "_attrs", attrs)
+    end
+    function methods:GetAttribute(key) return (rawget(self, "_attrs") or {})[key] end
     function methods:CreateTexture() return Stub() end
     function methods:CreateFontString(_, _, template)
       local text = Stub()

@@ -81,7 +81,7 @@ local function Missing()
 end
 
 local EVENTS = { "NAME_PLATE_UNIT_ADDED", "PLAYER_TARGET_CHANGED", "UPDATE_MOUSEOVER_UNIT", "GROUP_ROSTER_UPDATE" }
-local watcher = CreateFrame("Frame")
+local watcher = ns.CreateFrame("Frame")
 local watching = false
 local wanted -- { missing, count, roster, guild } from Missing(); nil when stale
 
@@ -117,7 +117,7 @@ end
 local function NewScene()
   local scene = table.remove(spare)
   if not scene then
-    local ok, frame = pcall(CreateFrame, "ModelScene", nil, UIParent, "ModelSceneMixinTemplate")
+    local ok, frame = pcall(ns.CreateFrame, "ModelScene", nil, UIParent, "ModelSceneMixinTemplate")
     if not ok or type(frame) ~= "table" or type(frame.TransitionToModelSceneID) ~= "function"
       or type(frame.GetPlayerActor) ~= "function" then
       return nil

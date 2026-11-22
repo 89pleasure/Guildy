@@ -142,7 +142,7 @@ function Communities.Avatar(club, draw)
   local key = AvatarKey(club)
   if avatars[key] then return avatars[key] end
   if not draw or InCombatLockdown() or not (C_Club and C_Club.SetAvatarTexture) then return nil end
-  scratch = scratch or CreateFrame("Frame", nil, UIParent):CreateTexture()
+  scratch = scratch or ns.CreateFrame("Frame", nil, UIParent):CreateTexture()
   scratch:SetTexture(nil)
   if not pcall(C_Club.SetAvatarTexture, scratch, club.avatarId, club.clubType) then return nil end
   local file = scratch:GetTexture()

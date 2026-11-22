@@ -188,7 +188,7 @@ end
 
 local function Pick()
   if pick then return pick end
-  pick = CreateFrame("Button", "GuildyNotePick", UIParent, "SecureActionButtonTemplate")
+  pick = ns.CreateFrame("Button", "GuildyNotePick", UIParent, "SecureActionButtonTemplate")
   pick:SetFrameStrata("TOOLTIP")
   pick:RegisterForClicks("AnyUp", "AnyDown")
   -- left: clicks the member's row in Blizzard's list (Blizzard picks them), then Guildy's own click;
@@ -206,7 +206,7 @@ local function Pick()
       onClick(button)
       return
     end
-    if button == "RightButton" then return end -- Blizzard's menu instead of Guildy's
+    if button == "RightButton" and self.blizzardMenu then return end -- Blizzard's menu instead of Guildy's
     if m then AfterPick() end
     if forward then Forward(owner, button) end
   end)
@@ -253,9 +253,13 @@ local function LayPick(owner, m, forward, hint)
   local left, bottom = owner:GetLeft(), owner:GetBottom()
   if not (left and bottom) then return false end
   p.owner, p.member, p.forward, p.hint, p.onClick, p.still = owner, m, forward, hint, nil, nil
-  p:SetAttribute("type2", "click")
+  -- right: Blizzard's guild member menu, but not in the gamepad interface. There the game puts the
+  -- menu beside the row it opens from, and Blizzard's list lies off screen: the menu stood empty at
+  -- the screen's edge (seen in game 2026-11-22). Guildy's own menu opens instead (PostClick).
+  p.blizzardMenu = not ns.GamepadUI()
+  p:SetAttribute("type2", p.blizzardMenu and "click" or nil)
   p:SetAttribute("clickbutton1", row)
-  p:SetAttribute("clickbutton2", row)
+  p:SetAttribute("clickbutton2", p.blizzardMenu and row or nil)
   local scale = owner:GetEffectiveScale() / UIParent:GetEffectiveScale()
   p:ClearAllPoints()
   p:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", left * scale, bottom * scale)
@@ -290,6 +294,7 @@ function Notes.HoverLink(frame, m, onClick, still)
   if not (x and y and scale and scale > 0) then return end
   local p = Pick()
   p.owner, p.member, p.forward, p.hint, p.onClick, p.still = frame, m, false, nil, onClick, still
+  p.blizzardMenu = false
   p:SetAttribute("clickbutton1", row)
   p:SetAttribute("type2", nil)
   p:SetAttribute("clickbutton2", nil)

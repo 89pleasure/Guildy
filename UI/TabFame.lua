@@ -350,8 +350,8 @@ local function Build(panel)
   view.Home = grid
 
   -- the tiles and the title cards each fill a box of their own without a frame around them
-  local tilesBox = CreateFrame("Frame", nil, home)
-  local cardsBox = CreateFrame("Frame", nil, home)
+  local tilesBox = ns.CreateFrame("Frame", nil, home)
+  local cardsBox = ns.CreateFrame("Frame", nil, home)
   view.TilesBox, view.CardsBox = tilesBox, cardsBox
   view.Tiles = {}
   for i = 1, S.MAX_TILES do
@@ -409,7 +409,7 @@ local function MemberTable(titleText, cols, fill)
     box.Hint:SetPoint("LEFT", boxTitle, "RIGHT", 8, 0)
     box.cols, box.heads, box.x, box.width = cols, {}, {}, {}
     for i, col in ipairs(cols) do
-      local head = CreateFrame("Button", nil, box)
+      local head = ns.CreateFrame("Button", nil, box)
       head:SetHeight(16)
       head.Text = W.Text(head, "GameFontDisableSmall", col.text or "")
       head.Text:SetAllPoints()
@@ -807,7 +807,7 @@ local function MemberTable(titleText, cols, fill)
   local TABLES = { gear = gear, economy = view.Economy, reputation = view.Reputation, pvp = view.Pvp }
 
   -- (a frame of its own: the text lies over the boxes)
-  local emptyLayer = CreateFrame("Frame", nil, grid)
+  local emptyLayer = ns.CreateFrame("Frame", nil, grid)
   emptyLayer:SetAllPoints()
   emptyLayer:SetFrameLevel((grid:GetFrameLevel() or 1) + 30)
   view.Empty = W.Text(emptyLayer, "GameFontDisable", L.FAME_EMPTY)
@@ -816,7 +816,7 @@ local function MemberTable(titleText, cols, fill)
   view.Empty:SetJustifyH("CENTER")
 
   -- detail: statistic tree and ranking ---------------------------------------------------------
-  local detail = CreateFrame("Frame", nil, panel)
+  local detail = ns.CreateFrame("Frame", nil, panel)
   detail:SetPoint("TOPLEFT", 0, 0)
   detail:SetPoint("BOTTOMRIGHT", 0, 0)
   detail:Hide()
@@ -1181,7 +1181,7 @@ local function MemberTable(titleText, cols, fill)
   -- a column head: the dungeon's icon (grey without a statistic, a green edge when new in Forever)
   -- or a short tag; name, level range and end bosses in the tooltip, a click opens the ranking
   local function DungeonHead(parent)
-    local head = CreateFrame("Button", nil, parent)
+    local head = ns.CreateFrame("Button", nil, parent)
     head:SetHeight(20)
     head.Edge = head:CreateTexture(nil, "ARTWORK")
     head.Edge:SetSize(20, 20)

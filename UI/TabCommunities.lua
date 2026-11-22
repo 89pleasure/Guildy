@@ -34,7 +34,7 @@ local function Build(panel)
   local page = W.Page(panel)
   local bar = page.Bar
   panel = page.Body
-  local left = CreateFrame("Frame", nil, panel)
+  local left = ns.CreateFrame("Frame", nil, panel)
   left:SetPoint("TOPLEFT", 0, 0)
   left:SetPoint("BOTTOMLEFT", 0, 0)
   left:SetWidth(W.SIDE)
@@ -128,7 +128,7 @@ local function Build(panel)
     { small = true })
 
   -- right: the members ----------------------------------------------------------------------------------
-  local right = CreateFrame("Frame", nil, panel)
+  local right = ns.CreateFrame("Frame", nil, panel)
   right:SetPoint("TOPRIGHT", 0, 0)
   right:SetPoint("BOTTOMRIGHT", 0, 0)
   right:SetWidth(W.SIDE)
@@ -225,7 +225,7 @@ local function Build(panel)
   W.SlimScrollBar(view.Members, 4)
 
   -- middle: the chat ------------------------------------------------------------------------------------
-  local middle = CreateFrame("Frame", nil, panel)
+  local middle = ns.CreateFrame("Frame", nil, panel)
   middle:SetPoint("TOPLEFT", left, "TOPRIGHT", 8, 0)
   middle:SetPoint("BOTTOMRIGHT", right, "BOTTOMLEFT", -8, 0)
   view.Channel = W.MenuButton(bar, "", function()

@@ -31,7 +31,7 @@ local cycle = 0 -- a new modeltest stops the running cycle
 
 local function Model()
   if testModel then return testModel end
-  local model = CreateFrame("DressUpModel", "GuildyModelTest", UIParent)
+  local model = ns.CreateFrame("DressUpModel", "GuildyModelTest", UIParent)
   model:SetSize(300, 400)
   model:SetPoint("CENTER")
   model:SetMovable(true)
@@ -42,7 +42,7 @@ local function Model()
   local back = model:CreateTexture(nil, "BACKGROUND")
   back:SetAllPoints()
   back:SetColorTexture(0, 0, 0, 0.6)
-  local close = CreateFrame("Button", nil, model, "UIPanelCloseButton")
+  local close = ns.CreateFrame("Button", nil, model, "UIPanelCloseButton")
   close:SetPoint("TOPRIGHT")
   close:SetScript("OnClick", function()
     cycle = cycle + 1
@@ -91,7 +91,7 @@ end
 
 local function ListCalls(model)
   Say("modeltest: DressUpModel has " .. Calls(model))
-  local okScene, scene = pcall(CreateFrame, "ModelScene")
+  local okScene, scene = pcall(ns.CreateFrame, "ModelScene")
   local actor = okScene and scene and type(scene.CreateActor) == "function" and select(2, pcall(scene.CreateActor, scene))
   Say("modeltest: ModelScene actor has " .. (type(actor) == "table" and Calls(actor) or "(no ModelScene actors)"))
 end
@@ -100,14 +100,14 @@ end
 local scene
 local function SceneActor(tag)
   if not scene then
-    local ok, frame = pcall(CreateFrame, "ModelScene", "GuildyModelSceneTest", UIParent, "ModelSceneMixinTemplate")
+    local ok, frame = pcall(ns.CreateFrame, "ModelScene", "GuildyModelSceneTest", UIParent, "ModelSceneMixinTemplate")
     if not ok or not frame then Say(tag .. "no ModelSceneMixinTemplate: " .. tostring(frame)) return nil end
     frame:SetSize(300, 400)
     frame:SetPoint("CENTER", 320, 0)
     local back = frame:CreateTexture(nil, "BACKGROUND")
     back:SetAllPoints()
     back:SetColorTexture(0, 0, 0, 0.6)
-    local close = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
+    local close = ns.CreateFrame("Button", nil, frame, "UIPanelCloseButton")
     close:SetPoint("TOPRIGHT")
     close:SetScript("OnClick", function() frame:Hide() end)
     scene = frame
@@ -273,7 +273,7 @@ function GearProbe.TooltipLines(link)
     end
   end
   if not scanTip then
-    scanTip = CreateFrame("GameTooltip", "GuildyScanTooltip", nil, "GameTooltipTemplate")
+    scanTip = ns.CreateFrame("GameTooltip", "GuildyScanTooltip", nil, "GameTooltipTemplate")
   end
   if not (scanTip and scanTip.SetHyperlink) then return lines, nil end
   ns.Try(scanTip.SetOwner, scanTip, UIParent, "ANCHOR_NONE")

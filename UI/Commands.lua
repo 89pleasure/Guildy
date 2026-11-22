@@ -140,7 +140,7 @@ end
 
 local function Overlay()
   if overlay then return overlay end
-  overlay = CreateFrame("Button", "GuildySecureOverlay", UIParent, "SecureActionButtonTemplate")
+  overlay = ns.CreateFrame("Button", "GuildySecureOverlay", UIParent, "SecureActionButtonTemplate")
   overlay:SetFrameStrata("TOOLTIP")
   overlay:RegisterForClicks("AnyUp", "AnyDown")
   -- the secure action runs on one edge only: key down when "cast on key down" is on, else release.

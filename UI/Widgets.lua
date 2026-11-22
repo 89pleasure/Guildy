@@ -25,7 +25,7 @@ local BACKDROP = {
 
 -- Dark box with a gold-tinted border, like the panels of the quest log
 function W.Box(parent, shade, border)
-  local box = CreateFrame("Frame", nil, parent, BackdropTemplateMixin and "BackdropTemplate" or nil)
+  local box = ns.CreateFrame("Frame", nil, parent, BackdropTemplateMixin and "BackdropTemplate" or nil)
   shade, border = shade or 0.08, border or 0.7
   if box.SetBackdrop then
     box:SetBackdrop(BACKDROP)
@@ -54,7 +54,7 @@ function W.FloatingPanel(frame, opts)
     HideBlizzardBackdrop(frame)
     -- the game sets its tooltip style again when one is shown: hidden again each time
     frame:HookScript("OnShow", HideBlizzardBackdrop)
-    ground = CreateFrame("Frame", nil, frame, BackdropTemplateMixin and "BackdropTemplate" or nil)
+    ground = ns.CreateFrame("Frame", nil, frame, BackdropTemplateMixin and "BackdropTemplate" or nil)
     ground:SetAllPoints(frame)
     local level = frame:GetFrameLevel()
     ground:SetFrameLevel(math.max(0, (type(level) == "number" and level or 1) - 1))
@@ -94,7 +94,7 @@ end
 
 -- Small square button with an icon (header menu): looks like a panel button, tooltip on hover
 function W.IconButton(parent, texture, size, onClick, title, tip)
-  local button = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+  local button = ns.CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
   button:SetSize(size or 28, size or 28)
   button:SetText("")
   button.Icon = button:CreateTexture(nil, "OVERLAY")
@@ -157,7 +157,7 @@ end
 -- pad = room in px around the text (default 24, small 20)}
 function W.Button(parent, text, onClick, width, opts)
   opts = opts or {}
-  local button = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+  local button = ns.CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
   local pad = opts.pad or (opts.small and 20 or 24)
   if opts.small then
     for setter, font in pairs({
@@ -197,14 +197,14 @@ end
 -- of a column): a gold tint, lighter under the mouse, and an x at its right edge that takes the thing
 -- away (handle.Remove; onRemove(handle), nil for a handle that never has one). The same everywhere.
 function W.Handle(parent, onRemove)
-  local handle = CreateFrame("Button", nil, parent)
+  local handle = ns.CreateFrame("Button", nil, parent)
   handle.Fill = handle:CreateTexture(nil, "BACKGROUND")
   handle.Fill:SetAllPoints()
   handle.Fill:SetColorTexture(W.GOLD[1], W.GOLD[2], W.GOLD[3], 0.14)
   handle:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
   handle.Remove = false
   if onRemove then
-    local remove = CreateFrame("Button", nil, handle)
+    local remove = ns.CreateFrame("Button", nil, handle)
     remove:SetSize(14, 16)
     remove:SetPoint("TOPRIGHT", -2, -1)
     remove.Text = W.Text(remove, "GameFontNormalSmall", "x")
@@ -223,7 +223,7 @@ end
 -- with their tab only. Returns the frame that holds them (tools.Edit, tools.Presets, tools:Set(editing)).
 function W.EditTools(page, onToggle, presets, tip)
   local L = ns.L
-  local tools = CreateFrame("Frame", nil, page.Bar)
+  local tools = ns.CreateFrame("Frame", nil, page.Bar)
   tools:SetHeight(22)
   local cog = ns.UI and ns.UI.frame and ns.UI.frame.OptionsButton
   if cog then
@@ -272,7 +272,7 @@ end
 -- Hover area over a cut-off list cell: shows the full text, plus an optional explanation from
 -- hint() (returns nil for none). Without a hint it only shows when the text doesn't fit.
 function W.CellHint(cell, title, hint)
-  local area = CreateFrame("Frame", nil, cell:GetParent())
+  local area = ns.CreateFrame("Frame", nil, cell:GetParent())
   area:SetAllPoints(cell)
   area:EnableMouse(true)
   area:SetScript("OnEnter", function(self)
@@ -294,7 +294,7 @@ end
 -- Hover area for a list row's icon + item name: only there the item tooltip shows (the rest of the
 -- row stays free for buttons and their own tooltips). The tooltip uses row.itemId.
 function W.ItemArea(row, width)
-  local area = CreateFrame("Frame", nil, row)
+  local area = ns.CreateFrame("Frame", nil, row)
   area:SetPoint("TOPLEFT", 0, 0)
   area:SetPoint("BOTTOMLEFT", 0, 0)
   area:SetWidth(width)
@@ -331,7 +331,7 @@ function W.ClassColor(class)
 end
 
 function W.EditBox(parent, width, numeric)
-  local box = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
+  local box = ns.CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
   box:SetSize(width or 120, 20)
   box:SetAutoFocus(false)
   if numeric then box:SetNumeric(true) end
@@ -355,11 +355,11 @@ W.SEARCH_W = 220
 -- its left and right end; page:Fill(text) spans a text over the room between the two.
 function W.Page(panel)
   local page = {}
-  page.Bar = CreateFrame("Frame", nil, panel)
+  page.Bar = ns.CreateFrame("Frame", nil, panel)
   page.Bar:SetPoint("TOPLEFT", W.BAR_X, -2)
   page.Bar:SetPoint("TOPRIGHT", 0, -2)
   page.Bar:SetHeight(W.BAR_H)
-  page.Body = CreateFrame("Frame", nil, panel)
+  page.Body = ns.CreateFrame("Frame", nil, panel)
   page.Body:SetPoint("TOPLEFT", 0, -(W.BAR_H + 6))
   page.Body:SetPoint("BOTTOMRIGHT", 0, 0)
   -- a one-line text (a hint, a count) between the controls chained from the left and from the right
@@ -397,8 +397,8 @@ end
 -- member list opened and every row filled again on each roster update (tests/bench.lua).
 
 function W.ScrollList(parent, rowHeight, createRow, updateRow)
-  local scroll = CreateFrame("ScrollFrame", nil, parent, "UIPanelScrollFrameTemplate")
-  local content = CreateFrame("Frame", nil, scroll)
+  local scroll = ns.CreateFrame("ScrollFrame", nil, parent, "UIPanelScrollFrameTemplate")
+  local content = ns.CreateFrame("Frame", nil, scroll)
   scroll:SetScrollChild(content)
   content:SetSize(1, 1)
   scroll.rows = {}
@@ -443,7 +443,7 @@ function W.ScrollList(parent, rowHeight, createRow, updateRow)
     for i = first, last do
       local row = scroll.rows[i]
       if not row then
-        row = CreateFrame("Frame", nil, content)
+        row = ns.CreateFrame("Frame", nil, content)
         row:SetHeight(rowHeight)
         row:SetPoint("TOPLEFT", 0, -(i - 1) * rowHeight)
         row:SetPoint("RIGHT", content, "RIGHT", 0, 0)
@@ -542,7 +542,7 @@ end
 W.CloseMenu = CloseMenu
 
 local function BuildMenu()
-  catcher = CreateFrame("Button", nil, UIParent)
+  catcher = ns.CreateFrame("Button", nil, UIParent)
   catcher:SetAllPoints(UIParent)
   catcher:SetFrameStrata("FULLSCREEN")
   catcher:RegisterForClicks("AnyUp")
@@ -570,7 +570,7 @@ function W.OpenMenu(anchor, items, width, rebuild)
   for i, item in ipairs(items) do
     local button = menu.buttons[i]
     if not button then
-      button = CreateFrame("Button", nil, menu)
+      button = ns.CreateFrame("Button", nil, menu)
       button:SetHeight(MENU_ROW)
       button:SetPoint("TOPLEFT", 6, -6 - (i - 1) * MENU_ROW)
       button:SetPoint("RIGHT", -6, 0)
@@ -666,8 +666,8 @@ end
 
 function W.Tab(frame, index, text, onClick)
   local name = frame:GetName() .. "Tab" .. index
-  local ok, tab = pcall(CreateFrame, "Button", name, frame, "PanelTabButtonTemplate")
-  if not ok then tab = CreateFrame("Button", name, frame, "UIPanelButtonTemplate") end
+  local ok, tab = pcall(ns.CreateFrame, "Button", name, frame, "PanelTabButtonTemplate")
+  if not ok then tab = ns.CreateFrame("Button", name, frame, "UIPanelButtonTemplate") end
   tab:SetID(index)
   tab:SetText(text)
   tab:SetScript("OnClick", onClick)
@@ -680,7 +680,7 @@ end
 
 -- Horizontal bar row: label (left), bar, count (right). row:SetData(label, value, max, r, g, b)
 function W.BarRow(parent, labelWidth)
-  local row = CreateFrame("Button", nil, parent)
+  local row = ns.CreateFrame("Button", nil, parent)
   row:SetHeight(16)
   row.Label = W.Text(row, "GameFontHighlightSmall")
   row.Label:SetPoint("LEFT", 0, 0)
@@ -719,7 +719,7 @@ end
 -- Each button follows the one before it, so a button that widens for a longer text (group:SetLabel)
 -- pushes the rest along; the group's width follows.
 function W.Segmented(parent, options, onSelect)
-  local group = CreateFrame("Frame", nil, parent)
+  local group = ns.CreateFrame("Frame", nil, parent)
   group.buttons = {}
   local function Measure()
     local x = 0
@@ -762,7 +762,7 @@ end
 -- onChange(value) while it is dragged, onDone(value) when the mouse lets go; slider:Set(value) moves it
 -- without calling either. Values are multiples of step.
 function W.Slider(parent, width, low, high, step, onChange, onDone)
-  local slider = CreateFrame("Slider", nil, parent, BackdropTemplateMixin and "BackdropTemplate" or nil)
+  local slider = ns.CreateFrame("Slider", nil, parent, BackdropTemplateMixin and "BackdropTemplate" or nil)
   slider:SetSize(width, 17)
   slider:SetOrientation("HORIZONTAL")
   slider:SetMinMaxValues(low, high)
@@ -810,7 +810,7 @@ end
 
 -- Grip in the bottom-right corner that resizes frame (SetResizable is set by the caller)
 function W.ResizeGrip(frame, onDone)
-  local grip = CreateFrame("Button", nil, frame)
+  local grip = ns.CreateFrame("Button", nil, frame)
   grip:SetSize(16, 16)
   grip:SetPoint("BOTTOMRIGHT", -4, 4)
   grip:SetFrameLevel(frame:GetFrameLevel() + 20)
@@ -874,7 +874,7 @@ end
 
 -- Small profession icon with tooltip; icon:SetSkill(skillLine, text)
 function W.ProfIcon(parent, size)
-  local holder = CreateFrame("Frame", nil, parent)
+  local holder = ns.CreateFrame("Frame", nil, parent)
   holder:SetSize(size, size)
   holder.Icon = holder:CreateTexture(nil, "ARTWORK")
   holder.Icon:SetAllPoints()
@@ -894,8 +894,8 @@ function W.ClassName(name, classFile)
 end
 -- Multiline input (guild info editor)
 function W.InputArea(parent)
-  local scroll = CreateFrame("ScrollFrame", nil, parent, "UIPanelScrollFrameTemplate")
-  local box = CreateFrame("EditBox", nil, scroll)
+  local scroll = ns.CreateFrame("ScrollFrame", nil, parent, "UIPanelScrollFrameTemplate")
+  local box = ns.CreateFrame("EditBox", nil, scroll)
   box:SetMultiLine(true)
   box:SetAutoFocus(false)
   box:SetFontObject("ChatFontNormal")
@@ -915,7 +915,7 @@ end
 -- cap of their rank. bar:SetBarWidth(w) resizes it.
 W.SKILL_SCALE = 300
 function W.SkillBar(parent, width)
-  local bar = CreateFrame("Frame", nil, parent)
+  local bar = ns.CreateFrame("Frame", nil, parent)
   bar:SetSize(width, 6)
   bar.Track = bar:CreateTexture(nil, "BACKGROUND")
   bar.Track:SetAllPoints()

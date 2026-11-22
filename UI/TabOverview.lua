@@ -152,9 +152,9 @@ local function Build(panel)
 
   local page = W.Page(panel)
   -- the boxes live in the body, one frame per view; the toolbar holds the switch and the time window
-  view.Level = CreateFrame("Frame", nil, page.Body)
+  view.Level = ns.CreateFrame("Frame", nil, page.Body)
   view.Level:SetAllPoints()
-  view.Endgame = CreateFrame("Frame", nil, page.Body)
+  view.Endgame = ns.CreateFrame("Frame", nil, page.Body)
   view.Endgame:SetAllPoints()
   view.Endgame:Hide()
   panel = view.Level
@@ -212,7 +212,7 @@ local function Build(panel)
   view.Columns = {}
   view.Axis = {}
   for level = 1, ns.Census.MAX_LEVEL do
-    local column = CreateFrame("Button", nil, levels)
+    local column = ns.CreateFrame("Button", nil, levels)
     column.level = level
     column.Segments = {}
     for i, classFile in ipairs(CLASSES) do
@@ -299,7 +299,7 @@ local function Build(panel)
     view.MatrixNames[i] = name
     view.Cells[i] = {}
     for bracket = 1, ns.Census.BRACKETS do
-      local cell = CreateFrame("Button", nil, matrix)
+      local cell = ns.CreateFrame("Button", nil, matrix)
       cell.Bg = cell:CreateTexture(nil, "BACKGROUND")
       cell.Bg:SetAllPoints()
       cell.Text = W.Text(cell, "GameFontHighlightSmall")

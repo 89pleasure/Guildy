@@ -61,7 +61,7 @@ local function TextHeight(text, width)
 end
 
 local function ScoreBlock(parent)
-  local block = CreateFrame("Frame", nil, parent)
+  local block = ns.CreateFrame("Frame", nil, parent)
   block.Divider = block:CreateTexture(nil, "ARTWORK")
   block.Divider:SetHeight(1)
   block.Divider:SetColorTexture(W.GOLD[1], W.GOLD[2], W.GOLD[3], 0.3)
@@ -82,7 +82,7 @@ local function ScoreBlock(parent)
 end
 
 local function ScoreNote(parent, color)
-  local note = CreateFrame("Frame", nil, parent)
+  local note = ns.CreateFrame("Frame", nil, parent)
   local tint = note:CreateTexture(nil, "BACKGROUND")
   tint:SetAllPoints()
   tint:SetColorTexture(color[1], color[2], color[3], 0.1)
@@ -126,7 +126,7 @@ function BuildScorePanel()
     label:SetWordWrap(false)
     panel.ScaleLabels[i] = label
   end
-  panel.Marker = CreateFrame("Frame", nil, panel)
+  panel.Marker = ns.CreateFrame("Frame", nil, panel)
   panel.Marker:SetSize(10, 16)
   local line = panel.Marker:CreateTexture(nil, "OVERLAY")
   line:SetSize(2, 14)

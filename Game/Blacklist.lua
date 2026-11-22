@@ -191,6 +191,7 @@ function GameBlacklist.HookMenu()
   if not (menu and menu.ModifyMenu) then return end
   for _, which in ipairs(MENU_TAGS) do
     pcall(menu.ModifyMenu, "MENU_UNIT_" .. which, function(_, root, context)
+      if ns.GamepadUI() then return end -- the entry would break the menu's protected actions there
       local name = MenuName(context)
       if not name or not root then return end
       root:CreateDivider()

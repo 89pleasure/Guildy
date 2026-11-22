@@ -48,7 +48,7 @@ local MARKS = {
 }
 
 local function Mark(row)
-  local mark = CreateFrame("Frame", nil, row)
+  local mark = ns.CreateFrame("Frame", nil, row)
   mark:SetSize(14, 14)
   mark.Bars = {}
   for i = 1, 2 do
@@ -187,7 +187,7 @@ local function Build(panel)
 
   local page = W.Page(panel)
   panel = page.Body
-  local left = CreateFrame("Frame", nil, panel)
+  local left = ns.CreateFrame("Frame", nil, panel)
   left:SetPoint("TOPLEFT", 0, 0)
   left:SetPoint("BOTTOMRIGHT", panel, "BOTTOM", -4, 0)
 
@@ -226,7 +226,7 @@ local function Build(panel)
   -- preferred play settings (language, region): the guild master changes them, everyone sees them
   view.PlayRows = {}
   for i, kind in ipairs({ "locale", "datacenter" }) do
-    local row = CreateFrame("Frame", nil, settings)
+    local row = ns.CreateFrame("Frame", nil, settings)
     row:SetHeight(24)
     row:SetPoint("TOPLEFT", 12, -28 - (i - 1) * 28)
     row:SetPoint("RIGHT", -10, 0)

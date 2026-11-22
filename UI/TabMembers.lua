@@ -194,7 +194,7 @@ local function Build(panel)
   end
 
   local function Check(label, anchor, onClick)
-    local check = CreateFrame("CheckButton", nil, bar, "UICheckButtonTemplate")
+    local check = ns.CreateFrame("CheckButton", nil, bar, "UICheckButtonTemplate")
     check:SetSize(24, 24)
     check:SetPoint("LEFT", anchor, "RIGHT", 6, 0)
     check:SetScript("OnClick", onClick)
@@ -232,7 +232,7 @@ local function Build(panel)
   -- the list box fills the body like every view's boxes; the column header is its first row
   local listBox = W.Box(main)
   listBox:SetAllPoints()
-  local header = CreateFrame("Frame", nil, listBox)
+  local header = ns.CreateFrame("Frame", nil, listBox)
   header:SetPoint("TOPLEFT", 0, -4)
   header:SetPoint("RIGHT", listBox, "RIGHT", 0, 0)
   header:SetHeight(20)
@@ -244,7 +244,7 @@ local function Build(panel)
   local x = 8
   view.Headers = {}
   for _, column in ipairs(COLUMNS) do
-    local button = CreateFrame("Button", nil, header)
+    local button = ns.CreateFrame("Button", nil, header)
     button:SetHeight(20)
     button:SetPoint("LEFT", x, 0)
     button:SetWidth(column.width)
@@ -284,7 +284,7 @@ local function Build(panel)
 
   -- customizing: a handle over every heading -----------------------------------------------------
   -- the field a dragged heading lands on
-  view.Marker = CreateFrame("Frame", nil, header)
+  view.Marker = ns.CreateFrame("Frame", nil, header)
   view.Marker:SetFrameLevel((header:GetFrameLevel() or 1) + 2)
   view.Marker.Fill = view.Marker:CreateTexture(nil, "BACKGROUND")
   view.Marker.Fill:SetAllPoints()
@@ -310,7 +310,7 @@ local function Build(panel)
       if mouse == "LeftButton" then view:StartDrag("move", def.key) end
     end)
     -- the right edge: drag it for the width
-    handle.Grip = CreateFrame("Button", nil, handle)
+    handle.Grip = ns.CreateFrame("Button", nil, handle)
     handle.Grip:SetSize(8, 20)
     handle.Grip:SetPoint("RIGHT", 5, 0)
     handle.Grip.Line = handle.Grip:CreateTexture(nil, "ARTWORK")
@@ -557,7 +557,7 @@ local function Build(panel)
     row:SetScript("OnLeave", function() GameTooltip:Hide() end)
     -- the score cell: the shared score panel (UI/ScorePanel.lua) instead of the row tooltip; a click
     -- there does what one on the row does
-    local hit = CreateFrame("Frame", nil, row)
+    local hit = ns.CreateFrame("Frame", nil, row)
     hit:SetAllPoints(row.Cells.score)
     hit:EnableMouse(true)
     hit:Hide()

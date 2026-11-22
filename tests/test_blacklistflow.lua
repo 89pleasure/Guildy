@@ -612,4 +612,18 @@ T.describe("Right-click entry", function()
     T.eq(#Open(tag, { name = world.SECRET, guid = world.SECRET }), 0)
     T.eq(errors, {})
   end)
+
+  -- In the game's gamepad interface the unit menus hold protected actions (Interact, Set Focus): an
+  -- addon's entry taints the menu and the game blocks them (reported 2026-11-22). No entries there.
+  T.it("adds nothing to the menus while the gamepad interface is on", function()
+    local saved = env.InputUtil
+    env.InputUtil = { IsGamepadUIEnabled = function() return true end }
+    T.eq(#Open("MENU_UNIT_ENEMY_PLAYER", { name = "Grom", server = "Blutfaust" }), 0)
+    local member = ns.Roster.Find("Makira Farron")
+    T.eq(#Open("MENU_UNIT_COMMUNITIES_GUILD_MEMBER", { name = "Makira-Farron", guid = member.guid }), 0)
+    env.InputUtil = { IsGamepadUIEnabled = function() return false end }
+    T.eq(#Open("MENU_UNIT_ENEMY_PLAYER", { name = "Grom", server = "Blutfaust" }), 1)
+    env.InputUtil = saved
+    T.eq(errors, {})
+  end)
 end)

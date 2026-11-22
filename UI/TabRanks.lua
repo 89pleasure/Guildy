@@ -85,7 +85,7 @@ local function Build(panel)
   view.PermsTitle:SetWordWrap(false)
   view.Lines = {}
   for i = 1, NUM_FLAGS do
-    local line = CreateFrame("Frame", nil, perms)
+    local line = ns.CreateFrame("Frame", nil, perms)
     line:SetSize(240, 18)
     local column, rowIndex = (i - 1) % 2, math.floor((i - 1) / 2)
     line:SetPoint("TOPLEFT", 10 + column * 250, -30 - rowIndex * 20)

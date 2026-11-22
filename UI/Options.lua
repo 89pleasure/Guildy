@@ -37,7 +37,7 @@ local function Off(check)
 end
 
 local function Check(parent, label, onClick)
-  local check = CreateFrame("CheckButton", nil, parent, "UICheckButtonTemplate")
+  local check = ns.CreateFrame("CheckButton", nil, parent, "UICheckButtonTemplate")
   check:SetSize(24, 24)
   check:SetScript("OnClick", onClick)
   check.Label = W.Text(parent, "GameFontHighlightSmall", label)
@@ -171,7 +171,7 @@ local function BuildGeneral(panel)
   panel.Scale:SetPoint("LEFT", panel.Tooltip, "LEFT", 0, 0)
   panel.Scale:SetPoint("TOP", scaleLabel, "TOP", 0, 3)
   panel.ScaleValue:SetPoint("LEFT", panel.Scale, "RIGHT", 12, 0)
-  local scaleTip = CreateFrame("Frame", nil, panel)
+  local scaleTip = ns.CreateFrame("Frame", nil, panel)
   scaleTip:SetAllPoints(scaleLabel)
   scaleTip:EnableMouse(true)
   W.Tooltip(scaleTip, L.OPTIONS_SCALE, L.OPTIONS_SCALE_TIP)
@@ -257,7 +257,7 @@ local function BuildStyle(panel)
     local index = 0
     local function Row()
       index = index + 1
-      local row = CreateFrame("Frame", nil, preview)
+      local row = ns.CreateFrame("Frame", nil, preview)
       row:SetHeight(PREVIEW_ROW)
       row:SetPoint("TOPLEFT", 4, -5 - (index - 1) * PREVIEW_ROW)
       row:SetPoint("RIGHT", -4, 0)
@@ -418,19 +418,19 @@ end
 -- (cards with a preview), under those the players on this account
 local function BuildMembers(panel)
   local L = ns.L
-  local columns = CreateFrame("Frame", nil, panel)
+  local columns = ns.CreateFrame("Frame", nil, panel)
   columns:SetPoint("TOPLEFT", 0, 0)
   columns:SetPoint("RIGHT", 0, 0)
   columns:SetHeight(96)
   BuildColumns(columns)
   local head = W.Text(panel, "GameFontNormal", L.OPTIONS_STYLE_HEAD)
   head:SetPoint("TOPLEFT", columns, "BOTTOMLEFT", 4, -4)
-  local style = CreateFrame("Frame", nil, panel)
+  local style = ns.CreateFrame("Frame", nil, panel)
   style:SetPoint("TOPLEFT", head, "BOTTOMLEFT", -4, -8)
   style:SetPoint("RIGHT", 0, 0)
   style:SetHeight(212)
   BuildStyle(style)
-  local players = CreateFrame("Frame", nil, panel)
+  local players = ns.CreateFrame("Frame", nil, panel)
   players:SetPoint("TOPLEFT", style, "BOTTOMLEFT", 0, -16)
   players:SetPoint("BOTTOMRIGHT", 0, 0)
   BuildPlayers(players)
@@ -556,10 +556,10 @@ local FAQ_W = WIDTH - 26 - 30 -- the text's width: the window's inner width less
 
 local function BuildFaq(panel)
   local L = ns.L
-  local scroll = CreateFrame("ScrollFrame", nil, panel, "UIPanelScrollFrameTemplate")
+  local scroll = ns.CreateFrame("ScrollFrame", nil, panel, "UIPanelScrollFrameTemplate")
   scroll:SetPoint("TOPLEFT", 0, 0)
   scroll:SetPoint("BOTTOMRIGHT", -24, 0)
-  local content = CreateFrame("Frame", nil, scroll)
+  local content = ns.CreateFrame("Frame", nil, scroll)
   content:SetSize(FAQ_W, 1)
   scroll:SetScrollChild(content)
   panel.Scroll = scroll
@@ -600,7 +600,7 @@ local function Build()
   -- were drawn at levels that mixed with Guildy's own (found in game 2026-11-10). One strata above
   -- Guildy's, so it lies over the window and its side tabs wherever the player drags it. It closes with
   -- Guildy (UI.HideOptions from the window's OnHide).
-  options = CreateFrame("Frame", "GuildyOptions", UIParent, "ButtonFrameTemplate")
+  options = ns.CreateFrame("Frame", "GuildyOptions", UIParent, "ButtonFrameTemplate")
   options:Hide()
   options:SetSize(WIDTH, HEIGHT)
   if options.SetScale then options:SetScale(UI.Scale()) end
@@ -647,7 +647,7 @@ local function Build()
   local close = options.CloseButton or rawget(_G, "GuildyOptionsCloseButton")
   if type(close) == "table" and close.SetScript then close:SetScript("OnClick", function() options:Hide() end) end
 
-  local body = CreateFrame("Frame", nil, options)
+  local body = ns.CreateFrame("Frame", nil, options)
   body:SetPoint("TOPLEFT", 14, -62)
   body:SetPoint("BOTTOMRIGHT", -12, 12)
   options.Panels = {}
@@ -659,7 +659,7 @@ local function Build()
     { "professions", L.TAB_PROFESSIONS, BuildProfessions }, { "bank", L.TAB_BANK, BuildBank },
     { "faq", L.OPTIONS_FAQ, BuildFaq }, -- last: questions that come up again and again
   }) do
-    local panel = CreateFrame("Frame", nil, body)
+    local panel = ns.CreateFrame("Frame", nil, body)
     panel:SetAllPoints()
     panel:Hide()
     def[3](panel)
@@ -672,7 +672,7 @@ local function Build()
   local resize = rawget(_G, "PanelTemplates_TabResize")
   options.TopTabs = {}
   for i, def in ipairs(tabs) do
-    local ok, tab = pcall(CreateFrame, "Button", "GuildyOptionsTab" .. i, options, "PanelTopTabButtonTemplate")
+    local ok, tab = pcall(ns.CreateFrame, "Button", "GuildyOptionsTab" .. i, options, "PanelTopTabButtonTemplate")
     if not (ok and tab and select and deselect) then
       if ok and tab then tab:Hide() end
       options.TopTabs = nil

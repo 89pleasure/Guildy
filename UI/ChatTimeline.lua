@@ -51,7 +51,7 @@ function Timeline.Create(box, messages, opts)
   local tl = { days = {}, count = 0, marks = {} }
 
   -- rail ---------------------------------------------------------------------------------------
-  local rail = CreateFrame("Button", nil, box)
+  local rail = ns.CreateFrame("Button", nil, box)
   rail:SetPoint("TOPRIGHT", -4, -8)
   rail:SetPoint("BOTTOMRIGHT", -4, 8)
   rail:SetWidth(Timeline.RAIL_WIDTH)
@@ -62,7 +62,7 @@ function Timeline.Create(box, messages, opts)
   track:SetWidth(2)
   track:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.35)
 
-  local thumb = CreateFrame("Button", nil, rail)
+  local thumb = ns.CreateFrame("Button", nil, rail)
   thumb:SetWidth(8) -- centered on the track
   thumb:SetFrameLevel((rail:GetFrameLevel() or 0) + 3)
   local thumbEdge = thumb:CreateTexture(nil, "BACKGROUND")
@@ -77,7 +77,7 @@ function Timeline.Create(box, messages, opts)
   thumbHi:SetColorTexture(1, 0.82, 0, 0.35)
 
   -- pinned strip -------------------------------------------------------------------------------
-  local header = CreateFrame("Frame", nil, box)
+  local header = ns.CreateFrame("Frame", nil, box)
   header:SetPoint("TOPLEFT", 6, -4)
   header:SetPoint("TOPRIGHT", -(Timeline.RAIL_WIDTH + 8), -4)
   header:SetHeight(Timeline.HEADER_HEIGHT)
@@ -97,7 +97,7 @@ function Timeline.Create(box, messages, opts)
   tl.Header = header
 
   -- jump to the newest line, centered at the bottom while scrolled up -------------------------
-  local latest = CreateFrame("Button", nil, box)
+  local latest = ns.CreateFrame("Button", nil, box)
   latest:SetHeight(22)
   latest:SetPoint("BOTTOM", messages, "BOTTOM", 0, 6)
   latest:SetFrameLevel((messages:GetFrameLevel() or 0) + 5)
@@ -165,7 +165,7 @@ function Timeline.Create(box, messages, opts)
   local function Mark(i)
     local mark = tl.marks[i]
     if mark then return mark end
-    mark = CreateFrame("Button", nil, rail)
+    mark = ns.CreateFrame("Button", nil, rail)
     mark:SetSize(Timeline.RAIL_WIDTH - 8, 12)
     mark.Tick = mark:CreateTexture(nil, "ARTWORK")
     mark.Tick:SetSize(6, 1)

@@ -75,7 +75,7 @@ end
 function UI.ChatPane(chatBox, opts)
   local L = ns.L
   local pane = {}
-  local messages = CreateFrame("ScrollingMessageFrame", nil, chatBox)
+  local messages = ns.CreateFrame("ScrollingMessageFrame", nil, chatBox)
   local Timeline = ns.ChatTimeline
   messages:SetPoint("TOPLEFT", 8, -(Timeline.HEADER_HEIGHT + 6)) -- strip on top for the pinned day
   messages:SetPoint("BOTTOMRIGHT", -(Timeline.RAIL_WIDTH + 8), 6)
@@ -205,7 +205,7 @@ end
 -- The input line under a chat pane: the channel's name in its color left in the field, a placeholder
 -- while empty, shift-clicked links go in while it has focus. onSend(text) on Enter.
 function UI.ChatInput(parent, onSend)
-  local input = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
+  local input = ns.CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
   input:SetPoint("BOTTOMLEFT", 6, 1)
   input:SetPoint("BOTTOMRIGHT", 0, 1)
   input:SetHeight(22)
@@ -257,7 +257,7 @@ local function Build(panel)
   local page = W.Page(panel)
   local bar = page.Bar
   panel = page.Body
-  local right = CreateFrame("Frame", nil, panel)
+  local right = ns.CreateFrame("Frame", nil, panel)
   right:SetPoint("TOPRIGHT", 0, 0)
   right:SetPoint("BOTTOMRIGHT", 0, 0)
   right:SetWidth(W.SIDE)
@@ -341,7 +341,7 @@ local function Build(panel)
   view.Count:SetPoint("RIGHT", view.SortButton, "LEFT", -10, 0)
 
   -- left: chat ---------------------------------------------------------------------------------
-  local left = CreateFrame("Frame", nil, panel)
+  local left = ns.CreateFrame("Frame", nil, panel)
   left:SetPoint("TOPLEFT", 0, 0)
   left:SetPoint("BOTTOMRIGHT", right, "BOTTOMLEFT", -8, 0)
 
@@ -379,7 +379,7 @@ local function Build(panel)
   -- Chat messaging lockdown (battlegrounds, instances): the game gives addons the guild chat only as
   -- secret values, history and new lines alike, while Blizzard's own window still shows it. The chat
   -- column says so and opens that window (found in game 2026-11-20, Warsong Gulch).
-  view.Locked = CreateFrame("Frame", nil, chatBox)
+  view.Locked = ns.CreateFrame("Frame", nil, chatBox)
   view.Locked:SetAllPoints(chatBox)
   view.Locked:SetFrameLevel(chatBox:GetFrameLevel() + 20)
   view.Locked:EnableMouse(true)

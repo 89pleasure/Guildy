@@ -1,7 +1,7 @@
 -- Startup and event wiring (loaded last).
 local _, ns = ...
 
-local frame = CreateFrame("Frame")
+local frame = ns.CreateFrame("Frame")
 local scanTimer
 
 local function ScheduleTradeScan()

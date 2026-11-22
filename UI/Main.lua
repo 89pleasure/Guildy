@@ -137,7 +137,7 @@ end
 -- art, gold frame when selected, hover art), sitting outside the right edge. Falls back to the classic
 -- spellbook side tab when the template is missing. tab.sideTab marks it for tooltips beside the tab.
 local function SideTab(parent, texture, tooltip, onClick)
-  local ok, tab = pcall(CreateFrame, "Frame", nil, parent, "LargeSideTabButtonTemplate")
+  local ok, tab = pcall(ns.CreateFrame, "Frame", nil, parent, "LargeSideTabButtonTemplate")
   if ok and tab and tab.Icon then
     tab.tooltipText = tooltip
     if tab.SetFillToInterior then tab:SetFillToInterior(true) end
@@ -154,7 +154,7 @@ local function SideTab(parent, texture, tooltip, onClick)
       self.HighlightTexture:SetShown(true)
     end
   else
-    tab = CreateFrame("CheckButton", nil, parent)
+    tab = ns.CreateFrame("CheckButton", nil, parent)
     tab:SetSize(32, 32)
     local back = tab:CreateTexture(nil, "BACKGROUND")
     back:SetTexture("Interface\\SpellBook\\SpellBook-SkillLineTab")
@@ -221,7 +221,7 @@ end
 -- The guild's emblem drawn with Blizzard's SetLargeGuildTabardTextures (background, emblem, border).
 -- holder.ok is false when the client lacks the function (then the caller keeps its own icon).
 function UI.GuildEmblem(parent, size)
-  local holder = CreateFrame("Frame", nil, parent)
+  local holder = ns.CreateFrame("Frame", nil, parent)
   holder:SetSize(size, size)
   holder.Background = holder:CreateTexture(nil, "BACKGROUND", nil, 1)
   holder.Background:SetTexture("Interface\\GuildFrame\\GuildFrame")
@@ -285,7 +285,7 @@ function UI.UpdateVersion()
 end
 
 local function Build()
-  frame = CreateFrame("Frame", "GuildyFrame", Host() or UIParent, "ButtonFrameTemplate")
+  frame = ns.CreateFrame("Frame", "GuildyFrame", Host() or UIParent, "ButtonFrameTemplate")
   frame:Hide()
   local settings = ns.Settings()
   -- a saved size outside the bounds (older versions, a jumped resize) comes back inside them
@@ -400,13 +400,13 @@ local function Build()
   UpdateTitle()
 
   -- content area (the portrait overlaps its top-left corner; tabs keep their first row clear of it)
-  frame.Content = CreateFrame("Frame", nil, frame)
+  frame.Content = ns.CreateFrame("Frame", nil, frame)
   frame.Content:SetPoint("TOPLEFT", 12, -30)
   frame.Content:SetPoint("BOTTOMRIGHT", -10, 12)
 
   -- the installed version at the left of the title bar (right of the portrait), and a note when a
   -- guild member already uses a newer release (Game/Sync.lua). On the title bar's level like the cog.
-  frame.Version = CreateFrame("Frame", nil, frame)
+  frame.Version = ns.CreateFrame("Frame", nil, frame)
   frame.Version:SetSize(280, 16)
   frame.Version:SetPoint("TOPLEFT", 66, -3)
   frame.Version:SetFrameLevel(frame.OptionsButton:GetFrameLevel())
@@ -425,7 +425,7 @@ local function Build()
 
   local buttons = 0
   for _, tab in ipairs(tabs) do
-    tab.panel = CreateFrame("Frame", nil, frame.Content)
+    tab.panel = ns.CreateFrame("Frame", nil, frame.Content)
     tab.panel:SetAllPoints()
     tab.panel:Hide()
     if not tab.side then
@@ -701,7 +701,7 @@ local function HookHost()
   if host:IsShown() and not blizzardMode then ns.SafeCall(Open) end
 end
 
-local hostWatch = CreateFrame("Frame")
+local hostWatch = ns.CreateFrame("Frame")
 hostWatch:RegisterEvent("ADDON_LOADED")
 hostWatch:RegisterEvent("PLAYER_LOGIN")
 hostWatch:SetScript("OnEvent", function(_, event, name)

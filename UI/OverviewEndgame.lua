@@ -71,7 +71,7 @@ function UI.BuildOverviewEndgame(panel)
   local month = Box(L.MONTH, L.MONTH_HINT)
   view.MonthRows = {}
   for i = 1, #ns.Activity.MONTH_ROWS do
-    local row = CreateFrame("Frame", nil, month)
+    local row = ns.CreateFrame("Frame", nil, month)
     row.Label = W.Text(row, "GameFontHighlightSmall")
     row.Label:SetPoint("TOPLEFT", 0, 0)
     row.Value = W.Text(row, "GameFontNormalSmall")
@@ -104,7 +104,7 @@ function UI.BuildOverviewEndgame(panel)
   local function Column(i)
     local column = view.Columns[i]
     if column then return column end
-    column = CreateFrame("Button", nil, ilvl)
+    column = ns.CreateFrame("Button", nil, ilvl)
     column.Segments = {}
     for c, classFile in ipairs(CLASSES) do
       local segment = column:CreateTexture(nil, "ARTWORK")
@@ -173,7 +173,7 @@ function UI.BuildOverviewEndgame(panel)
   local function RaidBlock(i)
     local block = view.RaidBlocks[i]
     if block then return block end
-    block = CreateFrame("Button", nil, raids)
+    block = ns.CreateFrame("Button", nil, raids)
     block:SetHeight(46)
     block.Icon = W.Icon(block, 24)
     block.Icon.Border:SetPoint("TOPLEFT", 0, -1)

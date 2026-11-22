@@ -84,7 +84,7 @@ end
 local function Build()
   local L = ns.L
   local gold = W.GOLD
-  banner = CreateFrame("Frame", "GuildyDing", UIParent)
+  banner = ns.CreateFrame("Frame", "GuildyDing", UIParent)
   banner:SetSize(WIDTH, HEIGHT)
   banner:SetPoint("TOP", 0, -150)
   banner:SetFrameStrata("HIGH")
@@ -92,7 +92,7 @@ local function Build()
   banner:Hide()
 
   -- the band: dark in the middle, gone at both ends
-  banner.Band = CreateFrame("Frame", nil, banner)
+  banner.Band = ns.CreateFrame("Frame", nil, banner)
   banner.Band:SetAllPoints()
   local left = Fade(banner.Band, "BACKGROUND", 0, 0, 0, 0, 0.72)
   left:SetPoint("TOPLEFT")
@@ -103,7 +103,7 @@ local function Build()
 
   -- everything else lies on a frame of its own above the band: a child frame is drawn over what its
   -- parent holds, so on the banner itself the band would cover the texts
-  local content = CreateFrame("Frame", nil, banner)
+  local content = ns.CreateFrame("Frame", nil, banner)
   content:SetAllPoints()
   content:SetFrameLevel(banner.Band:GetFrameLevel() + 1)
 
@@ -122,7 +122,7 @@ local function Build()
   Line("LEFT", "BOTTOM", 0, WIDTH / 2 - 90, 0.6, 0)
 
   -- the seal: a gold square on its corner, dark inside, the level in it
-  banner.Seal = CreateFrame("Frame", nil, content)
+  banner.Seal = ns.CreateFrame("Frame", nil, content)
   banner.Seal:SetSize(SEAL, SEAL)
   banner.Seal:SetPoint("CENTER", banner, "TOP")
   Square(banner.Seal, "BORDER", 0, SEAL, gold[1], gold[2], gold[3])

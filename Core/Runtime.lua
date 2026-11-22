@@ -71,6 +71,31 @@ function ns.ChatLockdown()
   return check ~= nil and ns.Try(check) == true
 end
 
+-- The game's gamepad interface is on. Its unit menus hold protected actions (Interact, Set Focus), and
+-- an entry an addon adds to them (Menu.ModifyMenu) taints the menu, so the game blocks those actions
+-- (reported 2026-11-22). Guildy adds nothing to Blizzard's menus then.
+function ns.GamepadUI()
+  local input = rawget(_G, "InputUtil")
+  return type(input) == "table" and ns.Try(input.IsGamepadUIEnabled) == true
+end
+
+-- CreateFrame for all of Guildy. In the gamepad interface the game hooks CreateFrame (SmartNavigation):
+-- every frame created with a parent makes it search the whole window that parent belongs to for buttons
+-- again, and Guildy lives in Blizzard's guild window and creates thousands of frames. Building the bank
+-- tab took 2.5 s and tens of MB (measured in game 2026-11-22). A plain frame is created without a parent
+-- and attached right after, which the hook does not see. Templates may use their parent while they load:
+-- those are created as always (UIPanelButtonTemplate's OnLoad needs none). With mouse and keyboard
+-- nothing changes.
+local PLAIN = { BackdropTemplate = true, UIPanelButtonTemplate = true }
+function ns.CreateFrame(kind, name, parent, template, id)
+  if parent == nil or (template ~= nil and not PLAIN[template]) or not ns.GamepadUI() then
+    return CreateFrame(kind, name, parent, template, id)
+  end
+  local frame = CreateFrame(kind, name, nil, template, id)
+  frame:SetParent(parent)
+  return frame
+end
+
 -- True when any of the values is secret
 function ns.AnySecret(...)
   for i = 1, select("#", ...) do

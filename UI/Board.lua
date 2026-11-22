@@ -44,13 +44,13 @@ local STRIP = 24     -- the strip with its name and buttons on top of every box 
 
 function UI.Board(parent, opts)
   local L = ns.L
-  local board = CreateFrame("Frame", nil, parent)
+  local board = ns.CreateFrame("Frame", nil, parent)
   board:SetAllPoints()
   board.defs, board.order, board.placed = {}, {}, {}
-  board.Scroll = CreateFrame("ScrollFrame", nil, board, "UIPanelScrollFrameTemplate")
+  board.Scroll = ns.CreateFrame("ScrollFrame", nil, board, "UIPanelScrollFrameTemplate")
   board.Scroll:SetPoint("TOPLEFT", 0, 0)
   board.Scroll:SetPoint("BOTTOMRIGHT", 0, 0)
-  board.Content = CreateFrame("Frame", nil, board.Scroll)
+  board.Content = ns.CreateFrame("Frame", nil, board.Scroll)
   board.Content:SetSize(1, 1)
   board.Scroll:SetScrollChild(board.Content)
   W.SlimScrollBar(board.Scroll, 4)
@@ -129,7 +129,7 @@ function UI.Board(parent, opts)
   end
 
   -- the bar at the bottom of the tab in edit mode: add a box below everything
-  board.AddBar = CreateFrame("Button", nil, board)
+  board.AddBar = ns.CreateFrame("Button", nil, board)
   board.AddBar:SetPoint("BOTTOMLEFT", 0, 0)
   board.AddBar:SetPoint("BOTTOMRIGHT", 0, 0)
   board.AddBar:SetHeight(ADD_H - 4)
@@ -162,19 +162,23 @@ function UI.Board(parent, opts)
     for key in pairs(self.placed) do self.placed[key] = nil end
     for _, item in ipairs(layout) do
       local def = self.defs[item.k]
-      self.placed[item.k] = item
-      def.box.opts = item.o or {}
-      PutBox(def.box, item, cw, ch)
-      def.box:SetAlpha(1)
-      if def.raised then
-        def.raised = nil
-        def.box:SetFrameStrata(self:GetFrameStrata())
+      -- the box is not built yet: in the gamepad interface the game sizes frames while the board is still
+      -- being built, and OnSizeChanged lands here early (seen in game 2026-11-22). The next Apply places it.
+      if def then
+        self.placed[item.k] = item
+        def.box.opts = item.o or {}
+        PutBox(def.box, item, cw, ch)
+        def.box:SetAlpha(1)
+        if def.raised then
+          def.raised = nil
+          def.box:SetFrameStrata(self:GetFrameStrata())
+        end
+        def.box:Show()
       end
-      def.box:Show()
     end
     -- the box the picker is about to add: shown where it will stand
     local preview = self.preview
-    if preview and not self.placed[preview.k] then
+    if preview and not self.placed[preview.k] and self.defs[preview.k] then
       local def = self.defs[preview.k]
       self.placed[preview.k] = preview
       def.box.opts = {}
@@ -431,7 +435,7 @@ function UI.Board(parent, opts)
   -- Moving and sizing, as it happens: the box itself follows the mouse, a gold field marks the cells it
   -- will land on, and the other boxes move out of its way right away (Grid.Compact), so what letting
   -- go will do is on the tab before it is done.
-  board.Ghost = CreateFrame("Frame", nil, content)
+  board.Ghost = ns.CreateFrame("Frame", nil, content)
   board.Ghost:SetFrameLevel((content:GetFrameLevel() or 1) + 80)
   board.Ghost.Fill = board.Ghost:CreateTexture(nil, "BACKGROUND")
   board.Ghost.Fill:SetAllPoints()
@@ -551,7 +555,7 @@ function UI.Board(parent, opts)
   local function Cover(key)
     local def = board.defs[key]
     if def.Cover then return end
-    local cover = CreateFrame("Button", nil, def.box)
+    local cover = ns.CreateFrame("Button", nil, def.box)
     cover:SetAllPoints()
     local level = (def.box:GetFrameLevel() or 1) + 40
     cover:SetFrameLevel(level)
@@ -565,7 +569,7 @@ function UI.Board(parent, opts)
     cover:SetScript("OnMouseWheel", Wheel)
     -- the strip: over the title row of the box, which it stands for while customizing; above a box
     -- that has none, in the room that box gives up (PutBox). Dragging it moves the box.
-    cover.Strip = CreateFrame("Button", nil, cover)
+    cover.Strip = ns.CreateFrame("Button", nil, cover)
     cover.Strip:SetPoint(def.bare and "BOTTOMLEFT" or "TOPLEFT", cover, "TOPLEFT", 0, 0)
     cover.Strip:SetPoint(def.bare and "BOTTOMRIGHT" or "TOPRIGHT", cover, "TOPRIGHT", 0, 0)
     cover.Strip:SetHeight(STRIP)
@@ -601,7 +605,7 @@ function UI.Board(parent, opts)
     cover.Name:SetPoint("RIGHT", cover.Gear, "LEFT", -6, 0)
     cover.Name:SetJustifyH("LEFT")
     cover.Name:SetWordWrap(false)
-    cover.Grip = CreateFrame("Button", nil, cover)
+    cover.Grip = ns.CreateFrame("Button", nil, cover)
     cover.Grip:SetSize(20, 20)
     cover.Grip:SetPoint("BOTTOMRIGHT", -2, 2)
     cover.Grip:SetFrameLevel(level + 6)
@@ -618,7 +622,7 @@ function UI.Board(parent, opts)
   Slot = function(index)
     local slot = slots[index]
     if slot then return slot end
-    slot = CreateFrame("Button", nil, content)
+    slot = ns.CreateFrame("Button", nil, content)
     slot.Fill = slot:CreateTexture(nil, "BACKGROUND")
     slot.Fill:SetAllPoints()
     slot.Fill:SetColorTexture(W.GOLD[1], W.GOLD[2], W.GOLD[3], 0.07)
@@ -672,7 +676,7 @@ function UI.Board(parent, opts)
   local function PickRow(index)
     local row = picker.Rows[index]
     if row then return row end
-    row = CreateFrame("Button", nil, picker)
+    row = ns.CreateFrame("Button", nil, picker)
     row:SetHeight(PICK_ROW - 4)
     row:SetPoint("TOPLEFT", 6, -30 - (index - 1) * PICK_ROW)
     row:SetPoint("RIGHT", -6, 0)

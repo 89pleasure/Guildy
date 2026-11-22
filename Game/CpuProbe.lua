@@ -67,7 +67,7 @@ function CpuProbe.Runner() return runner end -- the measuring frame (tests)
 function CpuProbe.Run()
   if runner and runner.running then return ns.Print("cpu: a measurement is running") end
   if not LastTime() then return ns.Print("cpu: this client has no addon profiler (C_AddOnProfiler)") end
-  runner = runner or CreateFrame("Frame")
+  runner = runner or ns.CreateFrame("Frame")
   local state, results = { named = {} }, {}
   for _, frame in ipairs(NamedVisible()) do state.named[#state.named + 1] = frame:GetName() end
   local index, elapsed, current = 0, 0, nil
