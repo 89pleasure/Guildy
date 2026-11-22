@@ -887,4 +887,5 @@ ns.LocaleTables.frFR = {
   BL_SAVE = "Enregistrer",
   BL_EDIT_HINT = "Cliquez pour changer le type ou la raison",
   BL_ERR_RENAME = "Seuls les officiers et l'auteur de l'entrée peuvent la renommer. Changez le type ou la raison, ou demandez à un officier.",
+  BL_REMOVE_CONFIRM = "Retirer %s de la liste noire de la guilde ? L'entrée disparaît pour tous les utilisateurs de Guildy de la guilde.",
 }

@@ -887,4 +887,5 @@ ns.LocaleTables.deDE = {
   BL_SAVE = "Speichern",
   BL_EDIT_HINT = "Klicken, um Art oder Grund zu ändern",
   BL_ERR_RENAME = "Umbenennen dürfen nur Offiziere und wer den Eintrag angelegt hat. Art oder Grund kannst du ändern, sonst frag einen Offizier.",
+  BL_REMOVE_CONFIRM = "%s von der Blacklist der Gilde entfernen? Der Eintrag verschwindet bei allen Guildy-Nutzern der Gilde.",
 }

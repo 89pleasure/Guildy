@@ -119,6 +119,7 @@ return function(T, opts)
     function methods:IsTruncated() return false end
     function methods:SetScript(event, fn) self._scripts[event] = fn end
     function methods:GetScript(event) return self._scripts[event] end
+    function methods:HasScript(event) return event == "OnClick" or self._scripts[event] ~= nil end
     function methods:HookScript(event, fn)
       local old = self._scripts[event]
       self._scripts[event] = function(...) if old then old(...) end fn(...) end

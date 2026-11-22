@@ -888,4 +888,5 @@ ns.LocaleTables.enUS = {
   BL_SAVE = "Save",
   BL_EDIT_HINT = "Click to change the kind or reason",
   BL_ERR_RENAME = "Only officers and whoever added it can rename this entry. Change the kind or reason, or ask an officer.",
+  BL_REMOVE_CONFIRM = "Remove %s from the guild's blacklist? Every Guildy user in the guild loses the entry.",
 }

@@ -887,4 +887,5 @@ ns.LocaleTables.ptBR = {
   BL_SAVE = "Salvar",
   BL_EDIT_HINT = "Clique para mudar o tipo ou o motivo",
   BL_ERR_RENAME = "Só oficiais e quem adicionou a entrada podem renomeá-la. Mude o tipo ou o motivo, ou peça a um oficial.",
+  BL_REMOVE_CONFIRM = "Remover %s da lista negra da guilda? A entrada some para todos os usuários do Guildy na guilda.",
 }

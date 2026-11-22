@@ -218,7 +218,9 @@ local function Build(panel)
         local entry, err = ns.GameBlacklist.Add(item.entry.n, item.entry.t, item.entry.r)
         if not entry then ns.Print(L[ERRORS[err] or "BL_ERR_NAME"]) end
       else
-        ns.GameBlacklist.Remove(item.entry.n)
+        local name = item.entry.n
+        UI.Confirm(L.BL_REMOVE_CONFIRM:format(W.ClassName(name, item.entry.c)),
+          { run = function() ns.GameBlacklist.Remove(name) end }, L.BL_REMOVE, true)
       end
     end, 90, { small = true })
     row.Action:SetPoint("RIGHT", -2, 0)

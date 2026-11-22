@@ -493,6 +493,32 @@ T.describe("The Blacklist tab", function()
     view:Refresh()
   end)
 
+  T.it("asks before removing", function()
+    local view = View()
+    view.Search:SetText("Hakuna Matata")
+    view.Search:GetScript("OnTextChanged")(view.Search)
+    local row
+    for _, r in pairs(view.List.rows) do
+      if r.item and r.item.entry and r.item.entry.n == "Hakuna Matata" then row = r end
+    end
+    T.truthy(row, "row")
+    row.Action:GetScript("OnClick")(row.Action)
+    local book = ns.GameBlacklist.Book()
+    T.eq(ns.Blacklist.IsLive(book["hakuna matata"]), true) -- not yet
+    local dialog = env.GuildyConfirm
+    T.eq(dialog:IsShown(), true)
+    T.truthy(dialog.Text:GetText():find("Hakuna Matata", 1, true), "names the player")
+    -- cancel keeps it
+    dialog.Cancel:GetScript("OnClick")(dialog.Cancel)
+    T.eq(ns.Blacklist.IsLive(book["hakuna matata"]), true)
+    row.Action:GetScript("OnClick")(row.Action)
+    dialog.Ok:GetScript("OnClick")(dialog.Ok)
+    T.eq(ns.Blacklist.IsLive(book["hakuna matata"]), false)
+    T.eq(dialog:IsShown(), false)
+    view.Search:SetText("")
+    view.Search:GetScript("OnTextChanged")(view.Search)
+  end)
+
   T.it("refuses a guild member from the add row with the message", function()
     local view = View()
     local printed = {}

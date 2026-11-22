@@ -476,7 +476,8 @@ end
 
 local confirm
 
--- okText: label of the OK button (default "Yes"); danger: red OK label, for removal
+-- okText: label of the OK button (default "Yes"); danger: red OK label, for removal. action = a secure
+-- action ({click} or {macro}) or {run = function} for Guildy's own data (the blacklist), run on OK
 function UI.Confirm(text, action, okText, danger)
   local L = ns.L
   if not confirm then
@@ -501,6 +502,10 @@ function UI.Confirm(text, action, okText, danger)
         if current.after then current.after() end
       end
       return wrapped
+    end, nil, function()
+      local current = confirm.action
+      confirm:Hide()
+      if current and current.run then current.run() end
     end)
     confirm.Cancel = W.Button(confirm, L.CANCEL, function() confirm:Hide() end, 120)
     confirm.Cancel:SetPoint("BOTTOMLEFT", confirm, "BOTTOM", 4, 12)
