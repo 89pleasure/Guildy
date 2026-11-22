@@ -61,6 +61,13 @@ reading officer chat, from `C_GuildInfo.GuildControlGetRankFlags(rankOrder)`. If
 non-officer, the fallback is rank index 0 and 1 (Guild Master and the next rank). The builder checks in game
 which one works and keeps the fallback either way.
 
+**Own entries (Sven, 2026-11-22, after trying it in game).** Whoever added an entry may also remove it, and
+rename it (a new entry plus the removal of the old one), as long as nobody else changed it since (the entry's
+adder is still them). They may add back a name they removed themselves; a name an officer removed only
+officers add back. A relayed removal counts when its remover is an officer or the adder of the add it
+carries, and the receiver knows no newer add by someone else. Clicking a listed name opens the add row to
+change its kind and reason (anyone).
+
 **Relayed removals (Sven).** In a whole-list catch-up the list usually comes from a non-officer. A removal is
 accepted when the officer *named in it* (the remover) holds an officer rank in the receiver's own roster,
 whoever relays it. The accepted risk: someone could forge a removal in an officer's name. That can only take

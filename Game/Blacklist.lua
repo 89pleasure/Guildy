@@ -34,6 +34,11 @@ function GameBlacklist.CanRemove()
   return ns.Roster.IsOfficer(ns.PlayerName())
 end
 
+-- Whether the player may remove this entry: officers, and whoever added it while nobody else changed it
+function GameBlacklist.CanRemoveEntry(entry)
+  return Rules.CanRemove(entry, ns.PlayerName(), ctx)
+end
+
 -- Adds or updates a name. seen = { c = classFile, l = level, f = "A" | "H" } from a unit, optional.
 -- Returns the entry, or nil and "name" | "protected" | "removed" | "guild".
 function GameBlacklist.Add(name, tag, reason, seen)

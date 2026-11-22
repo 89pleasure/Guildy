@@ -105,13 +105,28 @@ local function Fill(entry, seen)
   return changed
 end
 
+-- Whether who may add a removed name back: officers, and the one who removed it themselves when they
+-- are no officer (their own entry, removed by them)
+local function MayReAdd(who, removedBy, ctx)
+  if ctx.isOfficer(who) then return true end
+  return type(removedBy) == "string" and not ctx.isOfficer(removedBy) and ns.Names.Same(removedBy, who)
+end
+
+-- Whether who may remove a live entry: officers, and the one who added it (as long as nobody else changed it)
+function Blacklist.CanRemove(entry, who, ctx)
+  if not Blacklist.IsLive(entry) or type(who) ~= "string" then return false end
+  return ctx.isOfficer(who) or (type(entry.a) == "string" and ns.Names.Same(entry.a, who))
+end
+
 -- Adds or updates a name from this client. Returns the entry, or nil and "name" | "protected" | "removed".
 function Blacklist.Add(book, name, tag, reason, adder, now, ctx, seen)
   local shown, key = ValidName(name)
   if not shown then return nil, "name" end
   if ctx.isProtected(shown) then return nil, "protected" end
   local entry = book[key]
-  if entry and entry.x and not ctx.isOfficer(adder) then return nil, "removed" end
+  if entry and entry.x and not Blacklist.IsLive(entry) and not MayReAdd(adder, entry.xb, ctx) then
+    return nil, "removed"
+  end
   entry = entry or {}
   entry.n, entry.t, entry.r, entry.a, entry.at = shown, Blacklist.Tag(tag), Reason(reason), Person(adder), now
   Fill(entry, seen)
@@ -119,12 +134,12 @@ function Blacklist.Add(book, name, tag, reason, adder, now, ctx, seen)
   return entry
 end
 
--- Removes a name (officers). Returns the entry, or nil and "officer" | "missing".
+-- Removes a name (officers, or the one who added it). Returns the entry, or nil and "officer" | "missing".
 function Blacklist.Remove(book, name, remover, now, ctx)
-  if not ctx.isOfficer(remover) then return nil, "officer" end
   local _, key = ValidName(name)
   local entry = key and book[key]
   if not Blacklist.IsLive(entry) then return nil, "missing" end
+  if not Blacklist.CanRemove(entry, remover, ctx) then return nil, "officer" end
   entry.x, entry.xb = now, Person(remover)
   return entry
 end
@@ -140,13 +155,20 @@ function Blacklist.Merge(book, item, now, ctx)
   if not shown then return false end
   local entry = book[key]
   local changed = false
-  -- the removal: newer than what is stored, named remover is an officer
-  local x = Time(item.x, now) and type(item.xb) == "string" and ctx.isOfficer(item.xb) and item.x or nil
-  -- the add: a valid time and adder, not a protected name; after a removal only from an officer
+  -- the removal: named remover is an officer, or the one who added what it removes (the add it carries)
+  -- while this client knows no newer add by someone else
+  local officerTomb = type(item.xb) == "string" and ctx.isOfficer(item.xb)
+  local ownTomb = not officerTomb and type(item.xb) == "string" and type(item.a) == "string"
+    and ns.Names.Same(item.xb, item.a) and type(item.at) == "number" and Time(item.x, now) and item.at <= item.x
+    and not (entry and entry.at and entry.at > item.at and not ns.Names.Same(entry.a, item.a))
+  local x = Time(item.x, now) and (officerTomb or ownTomb) and item.x or nil
+  -- the add: a valid time and adder, not a protected name; after a removal only from who may add it back
   local add = Time(item.at, now) and type(item.a) == "string" and item.a ~= "" and not ctx.isProtected(shown)
   if add then
-    local tomb = max(x or 0, entry and entry.x or 0)
-    if tomb > 0 and item.at > tomb and not ctx.isOfficer(item.a) then add = false end
+    local storedX = entry and entry.x or 0
+    local tomb, removedBy = storedX, entry and entry.xb
+    if x and x > storedX then tomb, removedBy = x, item.xb end
+    if tomb > 0 and item.at > tomb and not MayReAdd(item.a, removedBy, ctx) then add = false end
   end
   if not entry then
     if not add then return false end -- a lone removal of an unknown entry: nothing to remove
@@ -163,7 +185,7 @@ function Blacklist.Merge(book, item, now, ctx)
     changed = true
     -- an edit by a non-officer made before this removal was known: the removal wins (the others refused
     -- that edit), and the entry takes the add they hold
-    if entry.at > x and not ctx.isOfficer(entry.a) then
+    if officerTomb and entry.at > x and not ctx.isOfficer(entry.a) then
       if Time(item.at, now) and type(item.a) == "string" and item.at <= x then TakeAdd() else entry.at = x - 1 end
     end
   end

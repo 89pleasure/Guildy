@@ -4,8 +4,10 @@
 
 - New: a Blacklist tab, shared with every Guildy user in your guild. Add players your guild should be
   warned about, of either faction: kill on sight, ninja looters, insults, scammers or other, with a short
-  reason. Anyone can add a name; only officers can remove one or add a removed name back. Every change
-  reaches the other Guildy users at once, and whoever was offline gets the list at their next login.
+  reason. Anyone can add a name and change its kind or reason with a click on it. Officers can remove any
+  name; you can rename or remove the names you added yourself, as long as nobody else changed them. Only
+  officers can add back a name an officer removed. Every change reaches the other Guildy users at once,
+  and whoever was offline gets the list at their next login.
 - New: when someone from the blacklist shows up near you, you target or hover them, they join your group,
   invite you, whisper you or open a trade, Guildy writes a warning in your chat and plays a sound (at most
   once every 5 minutes per player; you can switch it off in the options). Their tooltip shows why they

@@ -886,4 +886,5 @@ ns.LocaleTables.frFR = {
   BL_MENU = "Ajouter à la liste noire Guildy",
   BL_SAVE = "Enregistrer",
   BL_EDIT_HINT = "Cliquez pour changer le type ou la raison",
+  BL_ERR_RENAME = "Seuls les officiers et l'auteur de l'entrée peuvent la renommer. Changez le type ou la raison, ou demandez à un officier.",
 }

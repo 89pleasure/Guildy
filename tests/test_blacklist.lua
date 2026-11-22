@@ -76,7 +76,7 @@ T.describe("Blacklist", function()
   T.it("only officers remove", function()
     local book = {}
     BL.Add(book, "Krag Eisenzahn", "kos", nil, "Pell Quellgrund", NOW, ctx)
-    local entry, err = BL.Remove(book, "Krag Eisenzahn", "Pell Quellgrund", NOW + 10, ctx)
+    local entry, err = BL.Remove(book, "Krag Eisenzahn", "Tara Kiesel", NOW + 10, ctx)
     T.eq(entry, nil)
     T.eq(err, "officer")
     T.eq(BL.IsLive(book["krag eisenzahn"]), true)
@@ -137,14 +137,14 @@ T.describe("Blacklist", function()
   T.it("drops a removal whose remover is no officer", function()
     local book = {}
     BL.Merge(book, { n = "Krag Eisenzahn", t = "kos", a = "Pell Quellgrund", at = NOW, x = NOW + 5,
-      xb = "Pell Quellgrund" }, NOW + 10, ctx)
+      xb = "Tara Kiesel" }, NOW + 10, ctx)
     local entry = book["krag eisenzahn"]
     T.eq(BL.IsLive(entry), true)
     T.eq(entry.x, nil)
     T.eq(entry.xb, nil)
     -- a lone forged removal of an unknown entry stores nothing
     local other = {}
-    T.eq(BL.Merge(other, { n = "Krag Eisenzahn", x = NOW, xb = "Pell Quellgrund" }, NOW, ctx), false)
+    T.eq(BL.Merge(other, { n = "Krag Eisenzahn", x = NOW, xb = "Tara Kiesel" }, NOW, ctx), false)
     T.eq(other, {})
   end)
 
@@ -298,5 +298,54 @@ T.describe("Blacklist", function()
     local entry = book["krag eisenzahn"]
     T.eq(entry.r, "||TInterface\\Icons\\x:64||t ||Hitem:1||h[x]||h")
     T.eq(entry.a, "Pell||cffff0000Quellgrund")
+  end)
+  T.it("lets the adder remove their own entry", function()
+    local book = {}
+    BL.Add(book, "Hakuna Markarta", "kos", nil, "Pell Quellgrund", NOW, ctx)
+    local _, err = BL.Remove(book, "Hakuna Markarta", "Tara Kiesel", NOW + 5, ctx)
+    T.eq(err, "officer")
+    local entry = BL.Remove(book, "Hakuna Markarta", "Pell Quellgrund", NOW + 5, ctx)
+    T.eq(BL.IsLive(entry), false)
+    T.eq(BL.CanRemove(book["hakuna markarta"], "Pell Quellgrund", ctx), false) -- removed already
+    BL.Add(book, "Fat Tekk", "kos", nil, "Pell Quellgrund", NOW, ctx)
+    T.eq(BL.CanRemove(book["fat tekk"], "Pell Quellgrund", ctx), true)
+    T.eq(BL.CanRemove(book["fat tekk"], "Tara Kiesel", ctx), false)
+    T.eq(BL.CanRemove(book["fat tekk"], "Alva Abendrot", ctx), true)
+  end)
+
+  T.it("no longer lets the first adder remove it once someone else changed it", function()
+    local book = {}
+    BL.Add(book, "Fat Tekk", "kos", nil, "Pell Quellgrund", NOW, ctx)
+    BL.Add(book, "Fat Tekk", "scam", "Gold genommen", "Tara Kiesel", NOW + 5, ctx)
+    local _, err = BL.Remove(book, "Fat Tekk", "Pell Quellgrund", NOW + 10, ctx)
+    T.eq(err, "officer")
+  end)
+
+  T.it("takes a relayed removal by the adder and drops one by someone else", function()
+    local book = {}
+    BL.Add(book, "Holz Elliot", "kos", nil, "Pell Quellgrund", NOW, ctx)
+    T.eq(BL.Merge(book, { n = "Holz Elliot", t = "kos", a = "Pell Quellgrund", at = NOW, x = NOW + 5,
+      xb = "Tara Kiesel" }, NOW + 10, ctx), false)
+    T.eq(BL.IsLive(book["holz elliot"]), true)
+    T.eq(BL.Merge(book, { n = "Holz Elliot", t = "kos", a = "Pell Quellgrund", at = NOW, x = NOW + 5,
+      xb = "Pell Quellgrund" }, NOW + 10, ctx), true)
+    T.eq(BL.IsLive(book["holz elliot"]), false)
+    -- an empty book takes the add and its removal by the adder together
+    local other = {}
+    BL.Merge(other, { n = "Holz Elliot", t = "kos", a = "Pell Quellgrund", at = NOW, x = NOW + 5,
+      xb = "Pell Quellgrund" }, NOW + 10, ctx)
+    T.eq(BL.IsLive(other["holz elliot"]), false)
+  end)
+
+  T.it("lets the adder add their own removed name again, but not one an officer removed", function()
+    local book = {}
+    BL.Add(book, "Holz Elliot", "kos", nil, "Pell Quellgrund", NOW, ctx)
+    BL.Remove(book, "Holz Elliot", "Pell Quellgrund", NOW + 5, ctx)
+    T.truthy(BL.Add(book, "Holz Elliot", "kos", nil, "Pell Quellgrund", NOW + 10, ctx), "own name again")
+    local _, err = BL.Add(book, "Holz Elliot", "kos", nil, "Tara Kiesel", NOW + 12, ctx)
+    T.eq(err, nil) -- live again: anyone may change it
+    BL.Remove(book, "Holz Elliot", "Alva Abendrot", NOW + 20, ctx)
+    local _, again = BL.Add(book, "Holz Elliot", "kos", nil, "Tara Kiesel", NOW + 30, ctx)
+    T.eq(again, "removed")
   end)
 end)

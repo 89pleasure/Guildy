@@ -887,4 +887,5 @@ ns.LocaleTables.enUS = {
   BL_MENU = "Add to Guildy blacklist",
   BL_SAVE = "Save",
   BL_EDIT_HINT = "Click to change the kind or reason",
+  BL_ERR_RENAME = "Only officers and whoever added it can rename this entry. Change the kind or reason, or ask an officer.",
 }

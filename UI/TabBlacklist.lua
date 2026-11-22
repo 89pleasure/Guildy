@@ -288,7 +288,10 @@ local function Build(panel)
       if grey then c[key]:SetTextColor(0.43, 0.41, 0.35) else c[key]:SetTextColor(0.82, 0.78, 0.7) end
     end
     c.action:SetText("")
-    row.Action:SetShown(view.canRemove)
+    -- officers on every entry; everyone on what they added (remove) or removed themselves (add again)
+    local me = ns.PlayerName()
+    local own = item.removed and e.xb and ns.Names.Same(e.xb, me) or (not item.removed and ns.GameBlacklist.CanRemoveEntry(e))
+    row.Action:SetShown(view.canRemove or own or false)
     row.Action:SetText(item.removed and L.BL_READD or L.BL_REMOVE)
   end)
   view.List:SetPoint("TOPLEFT", 4, -28)
@@ -318,7 +321,10 @@ local function Build(panel)
     self.addSeen = seen
     self.AddName:SetText(name or "")
     local book = ns.GameBlacklist.Book()
-    local existing = name and book and ns.Blacklist.IsLive(book[ns.Names.Key(name)])
+    local existing = name and book and book[ns.Names.Key(name)]
+    existing = ns.Blacklist.IsLive(existing) and existing or nil
+    -- editing: the entry's name, so a changed name renames it (Submit) instead of making a second entry
+    self.editing = existing and existing.n or nil
     self.AddSubmit:SetText(existing and L.BL_SAVE or L.BL_ADD)
     self.AddReason:SetText(reason and reason:gsub("||", "|") or "")
     self:SetAddKind(kind or self.addKind or "other")
@@ -334,6 +340,7 @@ local function Build(panel)
   end
 
   function view:CloseAdd()
+    self.editing = nil
     self.AddRow:Hide()
     self.AddName:ClearFocus()
     self.AddReason:ClearFocus()
@@ -342,11 +349,20 @@ local function Build(panel)
   end
 
   function view:Submit()
-    local entry, err = ns.GameBlacklist.Add(self.AddName:GetText(), self.addKind, self.AddReason:GetText(), self.addSeen)
+    local name = self.AddName:GetText() or ""
+    local book = ns.GameBlacklist.Book() or {}
+    local old = self.editing and ns.Names.Key(name) ~= ns.Names.Key(self.editing) and book[ns.Names.Key(self.editing)]
+    -- a rename is a new entry and the removal of the old one: only for who may remove the old one
+    if old and not ns.GameBlacklist.CanRemoveEntry(old) then
+      ns.Print(L.BL_ERR_RENAME)
+      return
+    end
+    local entry, err = ns.GameBlacklist.Add(name, self.addKind, self.AddReason:GetText(), self.addSeen)
     if not entry then
       ns.Print(L[ERRORS[err] or "BL_ERR_NAME"])
       return
     end
+    if old then ns.GameBlacklist.Remove(old.n) end
     self:CloseAdd()
     self:Refresh()
   end

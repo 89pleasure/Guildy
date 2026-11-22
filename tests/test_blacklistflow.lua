@@ -85,10 +85,15 @@ T.describe("Blacklist between Guildy users", function()
     T.eq(#Messages("BL"), 0)
   end)
 
-  T.it("refuses removal by a non-officer", function()
+  T.it("refuses removal of someone else's entry by a non-officer", function()
+    Receive("BL", { e = { { n = "Zora Kalt", t = "other", a = "Au Tsch", at = now - 60 } } }, "Au-Tsch")
+    Messages("BL")
     officerOrders[2] = false
     T.eq(ns.GameBlacklist.CanRemove(), false)
-    local entry, err = ns.GameBlacklist.Remove("Krag Eisenzahn")
+    local book = ns.GameBlacklist.Book()
+    T.eq(ns.GameBlacklist.CanRemoveEntry(book["zora kalt"]), false)
+    T.eq(ns.GameBlacklist.CanRemoveEntry(book["krag eisenzahn"]), true) -- added by the player
+    local entry, err = ns.GameBlacklist.Remove("Zora Kalt")
     T.eq(entry, nil)
     T.eq(err, "officer")
     officerOrders[2] = true
@@ -148,7 +153,7 @@ T.describe("Blacklist between Guildy users", function()
     RunTimers()
     local lists = Messages("BL")
     T.eq(#lists, 1)
-    T.eq(#lists[1].e, 3)
+    T.eq(#lists[1].e, 4)
     Receive("SUM", { d = {}, x = { n = 0, m = 0, s = 0 } }, "Au-Tsch", "1.9.11")
     RunTimers()
     T.eq(#Messages("BL"), 0)
@@ -430,6 +435,62 @@ T.describe("The Blacklist tab", function()
     view:OpenAdd()
     T.eq(view.AddSubmit:GetText(), ns.L.BL_ADD)
     view:CloseAdd()
+  end)
+
+  T.it("renames an own entry instead of making a second one", function()
+    local view = View()
+    officerOrders[2] = false
+    view:OpenAdd("Hakuna Markarta", nil, "kos")
+    view:Submit()
+    view:OpenAdd("Hakuna Markarta", nil, "kos", nil)
+    T.eq(view.editing, "Hakuna Markarta")
+    view.AddName:SetText("Hakuna Matata")
+    view:Submit()
+    local book = ns.GameBlacklist.Book()
+    T.eq(ns.Blacklist.IsLive(book["hakuna markarta"]), false)
+    T.eq(book["hakuna markarta"].xb, "Ran Fred")
+    T.eq(ns.Blacklist.IsLive(book["hakuna matata"]), true)
+    T.eq(book["hakuna matata"].t, "kos")
+    officerOrders[2] = true
+  end)
+
+  T.it("refuses to rename someone else's entry for a non-officer", function()
+    local view = View()
+    local printed = {}
+    rawset(env.DEFAULT_CHAT_FRAME, "AddMessage", function(_, text) printed[#printed + 1] = text end)
+    officerOrders[2] = false
+    view:OpenAdd("Zora Kalt", nil, "other")
+    view.AddName:SetText("Zora Kälte")
+    view:Submit()
+    local book = ns.GameBlacklist.Book()
+    T.eq(book["zora kälte"], nil)
+    T.eq(ns.Blacklist.IsLive(book["zora kalt"]), true)
+    T.truthy(printed[1] and printed[1]:find(ns.L.BL_ERR_RENAME, 1, true), "says why")
+    view:CloseAdd()
+    officerOrders[2] = true
+  end)
+
+  T.it("shows the remove button on own entries for a non-officer", function()
+    local view = View()
+    officerOrders[2] = false
+    local function RowOf(name)
+      view.Search:SetText(name)
+      view.Search:GetScript("OnTextChanged")(view.Search)
+      for _, r in pairs(view.List.rows) do
+        local e = r.item and r.item.entry
+        if e and e.n == name then return r end
+      end
+    end
+    local own = RowOf("Hakuna Matata")
+    T.truthy(own, "own row")
+    T.eq(own.Action:IsShown(), true)
+    local other = RowOf("Zora Kalt")
+    T.truthy(other, "other row")
+    T.eq(other.Action:IsShown(), false)
+    view.Search:SetText("")
+    view.Search:GetScript("OnTextChanged")(view.Search)
+    officerOrders[2] = true
+    view:Refresh()
   end)
 
   T.it("refuses a guild member from the add row with the message", function()
