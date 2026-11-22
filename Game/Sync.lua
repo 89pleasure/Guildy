@@ -311,14 +311,34 @@ function Sync.ShareBlacklist(entries)
   for _, list in ipairs(ns.Blacklist.Wire(guild.blacklist)) do Send("BL", { e = list }) end
 end
 
+-- Before the roster is there nobody counts as officer or guild member: messages wait for it (at most 50)
+local blacklistWaiting = {}
+
+local function ApplyBlacklist(list)
+  local guild = ns.GuildData()
+  if not guild then return end
+  if ns.Blacklist.Apply(ns.Blacklist.Book(guild), list, ns.Now(), ns.GameBlacklist.Ctx()) then
+    ns.Fire("BLACKLIST")
+  end
+end
+
 local function OnBlacklist(data)
   local guild = ns.GuildData()
   if not guild or (ns.Anon and ns.Anon.on) then return end
   blacklistMessages = blacklistMessages + 1
-  if ns.Blacklist.Apply(ns.Blacklist.Book(guild), data.e, ns.Now(), ns.GameBlacklist.Ctx()) then
-    ns.Fire("BLACKLIST")
+  if #ns.Roster.Members() == 0 then
+    if #blacklistWaiting < 50 then blacklistWaiting[#blacklistWaiting + 1] = data.e end
+    return
   end
+  ApplyBlacklist(data.e)
 end
+
+ns.On("ROSTER", function()
+  if #blacklistWaiting == 0 or #ns.Roster.Members() == 0 then return end
+  local waiting = blacklistWaiting
+  blacklistWaiting = {}
+  for _, list in ipairs(waiting) do ns.SafeCall(ApplyBlacklist, list) end
+end)
 
 -- The guild bank as far as it is newer than `since` (a time, nil: all of it). Too much for one message:
 -- first without the tabs' contents, then fewer entries.

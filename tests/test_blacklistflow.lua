@@ -111,6 +111,16 @@ T.describe("Blacklist between Guildy users", function()
     T.eq(ns.Blacklist.IsLive(ns.GuildData().blacklist["bodo langfinger"]), false)
   end)
 
+  T.it("holds messages until the roster is there", function()
+    local members = ns.Roster.Members
+    ns.Roster.Members = function() return {} end
+    Receive("BL", { e = { { n = "Ilka Sturm", t = "scam", a = "Au Tsch", at = now - 40 } } }, "Au-Tsch")
+    T.eq(ns.GuildData().blacklist["ilka sturm"], nil)
+    ns.Roster.Members = members
+    ns.Fire("ROSTER")
+    T.eq(ns.GuildData().blacklist["ilka sturm"].t, "scam")
+  end)
+
   T.it("drops a relayed removal named by a non-officer", function()
     Receive("BL", { e = { { n = "Krag Eisenzahn", t = "kos", a = "Ran Fred", at = now, x = now + 5, xb = "Au Tsch" } } },
       "Au-Tsch")
@@ -138,7 +148,7 @@ T.describe("Blacklist between Guildy users", function()
     RunTimers()
     local lists = Messages("BL")
     T.eq(#lists, 1)
-    T.eq(#lists[1].e, 2)
+    T.eq(#lists[1].e, 3)
     Receive("SUM", { d = {}, x = { n = 0, m = 0, s = 0 } }, "Au-Tsch", "1.9.11")
     RunTimers()
     T.eq(#Messages("BL"), 0)
@@ -286,6 +296,30 @@ T.describe("The Blacklist tab", function()
       end
     end
     T.eq(errors, {})
+  end)
+
+  T.it("marks the kind with the dot texture, not a glyph the font may lack", function()
+    local view = View()
+    local row = view.List.rows[1]
+    T.truthy(row, "first row built")
+    local text = row.Cells.kind:GetText()
+    T.eq(text:find("■", 1, true), nil)
+    T.truthy(text:find("Textures\\Dot", 1, true), "dot texture")
+  end)
+
+  T.it("keeps the row button bright while the mouse is on it", function()
+    local view = View()
+    local row = view.List.rows[1]
+    local alpha
+    rawset(row.Action, "SetAlpha", function(_, a) alpha = a end)
+    row:GetScript("OnEnter")(row)
+    T.eq(alpha, 1)
+    row:GetScript("OnLeave")(row)
+    row.Action:GetScript("OnEnter")(row.Action)
+    T.eq(alpha, 1)
+    row.Action:GetScript("OnLeave")(row.Action)
+    T.eq(alpha, 0.45)
+    rawset(row.Action, "SetAlpha", nil)
   end)
 
   T.it("greys a name that is now in the guild", function()

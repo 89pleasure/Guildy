@@ -39,11 +39,37 @@ function Blacklist.EventTime(entry)
   return max(entry.at or 0, entry.x or 0)
 end
 
+-- The game's markup (|c colors, |H links, |T textures) in text from other players shows as plain text: a
+-- single "|" becomes "||" (a run of pipes of odd length gets one more, so text escaped once stays as it is)
+local function Plain(text)
+  return (text:gsub("|+", function(pipes) return #pipes % 2 == 1 and pipes .. "|" or pipes end))
+end
+
+-- The first REASON_MAX letters (UTF-8: a letter is a lead byte and its continuation bytes)
+local function Letters(text, count)
+  local n, cut = 0, #text
+  for i = 1, #text do
+    local byte = text:byte(i)
+    if byte < 128 or byte >= 192 then
+      n = n + 1
+      if n > count then
+        cut = i - 1
+        break
+      end
+    end
+  end
+  return text:sub(1, cut)
+end
+
 local function Reason(reason)
   if type(reason) ~= "string" then return nil end
   reason = ns.Names.Trim(reason)
   if reason == "" then return nil end
-  return reason:sub(1, Blacklist.REASON_MAX)
+  return Plain(Letters(reason, Blacklist.REASON_MAX))
+end
+
+local function Person(name)
+  return type(name) == "string" and Plain(name) or nil
 end
 
 local function Faction(f)
@@ -59,7 +85,7 @@ local function Class(c)
 end
 
 local function ValidName(name)
-  if type(name) ~= "string" or #name > Blacklist.NAME_MAX then return nil end
+  if type(name) ~= "string" or #name > Blacklist.NAME_MAX or name:find("|", 1, true) then return nil end
   local shown = ns.Names.Normalize(name)
   if shown == "" then return nil end
   return shown, ns.Names.Key(shown)
@@ -87,7 +113,7 @@ function Blacklist.Add(book, name, tag, reason, adder, now, ctx, seen)
   local entry = book[key]
   if entry and entry.x and not ctx.isOfficer(adder) then return nil, "removed" end
   entry = entry or {}
-  entry.n, entry.t, entry.r, entry.a, entry.at = shown, Blacklist.Tag(tag), Reason(reason), adder, now
+  entry.n, entry.t, entry.r, entry.a, entry.at = shown, Blacklist.Tag(tag), Reason(reason), Person(adder), now
   Fill(entry, seen)
   book[key] = entry
   return entry
@@ -99,7 +125,7 @@ function Blacklist.Remove(book, name, remover, now, ctx)
   local _, key = ValidName(name)
   local entry = key and book[key]
   if not Blacklist.IsLive(entry) then return nil, "missing" end
-  entry.x, entry.xb = now, remover
+  entry.x, entry.xb = now, Person(remover)
   return entry
 end
 
@@ -127,13 +153,19 @@ function Blacklist.Merge(book, item, now, ctx)
     entry = {}
     book[key] = entry
   end
-  if add and item.at > (entry.at or 0) then
-    entry.n, entry.t, entry.r, entry.a, entry.at = shown, Blacklist.Tag(item.t), Reason(item.r), item.a, item.at
+  local function TakeAdd()
+    entry.n, entry.t, entry.r, entry.a, entry.at = shown, Blacklist.Tag(item.t), Reason(item.r), Person(item.a), item.at
     changed = true
   end
+  if add and item.at > (entry.at or 0) then TakeAdd() end
   if x and x > (entry.x or 0) and entry.at then
-    entry.x, entry.xb = x, item.xb
+    entry.x, entry.xb = x, Person(item.xb)
     changed = true
+    -- an edit by a non-officer made before this removal was known: the removal wins (the others refused
+    -- that edit), and the entry takes the add they hold
+    if entry.at > x and not ctx.isOfficer(entry.a) then
+      if Time(item.at, now) and type(item.a) == "string" and item.at <= x then TakeAdd() else entry.at = x - 1 end
+    end
   end
   if add and Fill(entry, { c = item.c, l = item.l, f = item.f }) then changed = true end
   return changed
@@ -214,8 +246,9 @@ end
 
 -- Whether this client should offer its list: it knows a newer event, or as new but more entries
 function Blacklist.Ahead(mine, theirs)
-  local m, n = tonumber(theirs.m) or 0, tonumber(theirs.n) or 0
-  return mine.m > m or (mine.m == m and mine.n > n)
+  local m, n, sum = tonumber(theirs.m) or 0, tonumber(theirs.n) or 0, tonumber(theirs.s) or 0
+  -- a tie of count and newest event (a removal one side missed) goes to the larger checksum, so one side offers
+  return mine.m > m or (mine.m == m and (mine.n > n or (mine.n == n and mine.s > sum)))
 end
 
 -- Warnings -------------------------------------------------------------------------------------------------

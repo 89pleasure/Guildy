@@ -25,6 +25,13 @@ local function ClassIcon(classFile)
     c[1] * 256, c[2] * 256, c[3] * 256, c[4] * 256)
 end
 
+-- A small square in the kind's color: the game's fonts lack a square glyph, so it is the dot texture
+local DOT = "|TInterface\\AddOns\\Guildy\\Textures\\Dot:8:8:0:0:32:32:0:32:0:32:%d:%d:%d|t"
+local function KindMark(hex)
+  local r, g, b = Rgb(hex)
+  return DOT:format(r * 255, g * 255, b * 255)
+end
+
 local function Ago(ts)
   return ns.Roster.LastOnlineText({ online = false, daysOffline = math.max(0, ns.Now() - ts) / 86400 })
 end
@@ -216,8 +223,14 @@ local function Build(panel)
       end
     end)
     row:SetScript("OnLeave", function(self)
-      self.Action:SetAlpha(0.45)
+      -- moving onto the button leaves the row: the button stays bright then
+      if not (self.Action.IsMouseOver and self.Action:IsMouseOver()) then self.Action:SetAlpha(0.45) end
       GameTooltip:Hide()
+    end)
+    row.Action:HookScript("OnEnter", function(self) self:SetAlpha(1) end)
+    row.Action:HookScript("OnLeave", function(self)
+      local parent = self:GetParent()
+      if not (parent and parent.IsMouseOver and parent:IsMouseOver()) then self:SetAlpha(0.45) end
     end)
   end, function(row, item)
     row.item = item
@@ -237,7 +250,7 @@ local function Build(panel)
     local grey = item.quiet or item.removed
     c.name:SetText(ClassIcon(e.c) .. (grey and ("|cff6e685a" .. e.n .. "|r") or W.ClassName(e.n, e.c)))
     local hex = grey and "6e685a" or KindColor(e.t)
-    c.kind:SetText("|cff" .. hex .. "■|r |cff" .. hex .. ns.GameBlacklist.TagLabel(e.t) .. "|r")
+    c.kind:SetText(KindMark(hex) .. " |cff" .. hex .. ns.GameBlacklist.TagLabel(e.t) .. "|r")
     if item.removed then
       c.reason:SetText("|cff6e685a" .. L.BL_REMOVED_BY:format(e.xb or "?") .. (e.r and (": " .. e.r) or "") .. "|r")
     elseif item.quiet then

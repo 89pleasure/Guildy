@@ -253,4 +253,50 @@ T.describe("Blacklist", function()
     T.eq(BL.ShouldAlert(seen, "bodo langfinger", NOW + 299), true)
     T.eq(BL.ShouldAlert(seen, "krag eisenzahn", NOW + 300), true)
   end)
+  T.it("breaks a tie of count and newest time by the checksum", function()
+    local a, b = {}, {}
+    BL.Add(a, "Ylva Grimm", "kos", nil, "Pell Quellgrund", NOW + 50, ctx)
+    BL.Add(b, "Ylva Grimm", "kos", nil, "Pell Quellgrund", NOW + 50, ctx)
+    BL.Remove(a, "Ylva Grimm", "Alva Abendrot", NOW + 90, ctx)
+    BL.Add(a, "Wim Rauch", "kos", nil, "Pell Quellgrund", NOW + 100, ctx)
+    BL.Add(b, "Wim Rauch", "kos", nil, "Pell Quellgrund", NOW + 100, ctx)
+    local da, db = BL.Digest(a), BL.Digest(b)
+    T.eq(da.n, db.n)
+    T.eq(da.m, db.m)
+    T.eq(BL.Differs(da, db), true)
+    -- exactly one side offers
+    T.truthy(BL.Ahead(da, db) ~= BL.Ahead(db, da), "one side is ahead")
+  end)
+
+  T.it("cuts a long reason on a whole letter", function()
+    local book = {}
+    BL.Add(book, "Krag Eisenzahn", "kos", string.rep("ж", 70), "Pell Quellgrund", NOW, ctx)
+    local r = book["krag eisenzahn"].r
+    T.eq(select(2, r:gsub("[\128-\191]", "")), 60) -- 60 letters, each with one continuation byte
+    T.eq(#r, 120)
+    BL.Add(book, "Bodo Langfinger", "kos", "a" .. string.rep("ö", 70), "Pell Quellgrund", NOW, ctx)
+    T.eq(#book["bodo langfinger"].r, 1 + 59 * 2)
+  end)
+
+  T.it("lets an officer's removal beat an own edit made before it was known", function()
+    local book = {}
+    BL.Add(book, "Krag Eisenzahn", "kos", "alt", "Pell Quellgrund", NOW, ctx)
+    -- this member edits it before the officer's removal (at NOW + 100) arrived
+    BL.Add(book, "Krag Eisenzahn", "kos", "neu", "Tara Kiesel", NOW + 105, ctx)
+    T.eq(BL.Merge(book, { n = "Krag Eisenzahn", t = "kos", r = "alt", a = "Pell Quellgrund", at = NOW, x = NOW + 100,
+      xb = "Alva Abendrot" }, NOW + 200, ctx), true)
+    local entry = book["krag eisenzahn"]
+    T.eq(BL.IsLive(entry), false)
+    T.eq(entry.r, "alt")
+    T.eq(entry.at, NOW)
+  end)
+
+  T.it("escapes the game's markup in received text", function()
+    local book = {}
+    BL.Merge(book, { n = "Krag Eisenzahn", t = "kos", r = "|TInterface\\Icons\\x:64|t |Hitem:1|h[x]|h",
+      a = "Pell|cffff0000Quellgrund", at = NOW }, NOW, ctx)
+    local entry = book["krag eisenzahn"]
+    T.eq(entry.r, "||TInterface\\Icons\\x:64||t ||Hitem:1||h[x]||h")
+    T.eq(entry.a, "Pell||cffff0000Quellgrund")
+  end)
 end)
