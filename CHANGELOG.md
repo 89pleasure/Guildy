@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.11.3
+
+- Fixed: in guilds of around 1000 members, the game could still freeze every 10 to 15 seconds while you
+  pointed at members with Guildy's window open. Pointing at a member made Blizzard's hidden member list
+  rebuild all of its rows, and every row also re-read its member on each roster update. In guilds over
+  200 members the list and its rows now stay idle. The list only rebuilds when you point at a member it
+  doesn't know yet, such as someone who just joined, and at most every 10 seconds.
+
 ## 1.11.2
 
 - Fixed: in guilds of around 1000 members, the game still froze for a moment every few seconds while

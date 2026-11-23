@@ -139,25 +139,72 @@ T.describe("Blizzard's member list", function()
     T.eq(w.heard, 0)
   end)
 
-  T.it("lets one roster update through when the mouse comes to a member, then not again for a while", function()
+  -- 1.11.2 still froze every 10-15 s (reported 2026-11-23): each hover let a roster update through, and
+  -- with the list grown that rebuilt ~1000 rows. The rows themselves heard every roster update too (each
+  -- re-reads its member, CommunitiesMemberListEntryMixin:OnEvent). A member's row stays usable without
+  -- either: Blizzard's member panel reads the member afresh on its own.
+  T.it("does not rebuild the list while the mouse goes over members it has rows for", function()
+    local w = World(958)
+    rawset(w.env.UIParent, "GetEffectiveScale", function() return 1 end)
+    local m = w.ns.Roster.Members()[10]
+    w.rows[1] = { memberInfo = { guid = m.guid }, Click = function() end }
+    w.heard = 0
+    for _ = 1, 3 do
+      w.ns.UI.Notes.HoverMember(w.Owner(m), m)
+      w.RunTimers()
+      w.Fire("GUILD_ROSTER_UPDATE", true)
+      w.now = w.now + 20
+    end
+    T.eq(w.heard, 0)
+  end)
+
+  T.it("lets one roster update through when a member has no row in the grown list, then not again for a while", function()
     local w = World(958)
     rawset(w.env.UIParent, "GetEffectiveScale", function() return 1 end)
     local m = w.ns.Roster.Members()[10]
     w.heard = 0
-    w.ns.UI.Notes.HoverMember(w.Owner(m), m)
-    for _ = 1, 4 do w.Fire("GUILD_ROSTER_UPDATE", true) end
+    w.ns.UI.Notes.HoverMember(w.Owner(m), m) -- grows: its rows come a frame later, no row yet is no news
+    w.Fire("GUILD_ROSTER_UPDATE", true)
+    T.eq(w.heard, 0)
+    w.RunTimers() -- still no row for m (a member who joined since the list was built)
+    for _ = 1, 3 do w.Fire("GUILD_ROSTER_UPDATE", true) end
     T.eq(w.heard, 1)
-    -- still on members a few seconds later: the list is fresh enough
     w.now = w.now + 3
     w.ns.UI.Notes.HoverMember(w.Owner(m), m)
+    w.RunTimers()
     w.Fire("GUILD_ROSTER_UPDATE", true)
     T.eq(w.heard, 1)
-    -- later on: one more
     w.now = w.now + 20
     w.ns.UI.Notes.HoverMember(w.Owner(m), m)
+    w.RunTimers()
     w.Fire("GUILD_ROSTER_UPDATE", true)
     w.Fire("GUILD_ROSTER_UPDATE", true)
     T.eq(w.heard, 2)
+  end)
+
+  T.it("keeps the rows of a big guild's grown list from hearing roster updates", function()
+    local w = World(958)
+    rawset(w.env.UIParent, "GetEffectiveScale", function() return 1 end)
+    local m = w.ns.Roster.Members()[10]
+    local rowHeard = 0
+    local function BlizzardRow(member)
+      local row = w.env.CreateFrame("Button")
+      row.memberInfo = { guid = member.guid }
+      row:SetScript("OnShow", function(self) self:RegisterEvent("GUILD_ROSTER_UPDATE") end)
+      row:SetScript("OnEvent", function(_, event) if event == "GUILD_ROSTER_UPDATE" then rowHeard = rowHeard + 1 end end)
+      row:Show()
+      return row
+    end
+    w.ns.UI.Notes.HoverMember(w.Owner(m), m)
+    for i = 1, 3 do w.rows[i] = BlizzardRow(w.ns.Roster.Members()[9 + i]) end
+    w.RunTimers()
+    w.Fire("GUILD_ROSTER_UPDATE", true)
+    T.eq(rowHeard, 0)
+    -- Blizzard's scroll box hands a row out again (hidden and shown: it registers again)
+    w.rows[2]:Hide()
+    w.rows[2]:Show()
+    w.Fire("GUILD_ROSTER_UPDATE", true)
+    T.eq(rowHeard, 0)
   end)
 
   T.it("leaves a small guild's list hearing every roster update, as before", function()
