@@ -106,6 +106,49 @@ Notes.CanEdit = CanEdit
 Notes.TALL_MAX, Notes.SHORT_ROWS, Notes.TALL_KEEP = 200, 12, 30
 local tallUntil = -math.huge
 
+-- Hearing: every roster update Blizzard's list hears rebuilds and sorts all members (UpdateMemberList in
+-- its OnUpdate), however few rows it holds. A guild of 1000 sends one about every 1.5 s, and the window
+-- dropped to 0 fps every few seconds (reported 2026-11-23 with 1.11.1, unseen by /guildy perf: it is
+-- Blizzard's code). Above TALL_MAX members the list hears none of the member events while nobody points
+-- at a member; the mouse coming to one lets the next roster update through (not more often than every
+-- FRESH_GAP seconds), and the list is deaf again right after Blizzard handled it. Only events are
+-- switched: Guildy never writes into Blizzard's list (its rows feed the secure pick, see the top).
+Notes.FRESH_GAP = 10
+local MEMBER_EVENTS = { "GUILD_ROSTER_UPDATE", "CLUB_MEMBER_ADDED", "CLUB_MEMBER_REMOVED", "CLUB_MEMBER_UPDATED",
+  "CLUB_MEMBERS_UPDATED", "CLUB_MEMBER_PRESENCE_UPDATED", "CLUB_MEMBER_ROLE_UPDATED" }
+local deaf = false
+local waiting = false -- one roster update is let through
+local lastHeard = -math.huge
+
+local function SetDeaf(list, on)
+  if not list or deaf == on then return end
+  for _, event in ipairs(MEMBER_EVENTS) do
+    if on then list:UnregisterEvent(event) else list:RegisterEvent(event) end
+  end
+  deaf = on
+end
+
+local function Big()
+  return (ns.Try(rawget(_G, "GetNumGuildMembers")) or 0) > Notes.TALL_MAX
+end
+
+-- the list deaf or hearing as the guild's size and the mouse want it (only while Blizzard's window shows:
+-- its OnShow registers the events again, its OnHide drops them)
+local function Hearing()
+  local host, list = Host(), MemberList()
+  if not (host and list and host:IsShown()) then return end
+  deaf = false -- Blizzard's OnShow may have registered them again: switch them off for sure
+  if Big() and not waiting then SetDeaf(list, true) end
+end
+
+local function HearOnce()
+  local list = MemberList()
+  if not (deaf and list) or GetTime() - lastHeard < Notes.FRESH_GAP then return end
+  waiting = true
+  SetDeaf(list, false)
+  ns.Roster.Request(false, true)
+end
+
 local function ListRows(count)
   if count <= Notes.TALL_MAX or GetTime() < tallUntil then return count end
   return math.min(count, Notes.SHORT_ROWS)
@@ -133,6 +176,13 @@ local function SizeList()
     hooksecurefunc(list, "SetSize", Again)
     -- Blizzard's window closed: its list as it was
     host:HookScript("OnHide", function() Restore(list) end)
+    -- (after Blizzard's handler: the roster update let through has marked the list for its rebuild)
+    list:HookScript("OnEvent", function(_, event)
+      if event ~= "GUILD_ROSTER_UPDATE" or not Big() then return end
+      waiting, lastHeard = false, GetTime()
+      SetDeaf(list, true)
+    end)
+    list:HookScript("OnShow", function() C_Timer.After(0, Hearing) end)
   end
 end
 
@@ -153,6 +203,7 @@ end
 function Notes.Wake()
   local count = ns.Try(rawget(_G, "GetNumGuildMembers")) or 0
   if count <= Notes.TALL_MAX then return false end
+  HearOnce()
   local grew = GetTime() >= tallUntil
   tallUntil = GetTime() + Notes.TALL_KEEP
   if grew then SizeList() end
@@ -167,6 +218,7 @@ end
 -- it when Blizzard's window opens (UI/Main.lua) and whenever the roster changes
 function Notes.Prepare()
   SizeList()
+  C_Timer.After(0, Hearing)
 end
 ns.On("ROSTER", function() if UI.IsShown() then SizeList() end end)
 
@@ -674,6 +726,9 @@ function Notes.Release()
   placing = true
   Restore(MemberList())
   placing = false
+  waiting = false
+  local list = MemberList()
+  if list and list:IsShown() then SetDeaf(list, false) end -- Blizzard's own list hears everything again
 end
 
 -- After a pick (the click on a member in a Guildy list): dock once Blizzard shows them

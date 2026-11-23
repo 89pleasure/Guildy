@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.11.2
+
+- Fixed: in guilds of around 1000 members, the game still froze for a moment every few seconds while
+  Guildy's window was open. Blizzard's hidden member list behind Guildy re-read and re-sorted every
+  member on each roster update, and in a guild that big an update comes every second or two. In guilds
+  over 200 members that list now stays idle. It refreshes once when you point at a member, and at most
+  every 10 seconds after that.
+
 ## 1.11.1
 
 - Fixed: in big guilds (several hundred members), the game stuttered while Guildy's window was open and

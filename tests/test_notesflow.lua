@@ -27,6 +27,14 @@ local function World(count)
   w.list = env.CreateFrame("Frame")
   w.list.ScrollBox = { ForEachFrame = function(_, fn) for _, row in ipairs(w.rows) do fn(row) end end }
   rawset(env.CommunitiesFrame, "MemberList", w.list)
+  -- Blizzard's list hears the roster (its OnShow registers these): each one it hears rebuilds and sorts
+  -- every member (UpdateMemberList), however few rows it holds
+  w.heard = 0
+  w.list:SetScript("OnEvent", function(_, event)
+    if event == "GUILD_ROSTER_UPDATE" or event == "CLUB_MEMBER_PRESENCE_UPDATED" then w.heard = w.heard + 1 end
+  end)
+  w.list:RegisterEvent("GUILD_ROSTER_UPDATE")
+  w.list:RegisterEvent("CLUB_MEMBER_PRESENCE_UPDATED")
   w.Fire("ADDON_LOADED", "Guildy")
   w.Fire("PLAYER_LOGIN")
   w.Fire("GUILD_ROSTER_UPDATE")
@@ -115,5 +123,47 @@ T.describe("Blizzard's member list", function()
     w.now = w.now + 20
     w.RunTimers()
     T.eq(w.Height(), 958 * ROW + 80)
+  end)
+
+  -- A guild of 1000 still dropped to 0 fps every few seconds with the window open (reported 2026-11-23,
+  -- 1.11.1): Blizzard's list rebuilt and sorted all members on every roster update, about every 1.5 s,
+  -- with few rows as with many. Guildy's own measurements could not see it (Blizzard's code).
+  T.it("keeps a big guild's list from hearing roster updates while nobody points at a member", function()
+    local w = World(958)
+    w.heard = 0
+    for _ = 1, 5 do
+      w.Fire("GUILD_ROSTER_UPDATE", true)
+      w.Fire("CLUB_MEMBER_PRESENCE_UPDATED", 7, 1, 1)
+    end
+    w.RunTimers()
+    T.eq(w.heard, 0)
+  end)
+
+  T.it("lets one roster update through when the mouse comes to a member, then not again for a while", function()
+    local w = World(958)
+    rawset(w.env.UIParent, "GetEffectiveScale", function() return 1 end)
+    local m = w.ns.Roster.Members()[10]
+    w.heard = 0
+    w.ns.UI.Notes.HoverMember(w.Owner(m), m)
+    for _ = 1, 4 do w.Fire("GUILD_ROSTER_UPDATE", true) end
+    T.eq(w.heard, 1)
+    -- still on members a few seconds later: the list is fresh enough
+    w.now = w.now + 3
+    w.ns.UI.Notes.HoverMember(w.Owner(m), m)
+    w.Fire("GUILD_ROSTER_UPDATE", true)
+    T.eq(w.heard, 1)
+    -- later on: one more
+    w.now = w.now + 20
+    w.ns.UI.Notes.HoverMember(w.Owner(m), m)
+    w.Fire("GUILD_ROSTER_UPDATE", true)
+    w.Fire("GUILD_ROSTER_UPDATE", true)
+    T.eq(w.heard, 2)
+  end)
+
+  T.it("leaves a small guild's list hearing every roster update, as before", function()
+    local w = World(120)
+    w.heard = 0
+    for _ = 1, 3 do w.Fire("GUILD_ROSTER_UPDATE", true) end
+    T.eq(w.heard, 3)
   end)
 end)
