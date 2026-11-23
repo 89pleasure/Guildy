@@ -281,6 +281,8 @@ SlashCmdList.GUILDY = function(msg)
       local ok, err = pcall(view.RenderChat, view)
       ns.Print("render ok " .. tostring(ok) .. " " .. tostring(err))
     end
+  elseif msg == "biglist" then
+    ns.UI.Notes.ToggleBigTest()
   elseif msg == "notedebug" then
     for _, line in ipairs(ns.UI.Notes.Debug()) do ns.Print(line) end
   elseif msg == "communitydebug" then

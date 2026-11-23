@@ -164,6 +164,18 @@ local function Hearing()
   if deaf then Rows(list, DeafRow) end
 end
 
+-- /guildy biglist: a small guild's window as a big guild's (list short, list and rows deaf), to test
+-- the big guild's way with any guild; again: back. Only for this session.
+function Notes.ToggleBigTest()
+  Notes.TALL_MAX = Notes.TALL_MAX == 0 and 200 or 0
+  local list = MemberList()
+  if Notes.TALL_MAX > 0 and list and list:IsShown() then SetDeaf(list, false) end
+  Hearing()
+  ns.SafeCall(Notes.Prepare)
+  ns.Print(Notes.TALL_MAX == 0 and "biglist on: Blizzard's member list works as in a guild over 200 members"
+    or "biglist off")
+end
+
 -- the member the mouse is on has no row: one roster update through, the list rebuilds once
 local function HearOnce()
   local list = MemberList()
@@ -827,6 +839,7 @@ function Notes.Debug()
     "my rank order", tostring(me and me.guildRankOrder))
   add("guildy:", state(UI.frame))
   add("list:", state(MemberList()))
+  add("hearing:", "deaf", tostring(deaf), "waiting", tostring(waiting), "big", tostring(Big()))
   add("detail:", state(Detail()))
   for _, officer in ipairs({ false, true }) do
     local box = NoteBox(officer)
