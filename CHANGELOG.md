@@ -3,10 +3,17 @@
 ## 1.11.3
 
 - Fixed: in guilds of around 1000 members, the game could still freeze every 10 to 15 seconds while you
-  pointed at members with Guildy's window open. Pointing at a member made Blizzard's hidden member list
-  rebuild all of its rows, and every row also re-read its member on each roster update. In guilds over
-  200 members the list and its rows now stay idle. The list only rebuilds when you point at a member it
-  doesn't know yet, such as someone who just joined, and at most every 10 seconds.
+  pointed at members with Guildy's window open. Blizzard's hidden member list behind Guildy rebuilt all
+  of its rows whenever you pointed at a member, and every row also re-read its member on each roster
+  update. In guilds over 200 members the list and its rows now stay idle. The list only rebuilds when
+  you point at a member it doesn't know yet, such as someone who just joined.
+- Fixed: in big guilds, the first time you pointed at a member could freeze the game while Blizzard's
+  hidden list made a row for every member at once. It now fills up a few rows per frame, starting a
+  second after the window opens, and stays filled while the window is open.
+- Fixed: a profession specialization you just learned (such as Transmutation or Dragonscale) showed up
+  nowhere until your next skill-up. Guildy now reads it from your spell book right away.
+- `/guildy perf` now also lists frames that took longer than 100 ms, whoever spent the time, named by
+  what Guildy did just before, and says when the time went to Lua's garbage collection.
 
 ## 1.11.2
 
