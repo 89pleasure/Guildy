@@ -555,12 +555,16 @@ function UI.SelectTab(key)
   if frame.GuildTab then frame.GuildTab:SetChecked(not tab.side) end
   if frame.CommunitiesTab then frame.CommunitiesTab:SetChecked(key == "communities") end
   lastTab = key -- opening the window again in this session comes back here; a login or reload starts on chat
+  ns.Perf.Mark("tab " .. tostring(key) .. ": panel shown")
   tab.panel:Show()
   -- a side tab (communities) leaves no bottom tab selected
   if rawget(_G, "PanelTemplates_SetTab") then pcall(PanelTemplates_SetTab, frame, tab.index or 0) end
-  ns.Perf.Mark("tab " .. tostring(key))
+  ns.Perf.Mark("tab " .. tostring(key) .. ": OnShow")
   if tab.view.OnShow then ns.Perf.Call("show", key, ns.SafeCall, tab.view.OnShow, tab.view) end
+  ns.Perf.Mark("tab " .. tostring(key) .. ": refresh")
   if tab.view.Refresh then ns.Perf.Call("refresh", key, ns.SafeCall, tab.view.Refresh, tab.view) end
+  -- (a hitch named this: the time went after all of Guildy's work for the tab, to the game or others)
+  ns.Perf.Mark("tab " .. tostring(key) .. ": done")
 end
 
 function UI.Current()

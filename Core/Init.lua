@@ -99,7 +99,10 @@ local HANDLERS = {
     -- the guild name can arrive a moment later
     C_Timer.After(2, function() ns.Fire("GUILD") end)
   end,
-  GUILD_ROSTER_UPDATE = function() ns.Roster.ScheduleScan() end,
+  GUILD_ROSTER_UPDATE = function()
+    ns.Perf.Mark("roster update from the game")
+    ns.Roster.ScheduleScan()
+  end,
   GUILD_EVENT_LOG_UPDATE = function()
     ns.Roster.ScheduleScan()
     ns.Fire("INFO")
