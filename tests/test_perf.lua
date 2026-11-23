@@ -16,6 +16,22 @@ local function Work(ms, ...)
 end
 
 T.describe("Perf", function()
+  T.it("names a slow frame by what Guildy did just before, and counts frames of nothing", function()
+    Perf.Enable(true)
+    Perf.Reset()
+    Perf.Mark("window opened")
+    now = now + 200
+    Perf.Frame(250)
+    Perf.Frame(40) -- a frame like any other: no hitch
+    now = now + 5000
+    Perf.Frame(180)
+    local rows = {}
+    for _, row in ipairs(Perf.Rows()) do rows[row.label] = row end
+    T.eq(rows["hitch window opened"].max, 250)
+    T.eq(rows["hitch (nothing of Guildy just before)"].n, 1)
+    T.eq(#Perf.Rows(), 2)
+  end)
+
   T.it("only calls through while it is off", function()
     Perf.Enable(false)
     Perf.Reset()

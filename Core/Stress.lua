@@ -114,6 +114,12 @@ local function Unwrap()
   original = nil
 end
 
+-- Blizzard's member list behind an open window as for a guild of this size (UI/Notes.lua)
+function Stress.Refit()
+  local UI = ns.UI
+  if UI and UI.Notes and UI.IsShown and UI.IsShown() then ns.SafeCall(UI.Notes.Prepare) end
+end
+
 -- /guildy stress [count]: on (with count members) or, without a count while on, off again
 function Stress.Toggle(count)
   count = tonumber(count)
@@ -123,6 +129,7 @@ function Stress.Toggle(count)
     if ticker then ticker:Cancel() end
     ticker = nil
     ns.Roster.Request(true)
+    Stress.Refit()
     ns.Print("stress off: /reload to have Blizzard's guild window clean again")
     return
   end
@@ -135,6 +142,7 @@ function Stress.Toggle(count)
     end)
   end
   ns.Roster.Request(true)
+  Stress.Refit()
   ns.Print(("stress on: the guild as %d members (copies of the real ones, nothing kept or sent). "
     .. "/guildy stress again: off, then /reload"):format(Stress.total))
 end

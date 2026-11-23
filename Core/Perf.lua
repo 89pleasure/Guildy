@@ -92,6 +92,23 @@ function Perf.Lap()
   end
 end
 
+-- Hitches: frames slower than HITCH_MS, whoever spent the time (Blizzard's code, other addons, the
+-- game), as "hitch <what Guildy did just before>". Guildy's own measurements cannot see Blizzard's code
+-- it sets off (its member list behind Guildy froze guilds of 1000, 2026-11-23): this line can.
+Perf.HITCH_MS = 100
+Perf.HITCH_NEAR = 1000 -- ms: a mark this recent names the hitch
+local mark, markAt
+function Perf.Mark(label)
+  if Perf.on then mark, markAt = label, Perf.Clock() end
+end
+
+-- One frame took ms milliseconds (the game's elapsed time of the frame before)
+function Perf.Frame(ms)
+  if not Perf.on or type(ms) ~= "number" or ms < Perf.HITCH_MS then return end
+  local near = mark and Perf.Clock() - markAt <= Perf.HITCH_NEAR + ms
+  Perf.Add("hitch", near and mark or "(nothing of Guildy just before)", ms, 0)
+end
+
 function Perf.Enable(on)
   on = on and true or false
   if on and not Perf.on then since = Perf.Clock() end

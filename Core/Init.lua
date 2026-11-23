@@ -192,6 +192,12 @@ frame:SetScript("OnEvent", function(_, event, ...)
   ns.Perf.Call("event", event, ns.SafeCall, handler, ...)
 end)
 
+-- frames slower than Perf.HITCH_MS, whatever spent the time (/guildy perf "hitch" lines)
+do
+  local watch = ns.CreateFrame("Frame")
+  watch:SetScript("OnUpdate", function(_, elapsed) if ns.Perf.on then ns.Perf.Frame((elapsed or 0) * 1000) end end)
+end
+
 -- Work that runs from timers, outside the events above (/guildy perf)
 ns.Perf.Wrap(ns.Roster, "Scan", "scan", "roster")
 ns.Perf.Wrap(ns.TradeSkill, "ScanOpen", "scan", "profession window")

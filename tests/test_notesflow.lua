@@ -7,7 +7,7 @@ local T = ...
 
 local ROW = 24
 
-local function World(count)
+local function World(count, fresh)
   local w = { now = 1000 }
   local roster = {}
   for i = 1, count do
@@ -41,7 +41,7 @@ local function World(count)
   w.Fire("GUILD_ROSTER_UPDATE")
   w.RunTimers()
   env.CommunitiesFrame:Show()
-  w.RunTimers()
+  if not fresh then w.RunTimers() end -- (fresh: the window has just opened, no timer ran yet)
   function w.Height() return w.list:GetHeight() end
   -- a member frame in Guildy with the mouse on it
   function w.Owner(m)
@@ -62,34 +62,47 @@ T.describe("Blizzard's member list", function()
     T.eq(w.Height(), 120 * ROW + 80)
   end)
 
-  T.it("stays short in a big guild while nobody points at a member", function()
-    local w = World(958)
-    T.truthy(w.Height() < 30 * ROW + 80, ("height %s"):format(tostring(w.Height())))
-    w.Fire("GUILD_ROSTER_UPDATE")
-    w.RunTimers()
-    T.truthy(w.Height() < 30 * ROW + 80, "a roster update keeps it short")
+  -- Grown to all ~1000 rows at once, the first hover froze the game (seen with /guildy stress
+  -- 2026-11-24): the list grows GROW_STEP rows a frame, a moment after the window opened.
+  T.it("grows a big guild's list a step a frame after the window opened, never all at once", function()
+    local w = World(958, true)
+    local step = w.ns.UI.Notes.GROW_STEP
+    local last = w.Height()
+    local steps = 0
+    for _ = 1, 60 do
+      w.RunTimers(1)
+      local h = w.Height()
+      T.truthy(h - last <= step * ROW, ("grew %d rows in one frame"):format((h - last) / ROW))
+      if h > last then steps = steps + 1 end
+      last = h
+    end
+    T.eq(last, 958 * ROW + 80)
+    T.truthy(steps > 10, ("only %d steps"):format(steps))
   end)
 
-  T.it("grows when the mouse is on a member, lays the pick once the row is there, and shrinks again", function()
+  T.it("lays the pick once the list has the member's row, stays grown, and starts short when the window opens again", function()
     local w = World(958)
-    local rawset_ = rawset
-    rawset_(w.env.UIParent, "GetEffectiveScale", function() return 1 end)
+    rawset(w.env.UIParent, "GetEffectiveScale", function() return 1 end)
     local m = w.ns.Roster.Members()[700]
     local owner = w.Owner(m)
     w.ns.UI.Notes.HoverMember(owner, m)
-    T.eq(w.Height(), 958 * ROW + 80)
     local pick = rawget(w.env, "GuildyNotePick")
     T.truthy(not (pick and pick:IsShown()), "no row yet: no pick")
-    -- Blizzard fills the grown list a frame later; the mouse is still on the member
+    -- Blizzard fills the grown list; the mouse is still on the member
     w.rows[1] = { memberInfo = { guid = m.guid }, Click = function() end }
-    w.RunTimers()
+    w.RunTimers(60)
     pick = rawget(w.env, "GuildyNotePick")
     T.truthy(pick and pick:IsShown(), "the pick lies over the member once Blizzard has the row")
     T.eq(pick:GetAttribute("clickbutton1"), w.rows[1])
-    -- half a minute without the mouse on a member: short again
-    w.now = w.now + 31
-    w.RunTimers()
-    T.truthy(w.Height() < 30 * ROW + 80, ("height %s after the pause"):format(tostring(w.Height())))
+    T.eq(w.Height(), 958 * ROW + 80)
+    -- minutes later, the window still open: still grown (a deaf list costs nothing to keep)
+    w.now = w.now + 300
+    w.RunTimers(10)
+    T.eq(w.Height(), 958 * ROW + 80)
+    -- closed and opened again: Blizzard builds every row its list holds when it shows, so it starts short
+    w.env.CommunitiesFrame:Hide()
+    w.env.CommunitiesFrame:Show()
+    T.truthy(w.Height() < 30 * ROW + 80, ("height %s on opening"):format(tostring(w.Height())))
   end)
 
   -- Moving Guildy's window moved Blizzard's (drawn at alpha 0 under it) on every frame of the drag:
@@ -112,18 +125,6 @@ T.describe("Blizzard's member list", function()
     T.eq(placed, 0)
     frame:GetScript("OnDragStop")(frame)
     T.eq(placed, 1)
-  end)
-
-  T.it("stays grown while the mouse keeps coming back to members", function()
-    local w = World(958)
-    rawset(w.env.UIParent, "GetEffectiveScale", function() return 1 end)
-    local m = w.ns.Roster.Members()[10]
-    w.ns.UI.Notes.HoverMember(w.Owner(m), m)
-    w.now = w.now + 20
-    w.ns.UI.Notes.HoverMember(w.Owner(m), m)
-    w.now = w.now + 20
-    w.RunTimers()
-    T.eq(w.Height(), 958 * ROW + 80)
   end)
 
   -- A guild of 1000 still dropped to 0 fps every few seconds with the window open (reported 2026-11-23,
@@ -164,20 +165,18 @@ T.describe("Blizzard's member list", function()
     rawset(w.env.UIParent, "GetEffectiveScale", function() return 1 end)
     local m = w.ns.Roster.Members()[10]
     w.heard = 0
-    w.ns.UI.Notes.HoverMember(w.Owner(m), m) -- grows: its rows come a frame later, no row yet is no news
-    w.Fire("GUILD_ROSTER_UPDATE", true)
-    T.eq(w.heard, 0)
-    w.RunTimers() -- still no row for m (a member who joined since the list was built)
+    w.RunTimers(60) -- fully grown, and still no row for m (a member who joined since the list was built)
+    w.ns.UI.Notes.HoverMember(w.Owner(m), m)
     for _ = 1, 3 do w.Fire("GUILD_ROSTER_UPDATE", true) end
     T.eq(w.heard, 1)
+    w.RunTimers(60) -- (rebuilt short, grown again)
     w.now = w.now + 3
     w.ns.UI.Notes.HoverMember(w.Owner(m), m)
-    w.RunTimers()
+    w.RunTimers(5)
     w.Fire("GUILD_ROSTER_UPDATE", true)
     T.eq(w.heard, 1)
     w.now = w.now + 20
     w.ns.UI.Notes.HoverMember(w.Owner(m), m)
-    w.RunTimers()
     w.Fire("GUILD_ROSTER_UPDATE", true)
     w.Fire("GUILD_ROSTER_UPDATE", true)
     T.eq(w.heard, 2)
@@ -222,7 +221,6 @@ T.describe("Blizzard's member list", function()
     w.heard = 0
     w.Fire("GUILD_ROSTER_UPDATE", true)
     T.eq(w.heard, 0)
-    T.truthy(w.Height() < 30 * ROW + 80, ("height %s"):format(tostring(w.Height())))
     w.ns.UI.Notes.ToggleBigTest()
     w.RunTimers()
     w.Fire("GUILD_ROSTER_UPDATE", true)

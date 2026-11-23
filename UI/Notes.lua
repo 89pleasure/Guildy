@@ -99,12 +99,21 @@ Notes.CanEdit = CanEdit
 -- Blizzard's member list: tall and off screen ------------------------------------------------------
 
 -- Blizzard redraws every row its list holds on each roster update and asks for the roster again
--- (CommunitiesMemberList.lua, GUILD_ROSTER_UPDATE). A list tall enough for a guild of 958 was 958 rows
--- redrawn on every update while the window was open (reported 2026-11-23). Up to TALL_MAX members the
--- list holds everyone; a bigger guild's list holds SHORT_ROWS and grows while the mouse is on members
--- (Notes.Wake), until TALL_KEEP seconds passed without that.
-Notes.TALL_MAX, Notes.SHORT_ROWS, Notes.TALL_KEEP = 200, 12, 30
-local tallUntil = -math.huge
+-- (CommunitiesMemberList.lua, GUILD_ROSTER_UPDATE). Up to TALL_MAX members the list holds everyone and
+-- hears everything, as Blizzard made it. A bigger guild's list hears nothing (below) and grows to hold
+-- everyone GROW_STEP rows a frame: grown to all ~1000 rows at once, the first hover froze the game
+-- (seen with /guildy stress 2026-11-24). Blizzard's scroll box keeps the rows it has when it grows, so
+-- each step costs only its new rows. It stays grown while Blizzard's window is open (a deaf list costs
+-- nothing to keep) and starts short again each time the window opens (Blizzard builds every row it
+-- holds then).
+Notes.TALL_MAX, Notes.SHORT_ROWS, Notes.GROW_STEP, Notes.GROW_WAIT = 200, 12, 40, 1
+local grown = 0 -- rows a big guild's list holds now
+local growing = false
+local SizeList -- (below)
+
+local function MemberCount()
+  return ns.Stress.Count(ns.Try(rawget(_G, "GetNumGuildMembers")) or 0)
+end
 
 -- Hearing: every roster update Blizzard's list hears rebuilds and sorts all members (UpdateMemberList in
 -- its OnUpdate), and each row it shows re-reads its member (CommunitiesMemberListEntryMixin:OnEvent),
@@ -125,7 +134,7 @@ local lastHeard = -math.huge
 local hookedRows = setmetatable({}, { __mode = "k" })
 
 local function Big()
-  return ns.Stress.Count(ns.Try(rawget(_G, "GetNumGuildMembers")) or 0) > Notes.TALL_MAX
+  return MemberCount() > Notes.TALL_MAX
 end
 
 -- a row of Blizzard's list deaf (it registers again on every show: the hook follows its OnShow)
@@ -159,9 +168,13 @@ end
 local function Hearing()
   local host, list = Host(), MemberList()
   if not (host and list and host:IsShown()) then return end
-  deaf = false -- Blizzard's OnShow may have registered them again: switch them off for sure
-  if Big() and not waiting then SetDeaf(list, true) end
-  if deaf then Rows(list, DeafRow) end
+  if Big() and not waiting then
+    deaf = false -- Blizzard's OnShow may have registered them again: switch them off for sure
+    SetDeaf(list, true)
+    Rows(list, DeafRow)
+  elseif not Big() then
+    SetDeaf(list, false) -- (the guild is no longer as big: /guildy stress or biglist off)
+  end
 end
 
 -- /guildy biglist: a small guild's window as a big guild's (list short, list and rows deaf), to test
@@ -181,21 +194,24 @@ local function HearOnce()
   local list = MemberList()
   if not (deaf and list) or GetTime() - lastHeard < Notes.FRESH_GAP then return end
   waiting = true
+  -- short for the rebuild (a rebuild makes every row anew); it grows again afterwards
+  grown, growing = 0, false
+  ns.Perf.Mark("Blizzard's list rebuilt (a member without a row)")
+  SizeList()
   SetDeaf(list, false)
   ns.Roster.Request(false, true)
 end
 
 local function ListRows(count)
-  if count <= Notes.TALL_MAX or GetTime() < tallUntil then return count end
-  return math.min(count, Notes.SHORT_ROWS)
+  if count <= Notes.TALL_MAX then return count end
+  return math.min(count, math.max(grown, Notes.SHORT_ROWS))
 end
 
-local function SizeList()
+function SizeList()
   local host, list = Host(), MemberList()
   if not (host and list and host:IsShown()) or InCombatLockdown() then return end
   Save(list)
-  local count = ns.Stress.Count(ns.Try(rawget(_G, "GetNumGuildMembers")) or 0)
-  local height = ListRows(count) * ROW_HEIGHT + 80
+  local height = ListRows(MemberCount()) * ROW_HEIGHT + 80
   placing = true
   list:ClearAllPoints()
   -- its rows are only clicked by the secure button, never by the mouse
@@ -211,53 +227,64 @@ local function SizeList()
     hooksecurefunc(list, "SetPoint", Again)
     hooksecurefunc(list, "SetSize", Again)
     -- Blizzard's window closed: its list as it was
-    host:HookScript("OnHide", function() Restore(list) end)
+    host:HookScript("OnHide", function()
+      grown, growing = 0, false
+      Restore(list)
+    end)
     -- (after Blizzard's handler: the roster update let through has marked the list for its rebuild)
     list:HookScript("OnEvent", function(_, event)
       if event ~= "GUILD_ROSTER_UPDATE" or not Big() then return end
       waiting, lastHeard = false, GetTime()
       SetDeaf(list, true)
       C_Timer.After(0.1, Hearing) -- the rows of the rebuild
+      C_Timer.After(Notes.GROW_WAIT, Notes.Grow) -- (rebuilt short) grows again
     end)
     list:HookScript("OnShow", function() C_Timer.After(0, Hearing) end)
   end
 end
 
--- The mouse is on a member somewhere in Guildy: a big guild's list grows (true when it grew now) and
--- stays grown TALL_KEEP seconds past the last time this was asked, then shrinks again
-local shrinking
-local function Shrink()
-  shrinking = nil
-  local left = tallUntil - GetTime()
-  if left > 0 then
-    shrinking = true
-    C_Timer.After(left, Shrink)
+-- A big guild's list one step taller each frame until it holds every member (its new rows deaf)
+local function Step()
+  local host = Host()
+  local count = MemberCount()
+  if not growing or not (host and host:IsShown()) or count <= Notes.TALL_MAX or InCombatLockdown() then
+    growing = false
     return
   end
+  grown = math.min(count, math.max(grown, Notes.SHORT_ROWS) + Notes.GROW_STEP)
+  ns.Perf.Mark("Blizzard's list grew to " .. (math.ceil(grown / 100) * 100) .. " rows")
   SizeList()
+  if deaf then Rows(MemberList(), DeafRow) end
+  if grown >= count then
+    growing = false
+    return
+  end
+  C_Timer.After(0, Step)
 end
 
+function Notes.Grow()
+  if growing or MemberCount() <= Notes.TALL_MAX or grown >= MemberCount() then return end
+  growing = true
+  Step()
+end
+
+-- The mouse is on a member somewhere in Guildy: true while a big guild's list is still growing (the
+-- member's row may come in a moment)
 function Notes.Wake()
-  local count = ns.Stress.Count(ns.Try(rawget(_G, "GetNumGuildMembers")) or 0)
-  if count <= Notes.TALL_MAX then return false end
-  local grew = GetTime() >= tallUntil
-  tallUntil = GetTime() + Notes.TALL_KEEP
-  if grew then
-    SizeList()
-    C_Timer.After(0.1, Hearing) -- the rows of the grown list come a frame later
-  end
-  if not shrinking then
-    shrinking = true
-    C_Timer.After(Notes.TALL_KEEP, Shrink)
-  end
-  return grew
+  if MemberCount() <= Notes.TALL_MAX then return false end
+  Notes.Grow()
+  return growing
 end
 
 -- Blizzard's list ready before the first click: its rows appear a frame after it grows, so Guildy sizes
 -- it when Blizzard's window opens (UI/Main.lua) and whenever the roster changes
 function Notes.Prepare()
+  ns.Perf.Mark("window opened")
+  grown = 0
   SizeList()
   C_Timer.After(0, Hearing)
+  -- a big guild's list grows a moment after the window opened (Blizzard built the window just now)
+  C_Timer.After(Notes.GROW_WAIT, function() if UI.IsShown() then Notes.Grow() end end)
 end
 ns.On("ROSTER", function() if UI.IsShown() then SizeList() end end)
 
@@ -406,12 +433,17 @@ end
 
 -- The mouse is on member m somewhere in Guildy (UI.MemberTooltip): the click there picks m in
 -- Blizzard's list too, then goes on to that frame as always
+local RETRIES = 30 -- tries every 0.1 s while a big guild's list grows towards the member's row
 function Notes.HoverMember(owner, m, hint)
   if not (owner and m and MemberOf(owner) == m) or LayPick(owner, m, true, hint) then return end
-  -- Blizzard's row may appear a moment after the list grew: again while the mouse stays on the member
-  C_Timer.After(0.1, function()
-    if MemberOf(owner) == m and owner:IsVisible() and owner:IsMouseOver() then LayPick(owner, m, true, hint) end
-  end)
+  -- Blizzard's row may appear a moment later (the list grows): again while the mouse stays on the member
+  local tries = 0
+  local function Again()
+    tries = tries + 1
+    if not (MemberOf(owner) == m and owner:IsVisible() and owner:IsMouseOver()) then return end
+    if not LayPick(owner, m, true, hint) and growing and tries < RETRIES then C_Timer.After(0.1, Again) end
+  end
+  C_Timer.After(0.1, Again)
 end
 
 -- The mouse is on member m's name in a chat (frame: its message frame, which gives no bounds for a
@@ -431,10 +463,11 @@ function Notes.HoverLink(frame, m, onClick, still, retry)
       SizeList()
       HearOnce()
     end
-    -- the row comes a moment after the list grew: again while the name is still under the mouse
-    if grew and not retry then
+    -- the row comes a moment later (the list grows): again while the name is still under the mouse
+    retry = retry or 0
+    if grew and retry < RETRIES then
       C_Timer.After(0.1, function()
-        if not still or still() then Notes.HoverLink(frame, m, onClick, still, true) end
+        if not still or still() then Notes.HoverLink(frame, m, onClick, still, retry + 1) end
       end)
     end
     return

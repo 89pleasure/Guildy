@@ -558,6 +558,7 @@ function UI.SelectTab(key)
   tab.panel:Show()
   -- a side tab (communities) leaves no bottom tab selected
   if rawget(_G, "PanelTemplates_SetTab") then pcall(PanelTemplates_SetTab, frame, tab.index or 0) end
+  ns.Perf.Mark("tab " .. tostring(key))
   if tab.view.OnShow then ns.Perf.Call("show", key, ns.SafeCall, tab.view.OnShow, tab.view) end
   if tab.view.Refresh then ns.Perf.Call("refresh", key, ns.SafeCall, tab.view.Refresh, tab.view) end
 end
