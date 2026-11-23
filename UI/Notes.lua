@@ -202,6 +202,12 @@ local function HearOnce()
   ns.Roster.Request(false, true)
 end
 
+-- Blizzard's list built anew once (/guildy stress: its members changed while it was deaf)
+function Notes.Rebuild()
+  lastHeard = -math.huge
+  HearOnce()
+end
+
 local function ListRows(count)
   if count <= Notes.TALL_MAX then return count end
   return math.min(count, math.max(grown, Notes.SHORT_ROWS))
@@ -235,6 +241,7 @@ function SizeList()
     list:HookScript("OnEvent", function(_, event)
       if event ~= "GUILD_ROSTER_UPDATE" or not Big() then return end
       waiting, lastHeard = false, GetTime()
+      ns.Perf.Mark("Blizzard's list rebuilds (all members)") -- (in its next OnUpdate)
       SetDeaf(list, true)
       C_Timer.After(0.1, Hearing) -- the rows of the rebuild
       C_Timer.After(Notes.GROW_WAIT, Notes.Grow) -- (rebuilt short) grows again
@@ -435,6 +442,7 @@ end
 -- Blizzard's list too, then goes on to that frame as always
 local RETRIES = 30 -- tries every 0.1 s while a big guild's list grows towards the member's row
 function Notes.HoverMember(owner, m, hint)
+  ns.Perf.Mark("mouse on a member")
   if not (owner and m and MemberOf(owner) == m) or LayPick(owner, m, true, hint) then return end
   -- Blizzard's row may appear a moment later (the list grows): again while the mouse stays on the member
   local tries = 0

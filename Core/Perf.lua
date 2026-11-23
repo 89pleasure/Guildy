@@ -102,11 +102,21 @@ function Perf.Mark(label)
   if Perf.on then mark, markAt = label, Perf.Clock() end
 end
 
--- One frame took ms milliseconds (the game's elapsed time of the frame before)
+-- One frame took ms milliseconds (the game's elapsed time of the frame before). Called every frame
+-- while measuring: a frame during which Lua's memory fell by more than GC_KB was the garbage collector
+-- at work (its time then goes to "garbage collection", whatever was marked).
+Perf.GC_KB = 1024
+local lastMemory
 function Perf.Frame(ms)
-  if not Perf.on or type(ms) ~= "number" or ms < Perf.HITCH_MS then return end
+  if not Perf.on then return end
+  local memory = Perf.Memory()
+  local freed = lastMemory and (lastMemory - memory) or 0
+  lastMemory = memory
+  if type(ms) ~= "number" or ms < Perf.HITCH_MS then return end
   local near = mark and Perf.Clock() - markAt <= Perf.HITCH_NEAR + ms
-  Perf.Add("hitch", near and mark or "(nothing of Guildy just before)", ms, 0)
+  local label = near and mark or "(nothing of Guildy just before)"
+  if freed > Perf.GC_KB then label = ("garbage collection (%.0f MB freed) after %s"):format(freed / 1024, label) end
+  Perf.Add("hitch", label, ms, 0)
 end
 
 function Perf.Enable(on)

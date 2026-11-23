@@ -227,4 +227,13 @@ T.describe("Blizzard's member list", function()
     T.eq(w.heard, 1)
     T.eq(w.Height(), 120 * ROW + 80)
   end)
+
+  T.it("builds a big guild's deaf list anew once when asked (/guildy stress changed its members)", function()
+    local w = World(958)
+    w.heard = 0
+    w.ns.UI.Notes.Rebuild()
+    w.Fire("GUILD_ROSTER_UPDATE", true)
+    w.Fire("GUILD_ROSTER_UPDATE", true)
+    T.eq(w.heard, 1)
+  end)
 end)

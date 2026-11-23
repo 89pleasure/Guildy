@@ -117,7 +117,10 @@ end
 -- Blizzard's member list behind an open window as for a guild of this size (UI/Notes.lua)
 function Stress.Refit()
   local UI = ns.UI
-  if UI and UI.Notes and UI.IsShown and UI.IsShown() then ns.SafeCall(UI.Notes.Prepare) end
+  if not (UI and UI.Notes and UI.IsShown and UI.IsShown()) then return end
+  ns.SafeCall(UI.Notes.Prepare)
+  -- built when the window opened, Blizzard's list has the guild of then: once anew, as on opening
+  C_Timer.After(0.5, function() ns.SafeCall(UI.Notes.Rebuild) end)
 end
 
 -- /guildy stress [count]: on (with count members) or, without a count while on, off again

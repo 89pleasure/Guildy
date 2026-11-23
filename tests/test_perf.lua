@@ -32,6 +32,18 @@ T.describe("Perf", function()
     T.eq(#Perf.Rows(), 2)
   end)
 
+  T.it("names a slow frame during which memory fell the garbage collector's", function()
+    Perf.Enable(true)
+    Perf.Reset()
+    Perf.Mark("mouse on a member")
+    memory = 50000
+    Perf.Frame(10)
+    memory = 20000
+    Perf.Frame(900)
+    local row = Perf.Rows()[1]
+    T.eq(row.label, "hitch garbage collection (29 MB freed) after mouse on a member")
+  end)
+
   T.it("only calls through while it is off", function()
     Perf.Enable(false)
     Perf.Reset()
