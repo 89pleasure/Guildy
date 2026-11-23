@@ -174,8 +174,10 @@ local HANDLERS = {
   CRAFT_SHOW = ScheduleTradeScan,
   CRAFT_UPDATE = ScheduleTradeScan,
   SKILL_LINES_CHANGED = function() C_Timer.After(1, function() ns.SafeCall(ns.TradeSkill.ScanSkills) end) end,
-  -- a specialization is a spell: learning one changes no skill line
+  -- a specialization is a spell: learning one changes no skill line. Forever's client knows only the
+  -- second name (seen 2026-11-23: a specialization learned showed up nowhere until the next skill-up)
   LEARNED_SPELL_IN_TAB = function() C_Timer.After(1, function() ns.SafeCall(ns.TradeSkill.ScanSkills) end) end,
+  LEARNED_SPELL_IN_SKILL_LINE = function() C_Timer.After(1, function() ns.SafeCall(ns.TradeSkill.ScanSkills) end) end,
   SPELL_UPDATE_COOLDOWN = function() ns.GameCooldowns.Schedule() end,
   BAG_UPDATE_COOLDOWN = function() ns.GameCooldowns.Schedule() end,
 }

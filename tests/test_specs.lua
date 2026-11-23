@@ -20,6 +20,20 @@ T.describe("Specs", function()
     T.eq(Specs.Detect(202, function() return nil end), nil) -- the client could not tell: no answer, not "none"
   end)
 
+  T.it("reads the specialization from the profession's own spells, as the professions window shows it", function()
+    local names = { [10656] = "Drachenschuppenlederverarbeitung", [10658] = "Elementarlederverarbeitung",
+      [10660] = "Stammeslederverarbeitung" }
+    local function Name(id) return names[id] end
+    T.eq(Specs.FromSpells(165, { { id = 2108, name = "Lederverarbeitung" }, { id = 10660, name = "Stammeslederverarbeitung" } }, Name), 10660)
+    -- a spell ID of Forever's own: its name still tells
+    T.eq(Specs.FromSpells(165, { { id = 2108 }, { id = 1234567, name = "Elementarlederverarbeitung" } }, Name), 10658)
+    T.eq(Specs.FromSpells(164, { { id = 9787 }, { id = 17039 } }, Name), 17039) -- the most specific one
+    T.eq(Specs.FromSpells(165, { { id = 2108, name = "Lederverarbeitung" } }, Name), nil) -- none there: no word on it
+    T.eq(Specs.FromSpells(165, { { id = 20222 } }, Name), nil) -- another profession's
+    T.eq(Specs.FromSpells(171, { { id = 10660 } }, Name), nil)
+    T.eq(Specs.FromSpells(165, nil, Name), nil)
+  end)
+
   T.it("knows which profession a specialization belongs to", function()
     T.eq(Specs.SKILL_OF[20222], 202)
     T.eq(Specs.SKILL_OF[17041], 164)

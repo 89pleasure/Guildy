@@ -283,8 +283,9 @@ local function NoteOwnSpecs(present)
   local member = OwnMember()
   if not member then return end
   local now, changed = ns.Now(), false
-  for skillLine in pairs(present) do
-    local id = ns.Specs.Detect(skillLine, SpellKnown)
+  for skillLine, spells in pairs(present) do
+    -- the profession's own spells first (what the professions window shows), the spell checks after
+    local id = ns.Specs.FromSpells(skillLine, spells, SpellName) or ns.Specs.Detect(skillLine, SpellKnown)
     local rec = member.profs[skillLine]
     local have = rec and rec.spec
     if id and rec and type(have) == "table" and have.src == "known" and have.id == id then
@@ -313,6 +314,17 @@ function TradeSkill.SpecDebug()
       local answers = {}
       for _, fn in ipairs(fns) do answers[#answers + 1] = tostring(ns.Try(fn, id)) end
       ns.Print(("spec %s %d %s: %s"):format(TradeSkill.Name(skillLine), id, tostring(SpellName(id)), table.concat(answers, "/")))
+    end
+  end
+  local getProfessions, getInfo = rawget(_G, "GetProfessions"), rawget(_G, "GetProfessionInfo")
+  if getProfessions and getInfo then
+    for _, index in ipairs({ ns.Try(getProfessions) }) do
+      local name, _, _, _, numSpells, spellOffset = ns.Try(getInfo, index)
+      local list = {}
+      for _, s in ipairs(TradeSkill.ProfessionSpells(spellOffset, numSpells) or {}) do
+        list[#list + 1] = ("%s %s"):format(tostring(s.id), tostring(s.name))
+      end
+      ns.Print(("spec spells %s: %s"):format(tostring(name), #list > 0 and table.concat(list, ", ") or "none"))
     end
   end
   local member = OwnMember()
@@ -423,6 +435,34 @@ local function ResolveTarget()
   return true
 end
 
+-- The spells the spell book lists under a profession, as the professions window shows them (the
+-- profession itself, then its specialization): { { id, name }, ... }, nil when the client has no way
+-- to tell
+local function ProfessionSpells(offset, count)
+  if type(offset) ~= "number" or type(count) ~= "number" or ns.IsSecret(offset) or ns.IsSecret(count) then return nil end
+  local book = rawget(_G, "C_SpellBook")
+  local getInfo = book and rawget(book, "GetSpellBookItemInfo")
+  local bank = (Enum and Enum.SpellBookSpellBank and Enum.SpellBookSpellBank.Player) or 0
+  local legacyName, legacyInfo = rawget(_G, "GetSpellBookItemName"), rawget(_G, "GetSpellBookItemInfo")
+  local spells = {}
+  for slot = offset + 1, offset + math.min(count, 8) do
+    local id, name
+    if getInfo then
+      local info = ns.Try(getInfo, slot, bank)
+      if type(info) == "table" then id, name = info.spellID, info.name end
+    elseif legacyInfo then
+      local _, spellID = ns.Try(legacyInfo, slot, "spell")
+      id = spellID
+      if legacyName then name = ns.Try(legacyName, slot, "spell") end
+    end
+    if ns.IsSecret(id) then id = nil end
+    if ns.IsSecret(name) then name = nil end
+    if id or name then spells[#spells + 1] = { id = id, name = name } end
+  end
+  return #spells > 0 and spells or nil
+end
+TradeSkill.ProfessionSpells = ProfessionSpells
+
 -- Professions the current character no longer has (unlearned) leave its record
 local function PruneOwn(present)
   local member = OwnMember()
@@ -440,11 +480,11 @@ local function ScanOwnSkills()
   if getProfessions and getInfo then
     for _, index in ipairs({ ns.Try(getProfessions) }) do
       if index then
-        local name, _, rank, max, _, _, skillLine = ns.Try(getInfo, index)
+        local name, _, rank, max, numSpells, spellOffset, skillLine = ns.Try(getInfo, index)
         skillLine = (skillLine and P.SKILL_LINES[skillLine]) and skillLine or SkillByName(name)
         if skillLine then
           seen = true
-          present[skillLine] = true
+          present[skillLine] = ProfessionSpells(spellOffset, numSpells) or true
           StoreOwn(skillLine, rank, max, nil)
         end
       end

@@ -55,6 +55,30 @@ function Specs.Detect(skillLine, isKnown)
   return 0
 end
 
+-- The specialization among the spells the spell book lists under a profession (what the professions
+-- window shows next to it): spells = { { id, name }, ... }, nameOf(specSpellID) -> its name in the
+-- client's language, so a spell ID of Forever's own still counts by its name. nil when none is there:
+-- that proves nothing, Detect decides then.
+function Specs.FromSpells(skillLine, spells, nameOf)
+  local order = Specs.ORDER[skillLine]
+  if not order or type(spells) ~= "table" then return nil end
+  local ids, names = {}, {}
+  for _, s in ipairs(spells) do
+    if type(s) == "table" then
+      if type(s.id) == "number" then ids[s.id] = true end
+      if type(s.name) == "string" and s.name ~= "" then names[s.name] = true end
+    end
+  end
+  for _, id in ipairs(order) do
+    if ids[id] then return id end
+  end
+  for _, id in ipairs(order) do
+    local name = nameOf and nameOf(id)
+    if type(name) == "string" and names[name] then return id end
+  end
+  return nil
+end
+
 -- The specialization a book shows, nil when it shows none or two rival ones
 function Specs.FromBook(skillLine, recipes)
   if type(recipes) ~= "table" then return nil end
