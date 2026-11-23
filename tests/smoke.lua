@@ -1414,9 +1414,14 @@ T.describe("Harvest", function()
       if r[1] == "Au-Tsch" then r[6] = "Tanaris" end
       return unpack(r, 1, 17)
     end
+    local ran = ns.Roster.Find("Ran-Fred")
     ns.Roster.Scan()
     T.eq({ fired, scans }, { 1, 2 })
     T.eq(ns.Roster.Find("Au-Tsch").zone, "Tanaris")
+    -- (a guild of 958, 2026-11-23: a new table per member and scan was most of a scan's garbage) the
+    -- members who did not change stay the same tables when another one changes
+    T.truthy(ns.Roster.Find("Ran-Fred") == ran, "an unchanged member keeps its table")
+    T.truthy(ns.Roster.Find("Au-Tsch") ~= kept, "a changed member gets a new table")
     env.GetGuildRosterInfo = info
     ns.Roster.Scan()
     T.eq(fired, 2)
@@ -1450,6 +1455,23 @@ T.describe("Harvest", function()
       end
     end
     T.truthy(others > 0, "members without a join in the log")
+    -- scans are as far apart as the guild is big: a hundred members barely wait, a guild of 958 (reported
+    -- 2026-11-23: a scan and a redraw of the open list every 5 s) waits about 10 s, never longer
+    T.eq(ns.Roster.ScanGap(100), 1.5)
+    T.truthy(math.abs(ns.Roster.ScanGap(958) - 10) < 0.1)
+    T.eq(ns.Roster.ScanGap(5000), 10)
+    -- a join the event log names only now changes a kept member: still a change that redraws
+    local numEvents, eventInfo = env.GetNumGuildEvents, env.GetGuildEventInfo
+    env.GetNumGuildEvents = function() return 2 end
+    env.GetGuildEventInfo = function(i)
+      if i == 2 then return "join", "Ran-Fred", nil, nil, 0, 0, 4, 0 end
+      return eventInfo(i)
+    end
+    local firedBefore = fired
+    ns.Roster.Scan()
+    T.eq(fired, firedBefore + 1)
+    T.eq(ns.Roster.Find("Ran-Fred").joinedDaysAgo, 4)
+    env.GetNumGuildEvents, env.GetGuildEventInfo = numEvents, eventInfo
     -- a request that brings nothing older ends the loading: no new request on every render
     local requests = 0
     env.C_Club.IsBeginningOfStream = function() return false end

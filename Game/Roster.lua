@@ -65,7 +65,15 @@ end
 -- Since when each member is in the guild (Core/Tenure.lua): a join the event log names is remembered
 -- as that day, a member Guildy knows no date of gets today ("since at least"). Members carry
 -- joinedDay and joinedExact. Without guild (names made up for pictures) only the log's joins show.
+-- True when a member's join date is another than it was (a scan keeps unchanged members' tables).
+local function SetJoin(m, day, exact)
+  if m.joinedDay == day and m.joinedExact == exact then return false end
+  m.joinedDay, m.joinedExact = day, exact
+  return true
+end
+
 local function NoteJoins(guild)
+  local changed = false
   local Tenure = ns.Tenure
   local now = ns.Now()
   local today = Tenure.Day(now)
@@ -80,11 +88,12 @@ local function NoteJoins(guild)
         Tenure.Note(book, m.key, today, false, today)
       end
       local entry = book[m.key]
-      m.joinedDay, m.joinedExact = entry and entry.d, entry and entry.x or nil
+      if SetJoin(m, entry and entry.d, entry and entry.x or nil) then changed = true end
     else
-      m.joinedDay, m.joinedExact = logDay or nil, logDay and true or nil
+      if SetJoin(m, logDay or nil, logDay and true or nil) then changed = true end
     end
   end
+  return changed
 end
 
 -- Join dates came in from another Guildy user (Game/Sync.lua): the members show them
@@ -167,13 +176,22 @@ function Roster.Scan()
       -- so stored data, whispers and invites still find the member
       local shown = ns.Anon.Name(ns.Names.Normalize(name))
       note, officerNote = ns.Anon.Note(note, name), ns.Anon.Note(officerNote, name .. "+")
-      local m = {
-        index = i, fullName = name, name = shown, key = key, rank = ns.Anon.Rank(rank, rankIndex),
-        rankIndex = rankIndex, level = level or 1, className = className, classFile = classFile, zone = zone,
-        note = note, officerNote = officerNote, online = (online and not isMobile) and true or false,
-        isMobile = isMobile and true or false, status = status, guid = guid,
-        daysOffline = ns.Census.DaysOffline(y, mo, d, h),
-      }
+      rank, level = ns.Anon.Rank(rank, rankIndex), level or 1
+      online, isMobile = (online and not isMobile) and true or false, isMobile and true or false
+      local daysOffline = ns.Census.DaysOffline(y, mo, d, h)
+      -- a member exactly as in the scan before keeps the table (a new one per member and scan was most of
+      -- a scan's garbage, reported from a guild of 958 on 2026-11-23)
+      local m = byKey[key]
+      if not (m and m.index == i and m.fullName == name and m.name == shown and m.rank == rank
+        and m.rankIndex == rankIndex and m.level == level and m.className == className and m.classFile == classFile
+        and m.zone == zone and m.note == note and m.officerNote == officerNote and m.online == online
+        and m.isMobile == isMobile and m.status == status and m.guid == guid and m.daysOffline == daysOffline) then
+        m = {
+          index = i, fullName = name, name = shown, key = key, rank = rank, rankIndex = rankIndex, level = level,
+          className = className, classFile = classFile, zone = zone, note = note, officerNote = officerNote,
+          online = online, isMobile = isMobile, status = status, guid = guid, daysOffline = daysOffline,
+        }
+      end
       list[#list + 1] = m
       keys[key] = m
       if guid then guids[guid] = m end
@@ -192,7 +210,11 @@ function Roster.Scan()
   members, byKey, byGuid = list, keys, guids
   lap("scan roster:", "read members")
   ReadEventLog()
-  for _, m in ipairs(members) do m.joinedDaysAgo = joined[m.key] end
+  local joinsChanged = false -- (on tables kept from the scan before, which the comparison below cannot see)
+  for _, m in ipairs(members) do
+    local ago = joined[m.key]
+    if m.joinedDaysAgo ~= ago then m.joinedDaysAgo, joinsChanged = ago, true end
+  end
   -- forget stored profession data of members who left (only with a complete roster)
   local guild = not ns.Anon.on and ns.GuildData() or nil -- made-up notes must not reach the saved data
   if guild and #members > 0 then
@@ -207,7 +229,7 @@ function Roster.Scan()
     if type(guild.gear) == "table" then ns.Gear.Prune(guild.gear, keep) end
     if type(guild.talents) == "table" then ns.Talents.Prune(guild.talents, keep) end
   end
-  NoteJoins(guild)
+  if NoteJoins(guild) then joinsChanged = true end
   lap("scan roster:", "event log and prune")
   -- professions mentioned in public and officer notes ("Herb/ Alch")
   local notesChanged = false
@@ -228,7 +250,7 @@ function Roster.Scan()
   lap("scan roster:", "notes")
   -- every scan, changed or not: the days members were seen online go by the date too (Game/Activity.lua)
   ns.Fire("ROSTER_SCAN")
-  if Unchanged(before[1], members) then
+  if not joinsChanged and Unchanged(before[1], members) then
     -- the same as before: the old members stay (what the tabs noted on them included), nothing redraws
     members, byKey, byGuid = before[1], before[2], before[3]
   else
@@ -237,15 +259,17 @@ function Roster.Scan()
   if notesChanged then ns.Fire("PROFS") end
 end
 
--- A roster update scans after half a second, and not sooner than SCAN_GAP after the scan before: a
--- scan grows with the guild (about 1 s apart with 100 members, 5 s with 1000)
-local function ScanGap()
-  return math.min(5, 0.5 + #members / 200)
+-- A roster update scans after half a second, and not sooner than the gap after the scan before. A scan
+-- and the redraw of the open list grow with the guild, and in a big guild nearly every scan finds someone
+-- in another zone: 1.5 s apart with 100 members, 10 s with 950 and more (a guild of 958 stuttered with
+-- 5 s, reported 2026-11-23). Every roster update, whoever asked for it, waits for this gap.
+function Roster.ScanGap(count)
+  return math.min(10, 0.5 + count / 100)
 end
 function Roster.ScheduleScan()
   if pending then return end
   pending = true
-  C_Timer.After(math.max(0.5, lastScan + ScanGap() - GetTime()), function() ns.SafeCall(Roster.Scan) end)
+  C_Timer.After(math.max(0.5, lastScan + Roster.ScanGap(#members) - GetTime()), function() ns.SafeCall(Roster.Scan) end)
 end
 
 function Roster.Members() return members end

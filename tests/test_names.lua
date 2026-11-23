@@ -22,6 +22,42 @@ T.describe("Names", function()
   T.it("handles nil", function()
     T.eq(Names.Key(nil), "")
   end)
+  -- Reported 2026-11-23 from a guild of 958: every roster scan keyed every member anew, 2.3 of 3.7 ms and
+  -- 615 of 1519 kB of a scan (luajit tests/bench.lua --members 958). The same name keys from memory.
+  T.it("keys a name it keyed before without new garbage", function()
+    local names = {}
+    for i = 1, 958 do names[i] = ("Bärbel%d Sonnenschein%d"):format(i, i % 50) end
+    for _, name in ipairs(names) do Names.Key(name) end
+    collectgarbage()
+    collectgarbage("stop")
+    local before = collectgarbage("count")
+    for _, name in ipairs(names) do Names.Key(name) end
+    local kb = collectgarbage("count") - before
+    collectgarbage("restart")
+    T.truthy(kb < 20, ("a second pass allocated %.0f kB"):format(kb))
+    T.eq(Names.Key("Bärbel7 Sonnenschein7"), "bärbel7 sonnenschein7")
+    T.eq(Names.Key("JÖRG-Mü"), "jörg mü")
+  end)
+  -- the members list lowers every name on every sort (Core/Search.lua), one redraw per roster change
+  T.it("lowers a text it lowered before without new garbage", function()
+    local names = {}
+    for i = 1, 958 do names[i] = ("Ölaf%d Sonnenschein"):format(i) end
+    for _, name in ipairs(names) do Names.Lower(name) end
+    collectgarbage()
+    collectgarbage("stop")
+    local before = collectgarbage("count")
+    for _, name in ipairs(names) do Names.Lower(name) end
+    local kb = collectgarbage("count") - before
+    collectgarbage("restart")
+    T.truthy(kb < 20, ("a second pass allocated %.0f kB"):format(kb))
+    T.eq(Names.Lower("Ölaf7 SONNENSCHEIN"), "ölaf7 sonnenschein")
+    T.eq(Names.Lower(nil), "")
+  end)
+  T.it("keeps its memory of keys bounded", function()
+    for i = 1, Names.KEY_MEMORY * 3 do Names.Key("Name" .. i) end
+    T.truthy(Names.KeyMemorySize() <= Names.KEY_MEMORY)
+    T.eq(Names.Key("Name1"), "name1")
+  end)
   T.it("gives an empty name for secret unit names without inspecting them", function()
     local secret = setmetatable({}, { __eq = function() error("secret value compared") end,
       __index = function() error("secret value inspected") end })

@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.11.1
+
+- Fixed: in big guilds (several hundred members), the game stuttered while Guildy's window was open and
+  lagged badly while moving it. Guildy now reads the roster with far less work, waits longer between
+  reads the bigger the guild is (up to 10 seconds), and keeps Blizzard's hidden member list short in
+  guilds over 200 members, so the game no longer redraws a row for every member on each roster update.
+  While you move the window, Blizzard's hidden window behind it now follows once when you let go.
+
 ## 1.11.0
 
 - New: an Events tab with your guild's calendar events. The picked event shows who signed up, in three

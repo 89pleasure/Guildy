@@ -98,16 +98,30 @@ Notes.CanEdit = CanEdit
 
 -- Blizzard's member list: tall and off screen ------------------------------------------------------
 
+-- Blizzard redraws every row its list holds on each roster update and asks for the roster again
+-- (CommunitiesMemberList.lua, GUILD_ROSTER_UPDATE). A list tall enough for a guild of 958 was 958 rows
+-- redrawn on every update while the window was open (reported 2026-11-23). Up to TALL_MAX members the
+-- list holds everyone; a bigger guild's list holds SHORT_ROWS and grows while the mouse is on members
+-- (Notes.Wake), until TALL_KEEP seconds passed without that.
+Notes.TALL_MAX, Notes.SHORT_ROWS, Notes.TALL_KEEP = 200, 12, 30
+local tallUntil = -math.huge
+
+local function ListRows(count)
+  if count <= Notes.TALL_MAX or GetTime() < tallUntil then return count end
+  return math.min(count, Notes.SHORT_ROWS)
+end
+
 local function SizeList()
   local host, list = Host(), MemberList()
   if not (host and list and host:IsShown()) or InCombatLockdown() then return end
   Save(list)
   local count = ns.Try(rawget(_G, "GetNumGuildMembers")) or 0
+  local height = ListRows(count) * ROW_HEIGHT + 80
   placing = true
   list:ClearAllPoints()
   -- its rows are only clicked by the secure button, never by the mouse
   list:SetPoint("TOPLEFT", UIParent, "TOPRIGHT", AWAY_X, 0)
-  list:SetSize(300, count * ROW_HEIGHT + 80)
+  list:SetSize(300, height)
   placing = false
   if not listHooked then
     listHooked = true
@@ -120,6 +134,33 @@ local function SizeList()
     -- Blizzard's window closed: its list as it was
     host:HookScript("OnHide", function() Restore(list) end)
   end
+end
+
+-- The mouse is on a member somewhere in Guildy: a big guild's list grows (true when it grew now) and
+-- stays grown TALL_KEEP seconds past the last time this was asked, then shrinks again
+local shrinking
+local function Shrink()
+  shrinking = nil
+  local left = tallUntil - GetTime()
+  if left > 0 then
+    shrinking = true
+    C_Timer.After(left, Shrink)
+    return
+  end
+  SizeList()
+end
+
+function Notes.Wake()
+  local count = ns.Try(rawget(_G, "GetNumGuildMembers")) or 0
+  if count <= Notes.TALL_MAX then return false end
+  local grew = GetTime() >= tallUntil
+  tallUntil = GetTime() + Notes.TALL_KEEP
+  if grew then SizeList() end
+  if not shrinking then
+    shrinking = true
+    C_Timer.After(Notes.TALL_KEEP, Shrink)
+  end
+  return grew
 end
 
 -- Blizzard's list ready before the first click: its rows appear a frame after it grows, so Guildy sizes
@@ -243,11 +284,12 @@ local function LayPick(owner, m, forward, hint)
   if InCombatLockdown() or not (m and m.guid) then return false end
   local host = Host()
   if not (host and host:IsShown() and GuildSelected()) then return false end
+  local grew = Notes.Wake() -- (a big guild's list grows now, its rows come a frame later)
   local p = Pick()
   if p:IsShown() and p.owner == owner and p.member == m then return true end
   local row = Row(m.guid)
   if not row then
-    SizeList()
+    if not grew then SizeList() end
     return false
   end
   local left, bottom = owner:GetLeft(), owner:GetBottom()
@@ -271,7 +313,11 @@ end
 -- The mouse is on member m somewhere in Guildy (UI.MemberTooltip): the click there picks m in
 -- Blizzard's list too, then goes on to that frame as always
 function Notes.HoverMember(owner, m, hint)
-  if owner and m and MemberOf(owner) == m then LayPick(owner, m, true, hint) end
+  if not (owner and m and MemberOf(owner) == m) or LayPick(owner, m, true, hint) then return end
+  -- Blizzard's row may appear a moment after the list grew: again while the mouse stays on the member
+  C_Timer.After(0.1, function()
+    if MemberOf(owner) == m and owner:IsVisible() and owner:IsMouseOver() then LayPick(owner, m, true, hint) end
+  end)
 end
 
 -- The mouse is on member m's name in a chat (frame: its message frame, which gives no bounds for a
@@ -280,13 +326,20 @@ end
 -- Moving off it hides it; still on the name, the chat's OnHyperlinkEnter lays it again under the
 -- cursor. still(): false once the text moved under it (scrolled, a new message).
 local LINK_PICK = 16
-function Notes.HoverLink(frame, m, onClick, still)
+function Notes.HoverLink(frame, m, onClick, still, retry)
   if InCombatLockdown() or not (frame and m and m.guid) then return end
   local host = Host()
   if not (host and host:IsShown() and GuildSelected()) then return end
+  local grew = Notes.Wake()
   local row = Row(m.guid)
   if not row then
-    SizeList()
+    if not grew then SizeList() end
+    -- the row comes a moment after the list grew: again while the name is still under the mouse
+    if grew and not retry then
+      C_Timer.After(0.1, function()
+        if not still or still() then Notes.HoverLink(frame, m, onClick, still, true) end
+      end)
+    end
     return
   end
   local x, y = GetCursorPosition()
@@ -324,7 +377,7 @@ function Notes.Explain(m)
   elseif not GuildSelected() then
     ns.Print(L.NOTES_SELECT_GUILD)
   elseif not Row(m.guid) then
-    SizeList()
+    if not Notes.Wake() then SizeList() end
     ns.Print(L.NOTES_HIDDEN:format(m.name))
   end
 end

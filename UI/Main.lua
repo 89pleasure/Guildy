@@ -308,10 +308,15 @@ local function Build()
   ApplyBounds()
   frame:EnableMouse(true)
   frame:RegisterForDrag("LeftButton")
-  -- while dragging, Blizzard's window (and its member panel beside Guildy) follow every frame
+  -- while dragging, Blizzard's member panel beside Guildy follows every frame. Blizzard's window itself
+  -- (drawn at alpha 0 under Guildy, nothing to click during a drag) follows once at the end: moved on
+  -- every frame, a guild of 958 lagged badly while dragging (reported 2026-11-23)
+  local function Follow()
+    if UI.Notes and UI.Notes.Follow then UI.Notes.Follow() end
+  end
   frame:SetScript("OnDragStart", function(self)
     self:StartMoving()
-    self:SetScript("OnUpdate", PlaceHost)
+    self:SetScript("OnUpdate", Follow)
   end)
   frame:SetScript("OnDragStop", function(self)
     self:SetScript("OnUpdate", nil)

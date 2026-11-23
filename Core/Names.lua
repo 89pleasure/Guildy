@@ -88,10 +88,27 @@ function Names.NamePart(word)
   return concat(out)
 end
 
-function Names.Lower(s)
+-- Lower case is asked for the same names and zones on every sort of the members list (a table and a
+-- string per letter each time): short texts are remembered, at most LOWER_MEMORY, then forgotten at once
+Names.LOWER_MEMORY, Names.LOWER_LONGEST = 5000, 64
+local lowered, loweredCount = {}, 0
+
+local function MakeLower(s)
   local out = {}
-  for i, cp in ipairs(CodePoints(s or "")) do out[i] = Utf8(LowerCodePoint(cp)) end
+  for i, cp in ipairs(CodePoints(s)) do out[i] = Utf8(LowerCodePoint(cp)) end
   return concat(out)
+end
+
+function Names.Lower(s)
+  s = s or ""
+  local secret = rawget(_G, "issecretvalue")
+  if type(s) ~= "string" or (secret and secret(s) == true) or #s > Names.LOWER_LONGEST then return MakeLower(s) end
+  local low = lowered[s]
+  if low then return low end
+  low = MakeLower(s)
+  if loweredCount >= Names.LOWER_MEMORY then lowered, loweredCount = {}, 0 end
+  lowered[s], loweredCount = low, loweredCount + 1
+  return low
 end
 
 local function Trim(s)
@@ -134,9 +151,23 @@ function Names.ToServer(name)
   return (name:gsub(" ", "-", 1))
 end
 
+-- Keys are asked for the same few thousand names again and again (every roster scan keys every member,
+-- the tabs key them again), and making one is a dozen strings and a table: they are remembered, at most
+-- KEY_MEMORY of them, then forgotten all at once. Secret values are neither remembered nor looked up.
+Names.KEY_MEMORY = 5000
+local keys, keyCount = {}, 0
+
 function Names.Key(name)
-  return Names.Lower(Names.Normalize(name))
+  if type(name) ~= "string" or Secret(name) then return Names.Lower(Names.Normalize(name)) end
+  local key = keys[name]
+  if key then return key end
+  key = Names.Lower(Names.Normalize(name))
+  if keyCount >= Names.KEY_MEMORY then keys, keyCount = {}, 0 end
+  keys[name], keyCount = key, keyCount + 1
+  return key
 end
+
+function Names.KeyMemorySize() return keyCount end
 
 function Names.Same(a, b)
   return Names.Key(a) == Names.Key(b)
