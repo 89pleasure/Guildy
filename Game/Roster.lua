@@ -152,7 +152,8 @@ local lastScan = -math.huge
 function Roster.Scan()
   pending = false
   lastScan = GetTime()
-  local count = ns.Try(rawget(_G, "GetNumGuildMembers")) or 0
+  local real = ns.Try(rawget(_G, "GetNumGuildMembers")) or 0
+  local count = ns.Stress.Count(real) -- (/guildy stress: made-up members past the real ones)
   -- a guild never has 0 members while the player is in it: the game delivered an empty roster for a
   -- moment (seen in game 2026-11-09 after leaving and rejoining a community, which switches the club in
   -- Blizzard's window). Keep the last roster and ask again instead of emptying every tab.
@@ -168,9 +169,9 @@ function Roster.Scan()
   local list, keys, guids = {}, {}, {}
   for i = 1, count do
     local name, rank, rankIndex, level, className, zone, note, officerNote, online, status, classFile,
-      _, _, isMobile, _, _, guid = GetGuildRosterInfo(i)
+      _, _, isMobile, _, _, guid = ns.Stress.Info(i, real)
     if name then
-      local y, mo, d, h = GetGuildRosterLastOnline(i)
+      local y, mo, d, h = ns.Stress.LastOnline(i, real)
       local key = ns.Names.Key(name)
       -- for pictures: a made-up name and notes (Core/Anon.lua); key and fullName stay the real ones,
       -- so stored data, whispers and invites still find the member
@@ -216,7 +217,8 @@ function Roster.Scan()
     if m.joinedDaysAgo ~= ago then m.joinedDaysAgo, joinsChanged = ago, true end
   end
   -- forget stored profession data of members who left (only with a complete roster)
-  local guild = not ns.Anon.on and ns.GuildData() or nil -- made-up notes must not reach the saved data
+  -- made-up notes and members must not reach the saved data
+  local guild = not ns.Anon.on and not ns.Stress.on and ns.GuildData() or nil
   if guild and #members > 0 then
     local keep = {}
     for key in pairs(byKey) do keep[key] = true end

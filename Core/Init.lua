@@ -281,6 +281,8 @@ SlashCmdList.GUILDY = function(msg)
       local ok, err = pcall(view.RenderChat, view)
       ns.Print("render ok " .. tostring(ok) .. " " .. tostring(err))
     end
+  elseif msg:match("^stress") then
+    ns.Stress.Toggle(msg:match("^stress%s+(%d+)"))
   elseif msg == "biglist" then
     ns.UI.Notes.ToggleBigTest()
   elseif msg == "notedebug" then

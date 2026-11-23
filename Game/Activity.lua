@@ -54,7 +54,7 @@ local function MarkRoster()
     end
   end
   if linked then familyVersion = familyVersion + 1 end
-  local guild = not ns.Anon.on and ns.GuildData() or nil
+  local guild = not ns.Anon.on and not ns.Stress.on and ns.GuildData() or nil
   if guild and #members > 0 then
     local now = ns.Now()
     local today = A.Day(now)
@@ -114,7 +114,7 @@ function GameActivity.Get()
   local month = ns.Stats.MonthKey(now, Date)
   local change
   if guild then
-    if not ns.Anon.on then A.StorePulse(guild, month, summary.pulse) end
+    if not ns.Anon.on and not ns.Stress.on then A.StorePulse(guild, month, summary.pulse) end
     change = A.PulseChange(guild, summary.pulse, ns.Stats.PreviousMonth(month))
   end
   cache = { players = players, byKey = byKey, summary = summary, change = change,

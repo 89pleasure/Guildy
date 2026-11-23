@@ -182,7 +182,7 @@ local function Enqueue(kind, payload)
 end
 
 local function SendNow(kind, data)
-  if not IsInGuild() then return end
+  if not IsInGuild() or ns.Stress.on then return end -- (/guildy stress: made-up members stay here)
   Enqueue(kind, Proto.Encode(kind, data, ns.Version()))
 end
 

@@ -125,7 +125,7 @@ local lastHeard = -math.huge
 local hookedRows = setmetatable({}, { __mode = "k" })
 
 local function Big()
-  return (ns.Try(rawget(_G, "GetNumGuildMembers")) or 0) > Notes.TALL_MAX
+  return ns.Stress.Count(ns.Try(rawget(_G, "GetNumGuildMembers")) or 0) > Notes.TALL_MAX
 end
 
 -- a row of Blizzard's list deaf (it registers again on every show: the hook follows its OnShow)
@@ -194,7 +194,7 @@ local function SizeList()
   local host, list = Host(), MemberList()
   if not (host and list and host:IsShown()) or InCombatLockdown() then return end
   Save(list)
-  local count = ns.Try(rawget(_G, "GetNumGuildMembers")) or 0
+  local count = ns.Stress.Count(ns.Try(rawget(_G, "GetNumGuildMembers")) or 0)
   local height = ListRows(count) * ROW_HEIGHT + 80
   placing = true
   list:ClearAllPoints()
@@ -238,7 +238,7 @@ local function Shrink()
 end
 
 function Notes.Wake()
-  local count = ns.Try(rawget(_G, "GetNumGuildMembers")) or 0
+  local count = ns.Stress.Count(ns.Try(rawget(_G, "GetNumGuildMembers")) or 0)
   if count <= Notes.TALL_MAX then return false end
   local grew = GetTime() >= tallUntil
   tallUntil = GetTime() + Notes.TALL_KEEP

@@ -441,7 +441,7 @@ Step = function()
 end
 
 function Harvest.Start()
-  if state then return end
+  if state or ns.Stress.on then return end -- (/guildy stress: no scans of made-up members)
   if InCombatLockdown() then
     ns.Print(ns.L.NOT_IN_COMBAT)
     return
