@@ -254,13 +254,15 @@ end
 local function Step()
   local host = Host()
   local count = MemberCount()
-  if not growing or not (host and host:IsShown()) or count <= Notes.TALL_MAX or InCombatLockdown() then
+  -- (waiting: a rebuild is let through, it makes every row anew; growing goes on after it)
+  if not growing or waiting or not (host and host:IsShown()) or count <= Notes.TALL_MAX or InCombatLockdown() then
     growing = false
     return
   end
   grown = math.min(count, math.max(grown, Notes.SHORT_ROWS) + Notes.GROW_STEP)
   ns.Perf.Mark("Blizzard's list grew to " .. (math.ceil(grown / 100) * 100) .. " rows")
-  SizeList()
+  -- (Blizzard's scroll box makes the new rows right in the resize: measured here)
+  ns.Perf.Call("grow", "Blizzard's list, a step", SizeList)
   if deaf then Rows(MemberList(), DeafRow) end
   if grown >= count then
     growing = false
@@ -270,7 +272,7 @@ local function Step()
 end
 
 function Notes.Grow()
-  if growing or MemberCount() <= Notes.TALL_MAX or grown >= MemberCount() then return end
+  if growing or waiting or MemberCount() <= Notes.TALL_MAX or grown >= MemberCount() then return end
   growing = true
   Step()
 end
