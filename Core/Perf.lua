@@ -97,9 +97,9 @@ end
 -- it sets off (its member list behind Guildy froze guilds of 1000, 2026-11-23): this line can.
 Perf.HITCH_MS = 100
 Perf.HITCH_NEAR = 1000 -- ms: a mark this recent names the hitch
-local mark, markAt
+local lastMark, markAt
 function Perf.Mark(label)
-  if Perf.on then mark, markAt = label, Perf.Clock() end
+  if Perf.on then lastMark, markAt = label, Perf.Clock() end
 end
 
 -- One frame took ms milliseconds (the game's elapsed time of the frame before). Called every frame
@@ -113,8 +113,8 @@ function Perf.Frame(ms)
   local freed = lastMemory and (lastMemory - memory) or 0
   lastMemory = memory
   if type(ms) ~= "number" or ms < Perf.HITCH_MS then return end
-  local near = mark and Perf.Clock() - markAt <= Perf.HITCH_NEAR + ms
-  local label = near and mark or "(nothing of Guildy just before)"
+  local near = lastMark and Perf.Clock() - markAt <= Perf.HITCH_NEAR + ms
+  local label = near and lastMark or "(nothing of Guildy just before)"
   if freed > Perf.GC_KB then label = ("garbage collection (%.0f MB freed) after %s"):format(freed / 1024, label) end
   Perf.Add("hitch", label, ms, 0)
 end

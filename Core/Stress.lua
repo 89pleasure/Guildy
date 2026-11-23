@@ -79,15 +79,15 @@ local function Wrap()
   if original or not C_Club then return end
   original = { GetClubMembers = C_Club.GetClubMembers, GetMemberInfo = C_Club.GetMemberInfo }
   local realIds = {}
-  C_Club.GetClubMembers = function(clubId, streamId)
+  rawset(C_Club, "GetClubMembers", function(clubId, streamId)
     local ids = original.GetClubMembers(clubId, streamId)
     if not (Stress.on and type(ids) == "table" and clubId == GuildClub() and #ids > 0) then return ids end
     realIds[clubId] = { unpack(ids) }
     local real = #ids
     for i = real + 1, Stress.total do ids[#ids + 1] = Stress.FAKE_ID + i end
     return ids
-  end
-  C_Club.GetMemberInfo = function(clubId, memberId)
+  end)
+  rawset(C_Club, "GetMemberInfo", function(clubId, memberId)
     if not (Stress.on and type(memberId) == "number" and memberId > Stress.FAKE_ID) then
       return original.GetMemberInfo(clubId, memberId)
     end
@@ -105,12 +105,13 @@ local function Wrap()
     local presence = enum and enum.ClubMemberPresence
     if presence then copy.presence = (i % 4 == 0) and presence.Online or presence.Offline end
     return copy
-  end
+  end)
 end
 
 local function Unwrap()
   if not original then return end
-  C_Club.GetClubMembers, C_Club.GetMemberInfo = original.GetClubMembers, original.GetMemberInfo
+  rawset(C_Club, "GetClubMembers", original.GetClubMembers)
+  rawset(C_Club, "GetMemberInfo", original.GetMemberInfo)
   original = nil
 end
 
