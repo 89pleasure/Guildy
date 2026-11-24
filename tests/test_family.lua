@@ -84,6 +84,27 @@ T.describe("Family records", function()
   end)
 end)
 
+T.describe("Family.Disown", function()
+  T.it("takes a character copied in with a WTF folder out of the account and replaces its merged record", function()
+    local all = { "Bob Stone", "Fred Wild", "Rob Stone" }
+    local own = { ["bob stone"] = true, ["rob stone"] = true, ["fred wild"] = true }
+    local families = { ["fred wild"] = { ts = 50, chars = all } }
+    T.eq(Family.Disown(own, families, "fred wild", "Fred Wild", 100), { ts = 100, chars = { "Fred Wild" } })
+    T.eq(own, { ["bob stone"] = true, ["rob stone"] = true })
+    T.eq(Family.Mains({ M("bob stone", "Bob Stone", 60), M("fred wild", "Fred Wild", 60) },
+      { ["fred wild"] = { ts = 100, chars = { "Fred Wild" } } }, own)["fred wild"], nil)
+  end)
+  T.it("keeps a record the character's own player sent", function()
+    local own = { ["bob stone"] = true, ["fred wild"] = 2 }
+    local families = { ["fred wild"] = { ts = 80, chars = { "Fred Wild", "Fredalt" } } }
+    T.eq(Family.Disown(own, families, "fred wild", "Fred Wild", 100), nil)
+    T.eq(own, { ["bob stone"] = true })
+    T.eq(Family.Disown(own, families, "fred wild", "Fred Wild", 100), nil)
+    T.eq(Family.Disown(own, {}, "bob stone", "Bob Stone", 100), nil)
+    T.eq(own, {})
+  end)
+end)
+
 T.describe("Family players", function()
   T.it("joins the characters of a shared account only within one player", function()
     local roster = {

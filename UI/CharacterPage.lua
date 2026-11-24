@@ -744,6 +744,19 @@ local function Build()
     family.Lines[i] = line
   end
   family.More = W.Text(family, "GameFontDisableSmall")
+  -- "Wrong?" in the heading line: where the links come from and the way to fix them. Opens the options
+  -- where they are fixed: the Members page with "Characters on this account" when the family holds a
+  -- character of this account (a copied WTF folder, a shared account), else the FAQ
+  family.Fix = ns.CreateFrame("Button", nil, family)
+  family.Fix:SetPoint("TOPRIGHT", -12, -8)
+  family.Fix:SetHeight(16)
+  family.Fix.Text = W.Text(family.Fix, "GameFontDisableSmall", L.FAMILY_WRONG)
+  family.Fix.Text:SetPoint("RIGHT", 0, 0)
+  family.Fix:SetWidth(TextWidth(family.Fix.Text) + 4)
+  W.Tooltip(family.Fix, L.FAMILY_WRONG_TITLE, function() return family.Fix.own and L.FAMILY_WRONG_OWN or L.FAMILY_WRONG_TIP end)
+  family.Fix:HookScript("OnEnter", function(self) self.Text:SetFontObject("GameFontNormalSmall") end)
+  family.Fix:HookScript("OnLeave", function(self) self.Text:SetFontObject("GameFontDisableSmall") end)
+  family.Fix:SetScript("OnClick", function(self) UI.ShowOptions(self.own and "members" or "faq") end)
 
   local upgrades = Section(right, L.UPGRADES)
   page.Upgrades = upgrades
@@ -1305,6 +1318,11 @@ local function Build()
     family.More:SetPoint("TOPLEFT", 12, -28 - shown * LINE_H - 2)
     family.More:SetText(#list > shown and L.FAMILY_MORE:format(#list - shown) or "")
     family.Note:SetText("")
+    local own = db and db.ownChars
+    local mine = own ~= nil and own[m.key] ~= nil
+    for _, other in ipairs(list) do mine = mine or (own ~= nil and own[other.key] ~= nil) end
+    family.Fix.own = mine
+    family.Fix:SetShown(#list > 0)
     if #list == 0 then return 74 end
     return 36 + shown * LINE_H + (#list > shown and 16 or 0)
   end

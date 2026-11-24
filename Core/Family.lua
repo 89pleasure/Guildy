@@ -100,6 +100,24 @@ function Family.OwnRecords(ownChars, memberKeys, nameOf, families, meKey, now)
   return changed
 end
 
+-- A character that is not of this account after all (a WTF folder copied from another player's PC
+-- brings their characters along in GuildyDB.ownChars): takes key out of ownChars. Returns the record
+-- that replaces the one under key in the guild, { ts, chars = { name } }, when that one lists another
+-- character still of this account (the merged list this account sent for it), else nil: a record
+-- the character's own player sent stays. Logging in with the character makes it one of the account's
+-- again (TradeSkill's OwnMember).
+function Family.Disown(ownChars, families, key, name, now)
+  if type(ownChars) ~= "table" or not ownChars[key] then return nil end
+  ownChars[key] = nil
+  local known = type(families) == "table" and families[key]
+  if type(known) ~= "table" or type(known.chars) ~= "table" then return nil end
+  for _, other in ipairs(known.chars) do
+    local otherKey = ns.Names.Key(other)
+    if otherKey ~= key and ownChars[otherKey] then return { ts = now, chars = { name } } end
+  end
+  return nil
+end
+
 local function HasWord(text)
   for word in text:gmatch("[%a\128-\255]+") do
     for _, w in ipairs(Family.NOTE_WORDS) do

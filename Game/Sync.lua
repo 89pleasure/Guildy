@@ -891,3 +891,26 @@ function Sync.OwnPlayersChanged()
   for _, key in ipairs(changed) do SendFamily(key) end
   return changed
 end
+
+-- "Not mine" in the options: the character is taken out of the account (Family.Disown). Its merged
+-- record is replaced by one with its name alone and sent (with settings.share, like the own records),
+-- and the account's records that listed it are sent anew. Returns the keys of the records sent.
+function Sync.Disown(key)
+  local guild, db = ns.GuildData(), ns.DB()
+  if not db or type(db.ownChars) ~= "table" or not db.ownChars[key] then return {} end
+  local m = ns.Roster.Find(key)
+  local name = m and m.name or key
+  local rec = ns.Family.Disown(db.ownChars, guild and guild.families, key, name, ns.Now())
+  local changed = UpdateOwnFamily()
+  if rec and guild then
+    guild.families[key] = rec
+    if ns.Settings().share then SendFamily(key) end
+    changed[#changed + 1] = key
+  end
+  ns.Fire("FAMILY")
+  for _, other in ipairs(changed) do
+    if other ~= key then SendFamily(other) end
+  end
+  table.sort(changed)
+  return changed
+end

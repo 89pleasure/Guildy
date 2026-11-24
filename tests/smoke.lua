@@ -399,6 +399,17 @@ T.describe("Smoke", function()
     T.eq(guild.families["au tsch"].chars, { "Au Tsch" })
     T.eq(#fams, 2)
     T.eq(#ns.Family.Of("ran fred", ns.Roster.Members(), guild.families, db.ownChars), 0)
+    -- Au Tsch came along with a copied WTF folder: "Not mine" takes it out and replaces both records
+    db.ownChars = { ["ran fred"] = true, ["au tsch"] = true }
+    guild.families = { ["ran fred"] = { ts = 5, chars = merged }, ["au tsch"] = { ts = 6, chars = merged } }
+    fams = {}
+    T.eq(ns.Sync.Disown("au tsch"), { "au tsch", "ran fred" })
+    T.eq(db.ownChars, { ["ran fred"] = true })
+    T.eq(guild.families["ran fred"].chars, { "Ran Fred" })
+    T.eq(guild.families["au tsch"].chars, { "Au Tsch" })
+    T.eq(#fams, 2)
+    T.eq(#ns.Family.Of("ran fred", ns.Roster.Members(), guild.families, db.ownChars), 0)
+    T.eq(ns.Sync.Disown("au tsch"), {})
     db.ownChars, guild.families = ownBefore, familiesBefore
     P.Encode = encode
     guild.members["ran fred"].profs[202], guild.members["au tsch"].profs = nil, auProfs
@@ -1091,6 +1102,13 @@ T.describe("Smoke", function()
     T.eq({ makira.joinedDay, makira.joinedExact }, { longAgo, true })
     T.truthy(ns.Roster.TenureText(makira, true), "a date on the character page")
     ns.UI.ShowMember(makira) -- the character page with a family card
+    -- "Wrong?" in the family heading opens the options where links get fixed
+    local fix = ns.UI.MemberPage().Family.Fix
+    T.truthy(fix:IsShown(), "Wrong? beside a family")
+    fix:GetScript("OnClick")(fix)
+    T.truthy(ns.UI.Options():IsShown(), "the options open from the family box")
+    T.eq(ns.UI.Options().selected, fix.own and "members" or "faq")
+    ns.UI.HideOptions()
     ns.UI.Hide()
     T.eq(ns.UI.IsShown(), false) -- closing closes Blizzard's window
     env.CommunitiesFrame:Show() -- comes back to the page within the session

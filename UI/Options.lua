@@ -403,12 +403,26 @@ local function BuildPlayers(panel)
       ns.SafeCall(ns.Sync.OwnPlayersChanged)
       RefreshTab("members")
     end)
-    row.Player:SetPoint("RIGHT", -4, 0)
+    -- a character copied in with someone else's WTF folder: taken out of the account
+    row.NotMine = W.Button(row, L.OPTIONS_NOT_MINE, function()
+      local key, name, classFile = row.key, row.name, row.classFile
+      if not key then return end
+      UI.Confirm(L.OPTIONS_NOT_MINE_CONFIRM:format(W.ClassName(ns.Anon.Name(name), classFile)), { run = function()
+        ns.SafeCall(ns.Sync.Disown, key)
+        panel:Refresh()
+        RefreshTab("members")
+      end }, L.OPTIONS_NOT_MINE, true)
+    end, 80, { small = true })
+    W.Tooltip(row.NotMine, L.OPTIONS_NOT_MINE, L.OPTIONS_NOT_MINE_TIP)
+    row.NotMine:SetPoint("RIGHT", -4, 0)
+    row.Player:SetPoint("RIGHT", row.NotMine, "LEFT", -6, 0)
     row.Name:SetPoint("RIGHT", row.Player, "LEFT", -8, 0)
   end, function(row, m)
-    row.key = m.key
+    row.key, row.name, row.classFile = m.key, m.name, m.classFile
     row.Name:SetText(W.ClassName(ns.Anon.Name(m.name), m.classFile))
     row.Player:SetValue(ns.Family.Player(ns.DB().ownChars, m.key) or 1)
+    -- the character played now is of this account for sure, and logging in would add it back
+    row.NotMine:SetEnabled(m.key ~= ns.Names.Key(ns.PlayerName()))
   end)
   panel.List:Place(0, -66, -4, 0) -- under a tip of up to three lines
 
