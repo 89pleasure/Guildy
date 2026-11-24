@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.12.0
 
 - New: with EllesmereUI installed, Guildy takes on its look. The window, its options, boxes, buttons,
   tabs, input fields, checkboxes and scroll bars follow your EllesmereUI theme and its accent color.
