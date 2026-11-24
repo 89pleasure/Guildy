@@ -357,6 +357,7 @@ W.SEARCH_W = 220
 -- its left and right end; page:Fill(text) spans a text over the room between the two.
 function W.Page(panel)
   local page = {}
+  rawset(panel, "GuildyPage", page) -- (the controller goes along its toolbar, UI/Main.lua)
   page.Bar = ns.CreateFrame("Frame", nil, panel)
   page.Bar:SetPoint("TOPLEFT", W.BAR_X, -2)
   page.Bar:SetPoint("TOPRIGHT", 0, -2)
@@ -457,6 +458,9 @@ function W.ScrollList(parent, rowHeight, createRow, updateRow)
           stripe:SetColorTexture(1, 1, 1, 0.03)
         end
         createRow(row)
+        -- controller: a row as wide as the list is found from its left end, where its name is (from
+        -- its middle, a small button inside a row was nearer)
+        if ns.Pad.Active() then ns.Pad.MeasureLeft(row) end
         scroll.rows[i] = row
       end
       if row.filledIn ~= round then
@@ -573,7 +577,42 @@ end
 -- items: {{text, onClick, checked, disabled, isTitle, color = {r, g, b}, crossed, onRightClick}}
 -- crossed: a red cross in place of the check (a value the filter leaves out). onRightClick: runs on a
 -- right-click and keeps the menu open; rebuild() then gives the menu's new items.
+-- In controller mode the items open as one of the game's own menus instead (ns.Pad.GameMenus): Guildy's
+-- menu lies outside the guild window, where the controller's cursor never got. There a right-click does
+-- not exist, and items with a Blizzard action (secure overlay) show greyed.
+local function Colored(text, color)
+  if not color then return text end
+  return ("|cff%02x%02x%02x%s|r"):format(math.floor(color[1] * 255), math.floor(color[2] * 255), math.floor(color[3] * 255), text)
+end
+
+local function OpenGameMenu(anchor, items)
+  local opened = ns.Try(_G.MenuUtil.CreateContextMenu, anchor, function(_, root)
+    for _, item in ipairs(items) do
+      local text = item.text or ""
+      if item.isTitle then
+        root:CreateTitle(text)
+      else
+        local mark = (item.crossed and W.ICON_NO) or (item.checked and W.ICON_YES) or nil
+        if mark then text = "|T" .. mark .. ":14|t " .. text end
+        local color = (item.disabled or item.crossed) and { 0.5, 0.5, 0.5 } or item.color
+        local entry = root:CreateButton(Colored(text, color), function()
+          if item.onClick then item.onClick() end
+        end)
+        if entry and entry.SetEnabled and (item.disabled or item.action) then entry:SetEnabled(false) end
+      end
+    end
+  end)
+  if not opened then return false end
+  -- a context menu opens at the mouse, which stays wherever it was: under the button instead
+  if opened.ClearAllPoints and opened.SetPoint then
+    ns.Try(opened.ClearAllPoints, opened)
+    ns.Try(opened.SetPoint, opened, "TOPLEFT", anchor, "BOTTOMLEFT", 0, -2)
+  end
+  return true
+end
+
 function W.OpenMenu(anchor, items, width, rebuild)
+  if ns.Pad.GameMenus() and OpenGameMenu(anchor, items) then return end
   if not menu then BuildMenu() end
   width = width or 220
   for i, item in ipairs(items) do
@@ -819,7 +858,7 @@ end
 
 -- Grip in the bottom-right corner that resizes frame (SetResizable is set by the caller)
 function W.ResizeGrip(frame, onDone)
-  local grip = ns.CreateFrame("Button", nil, frame)
+  local grip = ns.Pad.MouseOnly(ns.CreateFrame("Button", nil, frame)) -- (sizes by dragging only)
   grip:SetSize(16, 16)
   grip:SetPoint("BOTTOMRIGHT", -4, 4)
   grip:SetFrameLevel(frame:GetFrameLevel() + 20)

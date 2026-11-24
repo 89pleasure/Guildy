@@ -79,6 +79,15 @@ function ns.GamepadUI()
   return type(input) == "table" and ns.Try(input.IsGamepadUIEnabled) == true
 end
 
+-- The frame is pointed at: under the mouse, or in the gamepad interface the button the controller's
+-- cursor is on (the game runs that button's OnEnter and OnLeave, the mouse stays where it was)
+function ns.Pointed(frame)
+  if frame.IsMouseOver and frame:IsMouseOver() then return true end
+  if not ns.GamepadUI() then return false end
+  local nav = rawget(_G, "SmartNavigation")
+  return type(nav) == "table" and ns.Try(nav.GetCurrentButton, nav) == frame
+end
+
 -- CreateFrame for all of Guildy. In the gamepad interface the game hooks CreateFrame (SmartNavigation):
 -- every frame created with a parent makes it search the whole window that parent belongs to for buttons
 -- again, and Guildy lives in Blizzard's guild window and creates thousands of frames. Building the bank

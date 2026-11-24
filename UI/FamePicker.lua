@@ -190,7 +190,7 @@ end
 
 local function Build()
   local L = ns.L
-  window = W.Box(UIParent, 0.05, 0.96)
+  window = ns.Pad.Popup(W.Box(UIParent, 0.05, 0.96))
   window:Hide()
   window:SetSize(WIDTH, HEIGHT)
   window:SetFrameStrata("DIALOG")

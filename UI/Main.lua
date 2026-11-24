@@ -458,6 +458,7 @@ local function Build()
   end)
   -- (no sounds of its own: Blizzard's window plays its open and close sounds)
   frame:SetScript("OnHide", function()
+    if UI.BindShoulders then UI.BindShoulders(false) end -- (defined further down)
     if UI.HideOverlay then UI.HideOverlay() end
     if UI.HideOptions then UI.HideOptions() end -- the options are a window of their own (UI/Options.lua)
     if bankMode then -- the next opening with J comes back to where the window was before the banker
@@ -519,6 +520,13 @@ end
 
 -- A page shown in the content area instead of a tab (the character page). It hides the current tab
 -- and remembers it; selecting any tab hides the page again.
+-- Controller: left and right go along a view's toolbar (W.Page), its controls as they stand from left to
+-- right. The game's nearest button sideways was at times one in the row below.
+function UI.LinkToolbar(panel)
+  local page = panel and rawget(panel, "GuildyPage")
+  if page then ns.Pad.RowOf(page.Bar) end
+end
+
 function UI.ShowPage(newPage)
   if not frame then UI.Show() end
   if page and page ~= newPage then page:Hide() end
@@ -528,6 +536,7 @@ function UI.ShowPage(newPage)
   end
   page = newPage
   page:Show()
+  UI.LinkToolbar(page)
 end
 
 function UI.Content()
@@ -547,7 +556,8 @@ function UI.SelectTab(key)
     if current.view and current.view.OnHide then ns.SafeCall(current.view.OnHide, current.view) end
     current.panel:Hide()
   end
-  if not tab.view then
+  local built = not tab.view
+  if built then
     local ok, view = ns.Perf.Call("build", key, pcall, tab.builder, tab.panel)
     if not ok then
       ns.SafeCall(error, view)
@@ -568,6 +578,9 @@ function UI.SelectTab(key)
   if tab.view.OnShow then ns.Perf.Call("show", key, ns.SafeCall, tab.view.OnShow, tab.view) end
   ns.Perf.Mark("tab " .. tostring(key) .. ": refresh")
   if tab.view.Refresh then ns.Perf.Call("refresh", key, ns.SafeCall, tab.view.Refresh, tab.view) end
+  if built and UI.RefreshGamepad then UI.RefreshGamepad() end -- (defined further down)
+  UI.LinkToolbar(tab.panel)
+  if UI.LinkUpForGamepad then UI.LinkUpForGamepad(tab.view) end
   -- (a hitch named this: the time went after all of Guildy's work for the tab, to the game or others)
   ns.Perf.Mark("tab " .. tostring(key) .. ": done")
 end
@@ -688,6 +701,121 @@ local function UpdateGuildState()
   end
 end
 
+-- Controller mode (UI/Gamepad.lua) ---------------------------------------------------------------------
+-- An alpha of 0 still counts as visible for the game's cursor, so it also went to Blizzard's buttons under
+-- Guildy and to its lists there (seen with Blizzard's own debug view, SmartNavigationDebug, 2026-11-24).
+-- While Guildy covers the window, Blizzard's parts are ignored by it; its window shown again
+-- (UI.ShowBlizzard) clears that. Kept: Guildy, the dialogs and the member panel over or beside Guildy.
+local function HostForGamepad(ignored)
+  local host = Host()
+  if not (host and frame) or not ns.Pad.Active() then return end
+  local keep = { [frame] = true }
+  for _, key in ipairs(HOST_DIALOGS) do
+    local dialog = rawget(host, key)
+    if dialog then keep[dialog] = true end
+  end
+  local detail = rawget(host, "GuildMemberDetailFrame")
+  if detail then keep[detail] = true end
+  for _, child in ipairs({ host:GetChildren() }) do
+    if not keep[child] then ns.Pad.Ignore(child, ignored) end
+  end
+end
+
+-- Left and right on a bottom tab go to the tab beside it: the game's nearest button from the bank tab was
+-- the chat's input line above (seen 2026-11-24). Set whenever the window opens, for the tabs shown then.
+local function LinkTabsForGamepad()
+  if not (frame and ns.Pad.Active()) then return end
+  local buttons = {}
+  for _, tab in ipairs(tabs) do buttons[#buttons + 1] = tab.button end
+  ns.Pad.Row(buttons)
+end
+
+-- Between the bottom tabs and the view shown above them: up from any bottom tab goes to the view's entry,
+-- its input line (chat, communities; a view can name another as view.GamepadEntry), down from it to the
+-- tab of the view. The chat's lines are no button: up went to the dropdown at the top, and down from the
+-- input line to nothing (seen 2026-11-24). Views without an entry keep the game's own choice.
+local function LinkUpForGamepad(view)
+  if not (frame and ns.Pad.Active()) then return end
+  local entry = view and (rawget(view, "GamepadEntry") or rawget(view, "Input"))
+  for _, tab in ipairs(tabs) do
+    if tab.button then ns.Pad.Jump(tab.button, "UP", entry) end
+  end
+  local tab = current
+  local button = tab and (tab.button or (tab.key == "communities" and frame.CommunitiesTab))
+  if entry then ns.Pad.Jump(entry, "DOWN", button) end
+end
+UI.LinkUpForGamepad = LinkUpForGamepad
+
+-- The game collects the window's buttons again (a tab built for the first time: its buttons are new, and
+-- ns.CreateFrame keeps the game from collecting them one frame at a time)
+local function RefreshGamepad()
+  if blizzardMode then return end
+  ns.Pad.Refresh(Host())
+end
+UI.RefreshGamepad = RefreshGamepad
+
+-- Where the cursor starts when the window opens: the tab of the view shown (the chat, as usually), not the
+-- button the game found top left (the cog of the options, seen 2026-11-24). One frame later: the game sets
+-- up the window for the controller after it was shown.
+local function FocusGamepad()
+  if blizzardMode or not (frame and frame:IsShown()) then return end
+  local tab = current
+  local button = tab and (tab.button or (tab.key == "communities" and frame.CommunitiesTab))
+  if button and button:IsShown() then ns.Pad.Target(Host(), button) end
+end
+UI.FocusGamepad = FocusGamepad
+
+-- L1 and R1 (the shoulder buttons) go to the bottom tab left and right of the one shown, as on Blizzard's
+-- own windows with tabs. Blizzard's windows bind them through its gamepad binding stack, which is not
+-- made for addons; Guildy binds them as override bindings of its own while the window is open in
+-- controller mode, and lets them go when it closes and when combat starts (bindings cannot change in
+-- combat, and in the game the shoulder buttons pick targets).
+local shoulders
+local function TabStep(step)
+  if not (frame and frame:IsShown()) then return end
+  local shown, at = {}, nil
+  for _, tab in ipairs(tabs) do
+    if tab.button and tab.button:IsShown() then
+      shown[#shown + 1] = tab
+      if tab == current then at = #shown end
+    end
+  end
+  -- from a side tab (the communities): the first or last bottom tab
+  local to = at and shown[at + step] or (not at and (step > 0 and shown[1] or shown[#shown])) or nil
+  if not to then return end
+  UI.SelectTab(to.key)
+  ns.Pad.Target(Host(), to.button)
+end
+
+local function BindShoulders(on)
+  local set, clear = rawget(_G, "SetOverrideBindingClick"), rawget(_G, "ClearOverrideBindings")
+  if type(set) ~= "function" or type(clear) ~= "function" or InCombatLockdown() then return end
+  if not shoulders then
+    if not on then return end
+    shoulders = ns.CreateFrame("Frame")
+    for name, step in pairs({ GuildyPadPrevTab = -1, GuildyPadNextTab = 1 }) do
+      local button = ns.CreateFrame("Button", name, shoulders)
+      button:SetScript("OnClick", function() TabStep(step) end)
+    end
+    shoulders:RegisterEvent("PLAYER_REGEN_DISABLED") -- (bindings can still change while it is handled)
+    shoulders:RegisterEvent("PLAYER_REGEN_ENABLED")
+    shoulders:SetScript("OnEvent", function(self, event)
+      if event == "PLAYER_REGEN_DISABLED" then
+        clear(self)
+      elseif frame and frame:IsShown() and not blizzardMode and ns.GamepadUI() then
+        set(self, true, "PADLSHOULDER", "GuildyPadPrevTab")
+        set(self, true, "PADRSHOULDER", "GuildyPadNextTab")
+      end
+    end)
+  end
+  clear(shoulders)
+  if on and ns.GamepadUI() then
+    set(shoulders, true, "PADLSHOULDER", "GuildyPadPrevTab")
+    set(shoulders, true, "PADRSHOULDER", "GuildyPadNextTab")
+  end
+end
+UI.BindShoulders = BindShoulders
+
 -- Guildy's window inside Blizzard's: child of it, drawn on top (Blizzard's own drawing at alpha 0),
 -- Blizzard's window placed exactly under Guildy's
 local function Embed()
@@ -710,6 +838,7 @@ local function Embed()
     local dialog = rawget(host, key)
     if type(dialog) == "table" and dialog.SetIgnoreParentAlpha then dialog:SetIgnoreParentAlpha(true) end
   end
+  HostForGamepad(true)
   PlaceHost()
 end
 
@@ -730,6 +859,9 @@ local function Open()
   frame:Show()
   noGuild = not IsInGuild()
   LayoutTabs()
+  LinkTabsForGamepad()
+  BindShoulders(true)
+  if ns.GamepadUI() then C_Timer.After(0, FocusGamepad) end
   if noGuild then
     -- only the communities work without a guild
     forcedCommunities = UI.Current() ~= "communities" or forcedCommunities
@@ -870,6 +1002,7 @@ function UI.ShowBlizzard(message, quiet) -- message: said instead of the general
   frame:Hide()
   if UI.Notes then ns.SafeCall(UI.Notes.Release) end -- Blizzard's member list, and with it its chat
   host:SetAlpha(1)
+  HostForGamepad(false)
   if hostGeometry then
     placingHost = true
     host:ClearAllPoints()

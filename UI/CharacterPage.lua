@@ -556,6 +556,7 @@ local function Build()
     if scene.guildyEquipped then return end
     scene.guildyEquipped = true
     scene.zoom, scene.yaw = 0, 0
+    ns.Pad.MouseOnly(scene) -- turned by dragging, zoomed with the wheel: nothing for the controller
     scene:SetScript("OnMouseWheel", function(self, delta)
       self.zoom = math.max(0, math.min(MODEL_ZOOM, math.floor((self.zoom + delta * 0.1) * 10 + 0.5) / 10))
       self:ApplyView()

@@ -180,7 +180,10 @@ local function Overlay()
     if (down and true or false) ~= KeyDownMode() then return end
     local after = self.after
     if self.owner and self.owner.UnlockHighlight then self.owner:UnlockHighlight() end
+    -- the controller's cursor was on the overlay: back onto the button below, not left on a hidden frame
+    local owner = ns.Pad.Current() == self and self.owner
     if not InCombatLockdown() then self:Hide() end
+    if owner and owner:IsVisible() then ns.Pad.MoveTo(owner) end
     W.CloseMenu()
     if after then ns.SafeCall(after, mouseButton) end -- after(mouseButton): the clicked mouse button
   end)
@@ -213,6 +216,16 @@ function UI.ShowOverlay(button, action, tooltip)
   o:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", left * scale, bottom * scale)
   o:SetSize(button:GetWidth() * scale, button:GetHeight() * scale)
   o:Show()
+  -- the controller's cursor came onto the button: it moves onto the overlay, one frame later (the game is
+  -- still selecting the button), so the confirm button clicks Blizzard's button through the game's own
+  -- secure code. Moving on, the overlay's OnLeave hides it as for the mouse.
+  if ns.Pad.Current() == button then
+    C_Timer.After(0, function()
+      if o:IsShown() and o.owner == button and ns.Pad.Current() == button and not InCombatLockdown() then
+        ns.Pad.MoveTo(o)
+      end
+    end)
+  end
 end
 
 function UI.HideOverlay()
@@ -481,7 +494,7 @@ local confirm
 function UI.Confirm(text, action, okText, danger)
   local L = ns.L
   if not confirm then
-    confirm = W.Box(UIParent, 0.06, 0.9)
+    confirm = ns.Pad.Popup(W.Box(UIParent, 0.06, 0.9))
     confirm:SetFrameStrata("DIALOG")
     confirm:SetSize(340, 112)
     confirm:SetPoint("CENTER", 0, 120)
@@ -509,7 +522,7 @@ function UI.Confirm(text, action, okText, danger)
     end)
     confirm.Cancel = W.Button(confirm, L.CANCEL, function() confirm:Hide() end, 120)
     confirm.Cancel:SetPoint("BOTTOMLEFT", confirm, "BOTTOM", 4, 12)
-    confirm:SetScript("OnHide", function(self) self.action = nil end)
+    confirm:HookScript("OnHide", function(self) self.action = nil end)
     tinsert(UISpecialFrames, "GuildyConfirm")
     _G.GuildyConfirm = confirm
   end

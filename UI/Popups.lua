@@ -92,7 +92,7 @@ local copyBox
 function UI.CopyText(text)
   local L = ns.L
   if not copyBox then
-    copyBox = W.Box(UIParent, 0.06, 0.95)
+    copyBox = ns.Pad.Popup(W.Box(UIParent, 0.06, 0.95))
     copyBox:SetFrameStrata("DIALOG")
     copyBox:SetSize(260, 74)
     copyBox:EnableMouse(true)
@@ -109,7 +109,7 @@ function UI.CopyText(text)
     copyBox.Edit:SetScript("OnKeyDown", function(_, key)
       if key == "C" and IsControlKeyDown() then C_Timer.After(0, function() copyBox:Hide() end) end
     end)
-    copyBox:SetScript("OnHide", function() copyBox.Edit:ClearFocus() end)
+    copyBox:HookScript("OnHide", function() copyBox.Edit:ClearFocus() end)
     tinsert(UISpecialFrames, "GuildyCopyBox")
     _G.GuildyCopyBox = copyBox
   end
@@ -248,10 +248,11 @@ local function Tip()
   tip = W.FloatingPanel(W.Box(UIParent))
   tip:Hide()
   tip.texts, tip.icons, tip.rules = { used = 0 }, { used = 0 }, { used = 0 }
-  -- gone with the mouse: callers hide the game's tooltip on leave; this is the net under that
+  -- gone with the mouse (or the controller's cursor): callers hide the game's tooltip on leave; this is
+  -- the net under that
   tip:SetScript("OnUpdate", function(self)
     local owner = self.owner
-    if owner and (not owner:IsVisible() or (owner.IsMouseOver and not owner:IsMouseOver())) then self:Hide() end
+    if owner and (not owner:IsVisible() or not ns.Pointed(owner)) then self:Hide() end
   end)
   local hook = rawget(_G, "hooksecurefunc")
   if hook and GameTooltip then

@@ -662,6 +662,7 @@ local function Build()
   -- Guildy (UI.HideOptions from the window's OnHide).
   options = ns.CreateFrame("Frame", "GuildyOptions", UIParent, "ButtonFrameTemplate")
   options:Hide()
+  ns.Pad.Popup(options) -- outside the guild window: handed to the controller when shown (UI/Gamepad.lua)
   ns.Skin.Apply("Window", options)
   options:SetSize(WIDTH, HEIGHT)
   if options.SetScale then options:SetScale(UI.Scale()) end
@@ -769,7 +770,7 @@ local function Build()
       if name == key then panel:Refresh() end
     end
   end
-  options:SetScript("OnShow", function(self)
+  options:HookScript("OnShow", function(self)
     self:Place()
     self:Select(self.selected or "general")
   end)

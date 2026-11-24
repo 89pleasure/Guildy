@@ -376,6 +376,14 @@ local function Build(panel)
       end
     end
     for _, row in pairs(self.List.rows) do PlaceCells(row) end
+    -- controller: left and right go along the headings as they stand now (the player sorts and resizes
+    -- them; the last one reaches to the edge, its middle far off)
+    if ns.Pad.Active() then
+      local buttons = {}
+      for _, column in ipairs(self.shown) do buttons[#buttons + 1] = self.Headers[column.key] end
+      buttons[#buttons + 1] = self.AddColumn
+      ns.Pad.Row(buttons)
+    end
   end
 
   -- The columns that are hidden and could show

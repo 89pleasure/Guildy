@@ -159,6 +159,10 @@ function Timeline.Create(box, messages, opts)
   end
 
   rail:SetScript("OnClick", function() SetFraction(CursorFraction(ThumbHeight(rail:GetHeight() or 0) / 2)) end)
+  -- controller: the rail jumps to where the mouse is and the thumb is dragged, neither works without the
+  -- mouse; the day marks on the rail stay reachable (jump to the day)
+  ns.Pad.MouseOnly(rail, true)
+  ns.Pad.MouseOnly(thumb)
   thumb:SetScript("OnMouseDown", function(self)
     local _, y = GetCursorPosition()
     self.grab = (self:GetTop() or 0) - y / (rail:GetEffectiveScale() or 1)

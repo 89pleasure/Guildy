@@ -1,5 +1,34 @@
 # Changelog
 
+## 1.13.0
+
+Basic controller support: Guildy now works with the game's built-in controller interface (turned on in
+the game's options under Controller). This is a first batch: rearranging the layout, moving and resizing
+the window and right-click menus still need the mouse.
+
+- New: L1 and R1 switch between the bottom tabs while the guild window is open, as on Blizzard's own
+  windows with tabs. They go back to their normal use when the window closes or combat starts.
+- New: the cursor starts on the tab you're looking at when the window opens, usually Chat.
+- New: dropdown menus (channel, sorting, class and rank filters, the time of an event, the options) open
+  as the game's own menus: the cursor jumps in, Circle closes just the menu, and the cursor goes back to
+  the button.
+- New: the options window, confirmation dialogs, the title picker and the copy box take the cursor while
+  they're open, and Circle closes just them.
+- Fixed: buttons that use Blizzard's guild functions did nothing on Cross: closing the window, inviting,
+  accepting or declining a community invite, editing the guild info and ranks, removing a member. They
+  now work like with the mouse.
+- Fixed: the cursor moved onto Blizzard's guild window hidden under Guildy, onto buttons and lists you
+  couldn't see. It now only reaches what you see.
+- Fixed: moving around went to the wrong place in several spots. Left and right now go along the bottom
+  tabs, the toolbar and the column headings in the order shown (also after you rearrange columns), up
+  from the tabs goes to the chat line and down from it back to the tabs, and list rows are reached at the
+  member's name instead of a value inside the row.
+- Fixed: a member's card flashed up for a moment and vanished when the cursor moved onto their row. It now
+  stays while the cursor is on the row.
+- Fixed: the cursor could get stuck on things that only work with the mouse: the window's resize corner,
+  the chat's timeline bar and the character model on the member page. It now skips them; the day marks
+  on the timeline can still be reached.
+
 ## 1.12.0
 
 - New: with EllesmereUI installed, Guildy takes on its look. The window, its options, boxes, buttons,
