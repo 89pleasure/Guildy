@@ -204,24 +204,14 @@ T.describe("Controller mode", function()
     T.eq(world.errors, {})
   end)
 
-  T.it("switches the bottom tabs with the shoulder buttons while the window is open", function()
+  T.it("leaves the shoulder buttons to the game and other addons", function()
     local world = World()
-    local ns, env, log = world.ns, world.env, world.log
+    local env, log = world.env, world.log
     env.CommunitiesFrame:Show()
-    T.eq(log.bindings, { PADLSHOULDER = "GuildyPadPrevTab", PADRSHOULDER = "GuildyPadNextTab" })
-    T.eq(ns.UI.Current(), "chat")
-    env.GuildyPadNextTab:GetScript("OnClick")(env.GuildyPadNextTab)
-    T.eq(ns.UI.Current(), "members")
-    T.truthy(log.target == env.GuildyFrameTab2, "the cursor follows to the tab")
-    env.GuildyPadPrevTab:GetScript("OnClick")(env.GuildyPadPrevTab)
-    env.GuildyPadPrevTab:GetScript("OnClick")(env.GuildyPadPrevTab) -- nothing left of the chat
-    T.eq(ns.UI.Current(), "chat")
+    T.eq(log.bindings, {})
+    T.eq(rawget(env, "GuildyPadNextTab"), nil)
     env.CommunitiesFrame:Hide()
-    env.GuildyFrame:Hide() -- (in the game it hides with its parent)
-    T.eq(log.bindings, {}) -- closed: the shoulder buttons pick targets again
-    env.CommunitiesFrame:Show()
-    env.GuildyPadNextTab:GetParent():GetScript("OnEvent")(env.GuildyPadNextTab:GetParent(), "PLAYER_REGEN_DISABLED")
-    T.eq(log.bindings, {}) -- combat: let go
+    T.eq(log.bindings, {})
     T.eq(world.errors, {})
   end)
 

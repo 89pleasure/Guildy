@@ -458,7 +458,6 @@ local function Build()
   end)
   -- (no sounds of its own: Blizzard's window plays its open and close sounds)
   frame:SetScript("OnHide", function()
-    if UI.BindShoulders then UI.BindShoulders(false) end -- (defined further down)
     if UI.HideOverlay then UI.HideOverlay() end
     if UI.HideOptions then UI.HideOptions() end -- the options are a window of their own (UI/Options.lua)
     if bankMode then -- the next opening with J comes back to where the window was before the banker
@@ -765,56 +764,11 @@ local function FocusGamepad()
 end
 UI.FocusGamepad = FocusGamepad
 
--- L1 and R1 (the shoulder buttons) go to the bottom tab left and right of the one shown, as on Blizzard's
--- own windows with tabs. Blizzard's windows bind them through its gamepad binding stack, which is not
--- made for addons; Guildy binds them as override bindings of its own while the window is open in
--- controller mode, and lets them go when it closes and when combat starts (bindings cannot change in
--- combat, and in the game the shoulder buttons pick targets).
-local shoulders
-local function TabStep(step)
-  if not (frame and frame:IsShown()) then return end
-  local shown, at = {}, nil
-  for _, tab in ipairs(tabs) do
-    if tab.button and tab.button:IsShown() then
-      shown[#shown + 1] = tab
-      if tab == current then at = #shown end
-    end
-  end
-  -- from a side tab (the communities): the first or last bottom tab
-  local to = at and shown[at + step] or (not at and (step > 0 and shown[1] or shown[#shown])) or nil
-  if not to then return end
-  UI.SelectTab(to.key)
-  ns.Pad.Target(Host(), to.button)
-end
-
-local function BindShoulders(on)
-  local set, clear = rawget(_G, "SetOverrideBindingClick"), rawget(_G, "ClearOverrideBindings")
-  if type(set) ~= "function" or type(clear) ~= "function" or InCombatLockdown() then return end
-  if not shoulders then
-    if not on then return end
-    shoulders = ns.CreateFrame("Frame")
-    for name, step in pairs({ GuildyPadPrevTab = -1, GuildyPadNextTab = 1 }) do
-      local button = ns.CreateFrame("Button", name, shoulders)
-      button:SetScript("OnClick", function() TabStep(step) end)
-    end
-    shoulders:RegisterEvent("PLAYER_REGEN_DISABLED") -- (bindings can still change while it is handled)
-    shoulders:RegisterEvent("PLAYER_REGEN_ENABLED")
-    shoulders:SetScript("OnEvent", function(self, event)
-      if event == "PLAYER_REGEN_DISABLED" then
-        clear(self)
-      elseif frame and frame:IsShown() and not blizzardMode and ns.GamepadUI() then
-        set(self, true, "PADLSHOULDER", "GuildyPadPrevTab")
-        set(self, true, "PADRSHOULDER", "GuildyPadNextTab")
-      end
-    end)
-  end
-  clear(shoulders)
-  if on and ns.GamepadUI() then
-    set(shoulders, true, "PADLSHOULDER", "GuildyPadPrevTab")
-    set(shoulders, true, "PADRSHOULDER", "GuildyPadNextTab")
-  end
-end
-UI.BindShoulders = BindShoulders
+-- L1 and R1 (the shoulder buttons) stay the game's and other addons'. Guildy bound them to its bottom
+-- tabs as override bindings for a while (1.13.0): that took them from controller addons like
+-- Controller Forever, came back after every fight even with the window closed, and Blizzard's gamepad
+-- code reported Guildy for a blocked SetPreferredGamepadInteractTarget when the window closed (seen
+-- 2026-11-24). The tabs are reached with the cursor.
 
 -- Guildy's window inside Blizzard's: child of it, drawn on top (Blizzard's own drawing at alpha 0),
 -- Blizzard's window placed exactly under Guildy's
@@ -860,7 +814,6 @@ local function Open()
   noGuild = not IsInGuild()
   LayoutTabs()
   LinkTabsForGamepad()
-  BindShoulders(true)
   if ns.GamepadUI() then C_Timer.After(0, FocusGamepad) end
   if noGuild then
     -- only the communities work without a guild
