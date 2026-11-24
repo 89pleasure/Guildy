@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.14.0
+
+- New: "Not mine" under Options > Members > "Characters on this account". A WTF folder copied from
+  someone else's PC brings their characters along, and Guildy then announced them all as your twinks.
+  "Not mine" takes such a character out, replaces the wrong list in the guild and sends the corrected
+  ones. Logging in with the character adds it back.
+- New: "Wrong?" beside the Family box on a member's page. Its tooltip explains where family links come
+  from (your own characters, other Guildy users' lists, notes like "Alt, Name") and a click opens the
+  options page that fixes them.
+- Fixed: in controller mode Guildy took L1 and R1 for its tabs, and after every fight it took them again
+  even with the window closed. That broke them for the game and for controller addons like Controller
+  Forever. Guildy no longer binds L1 and R1; the tabs are reached with the cursor.
+- Fixed: closing the guild window in controller mode could report Guildy for a blocked
+  SetPreferredGamepadInteractTarget.
+- Fixed: in controller mode a big guild froze for seconds after opening the window. Blizzard's hidden
+  member list, which Guildy uses for notes, now only grows once you go to edit a note.
+
 ## 1.13.0
 
 Basic controller support: Guildy now works with the game's built-in controller interface (turned on in
