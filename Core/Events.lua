@@ -59,6 +59,14 @@ function Events.Civil(stamp)
   return y, m, d, floor(rest / 60), rest % 60
 end
 
+-- Minutes the player's clock is ahead of the calendar, both read as stamps now. Time zones differ in quarter
+-- hours; more than 26 hours between them do not exist (a wrong reading: no shift).
+function Events.Shift(localStamp, calendarStamp)
+  local shift = floor((localStamp - calendarStamp) / 15 + 0.5) * 15
+  if shift < -1560 or shift > 1560 then return 0 end
+  return shift
+end
+
 -- 1 Monday ... 7 Sunday (1970-01-01 was a Thursday)
 function Events.Weekday(stamp)
   return (floor(stamp / 1440) + 3) % 7 + 1

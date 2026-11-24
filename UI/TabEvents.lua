@@ -63,6 +63,23 @@ local function DateText(stamp)
   return E.ShortDate(stamp, GE.DayNames(), L.EV_MONTH_FIRST == "1"), E.Clock(h, mi)
 end
 
+-- "Server 20:00" for a time shown shifted (GE.Shift), with the date when it is another day there; nil without
+-- a shift
+local function ServerText(stamp, shift)
+  if shift == 0 then return nil end
+  local date, clock = DateText(stamp)
+  if math.floor(stamp / 1440) ~= math.floor((stamp + shift) / 1440) then clock = date .. ", " .. clock end
+  return ns.L.EV_SERVER_TIME:format(clock)
+end
+
+-- Date and time of an event as the tab shows them: "Fr 04.12.", "21:00 (Server 20:00)"
+local function ShownDate(stamp)
+  local shift = GE.Shift()
+  local date, clock = DateText(stamp + shift)
+  local server = ServerText(stamp, shift)
+  return date, server and ("%s (%s)"):format(clock, server) or clock
+end
+
 -- "in 20 min", "today in 3 h", "tomorrow", "in 5 days", "started"
 local function Relative(stamp, now)
   local L = ns.L
@@ -262,7 +279,7 @@ local function BuildDetail(view, box)
   d.Delete:SetScript("OnClick", function()
     local item = view:PickedItem()
     if not item then return end
-    local date, clock = DateText(item.stamp)
+    local date, clock = ShownDate(item.stamp)
     UI.Confirm(L.EV_DELETE_CONFIRM:format(item.name, date .. ", " .. clock), { run = function() GE.Delete(item) end },
       L.EV_DELETE, true)
   end)
@@ -715,9 +732,10 @@ local function Build(panel)
       row.Section:SetText(item.header)
       return
     end
-    local _, _, day, h, mi = E.Civil(item.stamp)
+    local shown = item.stamp + GE.Shift()
+    local _, _, day, h, mi = E.Civil(shown)
     row.Day:SetText(day)
-    row.Weekday:SetText(GE.DayNames()[E.Weekday(item.stamp)])
+    row.Weekday:SetText(GE.DayNames()[E.Weekday(shown)])
     local title = DungeonMark(item.dungeon, 16) .. item.name
     if item.key == GE.reminded then title = Colored("ffd100", title) end
     row.Title:SetText(title)
@@ -836,13 +854,13 @@ local function Build(panel)
       return
     end
     local detail = GE.Detail(item.key)
-    local now = GE.Now()
+    local now, shift = GE.Now(), GE.Shift()
     d.Title:SetText(DungeonMark(item.dungeon, 26) .. item.name)
     local badge = TypeMark(item.kind) .. " " .. Colored(COLORS[item.kind] or COLORS.other, GE.Labels()[item.kind])
     if item.dungeon and not item.dungeon.raid then badge = badge .. "  ·  " .. DungeonLevels(item.dungeon) end
     d.Badge:SetText(badge)
-    local date, clock = DateText(item.stamp)
-    local parts = { date, clock, Relative(item.stamp, now) }
+    local date, clock = ShownDate(item.stamp)
+    local parts = { date, clock, Relative(item.stamp + shift, now + shift) }
     if detail and detail.creator then parts[#parts + 1] = L.EV_BY:format(detail.creator) end
     d.When:SetText(table.concat(parts, "  ·  "))
     d.Desc:SetText(detail and detail.description or "")
@@ -931,14 +949,14 @@ local function Build(panel)
       item.dungeon = DungeonOf(item.name)
       if item.dungeon and item.kind == "other" then item.kind = item.dungeon.raid and "raid" or "dungeon" end
     end
-    local now = GE.Now()
+    local now, shift = GE.Now(), GE.Shift()
     local items, shown, lastGroup = {}, {}, nil
     for _, item in ipairs(all) do
       if not self.onlyOpen or (item.answerable and item.answer == "open") then shown[#shown + 1] = item end
     end
     local headers = { week = L.EV_GROUP_WEEK, next = L.EV_GROUP_NEXT, later = L.EV_GROUP_LATER }
     for _, item in ipairs(shown) do
-      local group = E.Group(item.stamp, now)
+      local group = E.Group(item.stamp + shift, now + shift)
       if group ~= lastGroup then
         items[#items + 1] = { header = headers[group] }
         lastGroup = group
@@ -968,17 +986,28 @@ local function Build(panel)
   -- the form ------------------------------------------------------------------------------------------------
   local f = view.Form
 
+  -- The form's day, hour and minute are on the player's clock (f.shift: GE.Shift as it was filled)
+  local function FormStamp()
+    return (f.day or 0) * 1440 + (f.hour or 0) * 60 + (f.minute or 0) - (f.shift or 0)
+  end
+
+  local function FormToday()
+    return math.floor((GE.Now() + (f.shift or 0)) / 1440)
+  end
+
   -- editing: the event (an item of the list) whose values fill the form
   function view:OpenForm(editing)
-    local now = GE.Now()
+    f.shift = GE.Shift()
+    local now = GE.Now() + f.shift
     local today = math.floor(now / 1440)
     f.editing = editing
     f.Heading:SetText(editing and L.EV_FORM_EDIT_TITLE or L.EV_FORM_TITLE)
     if editing then
       GE.Open(editing) -- saving needs it open in the client
       local detail = GE.Detail(editing.key)
-      local _, _, _, h, mi = E.Civil(editing.stamp)
-      f.day, f.hour, f.minute = math.floor(editing.stamp / 1440), h, mi
+      local stamp = editing.stamp + f.shift
+      local _, _, _, h, mi = E.Civil(stamp)
+      f.day, f.hour, f.minute = math.floor(stamp / 1440), h, mi
       f.kind = editing.kind
       f.dungeon = editing.dungeon
       f.autoName = editing.dungeon and editing.name == editing.dungeon.name and editing.name or nil
@@ -1019,13 +1048,9 @@ local function Build(panel)
   end
 
   function view:MoveDate(step)
-    local today = math.floor(GE.Now() / 1440)
+    local today = FormToday()
     f.day = math.max(today, math.min(today + DATE_DAYS, (f.day or today) + step))
     self:FormChanged()
-  end
-
-  local function FormStamp()
-    return (f.day or 0) * 1440 + (f.hour or 0) * 60 + (f.minute or 0)
   end
 
   function view:FormChanged()
@@ -1051,8 +1076,7 @@ local function Build(panel)
     else
       f.WhenLabel:SetPoint("TOPLEFT", f.TypeLabel, "BOTTOMLEFT", 0, -20)
     end
-    local now = GE.Now()
-    local today = math.floor(now / 1440)
+    local now, today = GE.Now(), FormToday()
     f.Date:SetText(E.ShortDate((f.day or today) * 1440, GE.DayNames(), L.EV_MONTH_FIRST == "1"))
     f.Hour:SetText(("%02d"):format(f.hour or 0))
     f.Minute:SetText(("%02d"):format(f.minute or 0))
@@ -1060,8 +1084,10 @@ local function Build(panel)
     f.Next:SetEnabled((f.day or today) < today + DATE_DAYS)
     local stamp = FormStamp()
     local days = (f.day or today) - today
+    local relative = days == 0 and L.EV_TODAY or days == 1 and L.EV_TOMORROW or L.EV_IN_DAYS:format(days)
+    local server = ServerText(stamp, f.shift or 0)
     f.Relative:SetText(stamp <= now and Colored("ff5a4c", L.EV_ERR_PAST)
-      or days == 0 and L.EV_TODAY or days == 1 and L.EV_TOMORROW or L.EV_IN_DAYS:format(days))
+      or server and relative .. " · " .. server or relative)
   end
 
   function view:FormError(text)

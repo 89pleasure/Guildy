@@ -653,4 +653,136 @@ T.describe("Guild events", function()
     ns.UI.SelectTab("chat")
     T.eq(errors, {})
   end)
+
+  -- the player's clock (date) so many hours from the realm's calendar (nowT)
+  local function Clock(hours)
+    local t = os.date("*t", os.time({ year = nowT.year, month = nowT.month, day = nowT.monthDay, hour = nowT.hour + hours,
+      min = nowT.minute }))
+    env.date = function(fmt, ts)
+      if fmt == "*t" then return t end
+      return os.date(fmt, ts)
+    end
+  end
+
+  local function EventsView()
+    env.CommunitiesFrame:Show()
+    ns.UI.SelectTab("events")
+    local view = ns.UI.TabView("events")
+    view:Refresh()
+    return view
+  end
+
+  T.it("shows event times on the player's clock, with the server's behind", function()
+    Reset()
+    Clock(6)
+    Event("Kern", 20, 0) -- Friday the 4th on the realm, Saturday 02:00 here
+    local view = EventsView()
+    local item = GE.List()[1]
+    T.eq(item.key, "Kern@" .. E.Stamp(2026, 12, 4, 20, 0), "the key stays the realm's")
+    local when = view.Detail.When:GetText()
+    T.truthy(when:find("Sa 05.12.", 1, true), when)
+    T.truthy(when:find("02:00 (Server Fr 04.12., 20:00)", 1, true), when)
+    local day, sub
+    for _, row in pairs(view.List.rows) do
+      if row.item and row.item.key == item.key then day, sub = row.Day:GetText(), row.Sub:GetText() end
+    end
+    T.eq(tostring(day), "5")
+    T.truthy(sub:find("02:00", 1, true), sub)
+    -- the same day: the time alone
+    Clock(1)
+    view:Refresh()
+    when = view.Detail.When:GetText()
+    T.truthy(when:find("21:00 (Server 20:00)", 1, true), when)
+    -- in the realm's time zone: only the time
+    Clock(0)
+    view:Refresh()
+    when = view.Detail.When:GetText()
+    T.truthy(when:find("Fr 04.12.  ·  20:00", 1, true), when)
+    T.eq(when:find("Server", 1, true), nil)
+    Clock(0)
+    ns.UI.SelectTab("chat")
+    T.eq(errors, {})
+  end)
+
+  T.it("stays on calendar time when the client has no calendar time to compare with", function()
+    Reset()
+    Clock(6)
+    local dt = env.C_DateAndTime
+    env.C_DateAndTime = nil
+    T.eq(GE.Shift(), 0)
+    env.C_DateAndTime = dt
+    T.eq(GE.Shift(), 360)
+    Clock(0)
+  end)
+
+  T.it("groups by the player's week", function()
+    Reset()
+    Clock(6)
+    Event("Sonntag", 20, 0, { d = 6 }) -- Monday 02:00 here
+    local view = EventsView()
+    T.eq(view.List.items[1].header, ns.L.EV_GROUP_NEXT)
+    Clock(0)
+    view:Refresh()
+    T.eq(view.List.items[1].header, ns.L.EV_GROUP_WEEK)
+    ns.UI.SelectTab("chat")
+    T.eq(errors, {})
+  end)
+
+  T.it("takes local time in the form and saves the realm's", function()
+    Reset()
+    Clock(2)
+    local view = EventsView()
+    local f = view.Form
+    view:OpenForm()
+    f.Name:SetText("Angeln")
+    f.day, f.hour, f.minute = math.floor(E.Stamp(2026, 12, 12) / 1440), 1, 30
+    view:FormChanged()
+    T.truthy(f.Relative:GetText():find("Server Fr 11.12., 23:30", 1, true), f.Relative:GetText())
+    view:Submit()
+    T.eq({ created.m, created.d, created.h, created.mi }, { 12, 11, 23, 30 })
+    GE.Reset()
+    view:CloseForm()
+    -- past is past on both clocks
+    view:OpenForm()
+    f.day, f.hour, f.minute = math.floor(E.Stamp(2026, 12, 4) / 1440), 20, 0 -- here it is 21:00
+    view:FormChanged()
+    T.truthy(f.Relative:GetText():find(ns.L.EV_ERR_PAST, 1, true))
+    view:CloseForm()
+    Clock(0)
+    ns.UI.SelectTab("chat")
+    T.eq(errors, {})
+  end)
+
+  T.it("keeps the event's time when editing", function()
+    Reset()
+    Clock(6)
+    env.canEdit = true
+    Event("Kern", 20, 0)
+    local view = EventsView()
+    local f = view.Form
+    view:OpenForm(view:PickedItem())
+    Fire("CALENDAR_OPEN_EVENT", "GUILD_EVENT")
+    T.eq({ f.hour, f.minute }, { 2, 0 })
+    created = {}
+    view:Submit()
+    T.eq({ created.m, created.d, created.h, created.mi }, { 12, 4, 20, 0 })
+    GE.Reset()
+    view:CloseForm()
+    env.canEdit = nil
+    Clock(0)
+    ns.UI.SelectTab("chat")
+    T.eq(errors, {})
+  end)
+
+  T.it("keeps guild chat on server time", function()
+    Reset()
+    Clock(6)
+    Event("Baden", 19, 30)
+    GE.Tick()
+    RunTimers()
+    KeyPress()
+    T.truthy(chat[1] and chat[1].text:find("(19:30)", 1, true))
+    Clock(0)
+    T.eq(errors, {})
+  end)
 end)

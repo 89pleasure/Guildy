@@ -975,6 +975,7 @@ ns.LocaleTables.enUS = {
   EV_TODAY = "today",
   OPTIONS_EVENT_REMIND = "Reminder before guild events (30 minutes)",
   OPTIONS_EVENT_POST = "Post reminders in guild chat",
+  EV_SERVER_TIME = "Server %s",
   EV_INTRO_TITLE = "Guild events",
   EV_INTRO = "The events of your guild's calendar. Answer with one click and see who comes. Members without Guildy see the same events in Blizzard's calendar and answer there. 30 minutes before the start, Guildy reminds you and the guild chat.",
   EV_ROLE_TANK = "Tanks",

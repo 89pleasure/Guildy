@@ -974,6 +974,7 @@ ns.LocaleTables.frFR = {
   EV_TODAY = "aujourd'hui",
   OPTIONS_EVENT_REMIND = "Rappel avant les événements de guilde (30 minutes)",
   OPTIONS_EVENT_POST = "Publier les rappels dans la discussion de guilde",
+  EV_SERVER_TIME = "serveur %s",
   EV_INTRO_TITLE = "Événements de guilde",
   EV_INTRO = "Les événements du calendrier de votre guilde. Répondez en un clic et voyez qui vient. Les membres sans Guildy voient les mêmes événements dans le calendrier de Blizzard et y répondent. 30 minutes avant le début, Guildy vous le rappelle, ainsi qu'à la discussion de guilde.",
   EV_ROLE_TANK = "Tanks",

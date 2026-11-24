@@ -974,6 +974,7 @@ ns.LocaleTables.deDE = {
   EV_TODAY = "heute",
   OPTIONS_EVENT_REMIND = "Erinnerung vor Gilden-Ereignissen (30 Minuten)",
   OPTIONS_EVENT_POST = "Erinnerungen im Gildenchat posten",
+  EV_SERVER_TIME = "Server %s",
   EV_INTRO_TITLE = "Gilden-Ereignisse",
   EV_INTRO = "Die Ereignisse aus dem Kalender deiner Gilde. Antworte mit einem Klick und sieh, wer kommt. Mitglieder ohne Guildy sehen dieselben Ereignisse im Blizzard-Kalender und antworten dort. 30 Minuten vor Beginn erinnert Guildy dich und den Gildenchat.",
   EV_ROLE_TANK = "Tanks",

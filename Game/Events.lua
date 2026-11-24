@@ -78,6 +78,19 @@ function GE.Now()
   return E.Stamp(t.year, t.month, t.monthDay, t.hour, t.minute)
 end
 
+-- Minutes from the calendar's time to the player's own clock, which the Events tab shows (the server's moment
+-- in the PC's time zone, so a wrong PC clock does no harm).
+-- Only for showing and entering times: stamps, keys, reminders and guild chat stay the calendar's.
+function GE.Shift()
+  local dt = rawget(_G, "C_DateAndTime")
+  local calendar = dt and ns.Try(dt.GetCurrentCalendarTime)
+  if type(calendar) ~= "table" or not calendar.year or ns.AnySecret(calendar.year) then return 0 end
+  local ok, t = pcall(rawget(_G, "date") or os.date, "*t", ns.Now())
+  if not ok or type(t) ~= "table" then return 0 end
+  return E.Shift(E.Stamp(t.year, t.month, t.day, t.hour, t.min),
+    E.Stamp(calendar.year, calendar.month, calendar.monthDay, calendar.hour, calendar.minute))
+end
+
 -- The five type names in the player's language
 function GE.Labels()
   local L = ns.L

@@ -974,6 +974,7 @@ ns.LocaleTables.esES = {
   EV_TODAY = "hoy",
   OPTIONS_EVENT_REMIND = "Recordatorio antes de los eventos de hermandad (30 minutos)",
   OPTIONS_EVENT_POST = "Publicar recordatorios en el chat de hermandad",
+  EV_SERVER_TIME = "servidor %s",
   EV_INTRO_TITLE = "Eventos de hermandad",
   EV_INTRO = "Los eventos del calendario de tu hermandad. Responde con un clic y mira quién viene. Los miembros sin Guildy ven los mismos eventos en el calendario de Blizzard y responden allí. 30 minutos antes, Guildy te lo recuerda a ti y al chat de hermandad.",
   EV_ROLE_TANK = "Tanques",

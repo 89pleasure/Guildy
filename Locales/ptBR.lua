@@ -974,6 +974,7 @@ ns.LocaleTables.ptBR = {
   EV_TODAY = "hoje",
   OPTIONS_EVENT_REMIND = "Lembrete antes dos eventos da guilda (30 minutos)",
   OPTIONS_EVENT_POST = "Publicar lembretes no bate-papo da guilda",
+  EV_SERVER_TIME = "servidor %s",
   EV_INTRO_TITLE = "Eventos da guilda",
   EV_INTRO = "Os eventos do calendário da sua guilda. Responda com um clique e veja quem vem. Membros sem o Guildy veem os mesmos eventos no calendário da Blizzard e respondem lá. 30 minutos antes do início, o Guildy lembra você e o bate-papo da guilda.",
   EV_ROLE_TANK = "Tanques",
