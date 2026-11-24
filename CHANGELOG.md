@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- New: with EllesmereUI installed, Guildy takes on its look. The window, its options, boxes, buttons,
+  tabs, input fields, checkboxes and scroll bars follow your EllesmereUI theme and its accent color.
+  Guildy appears in EllesmereUI's options under Blizzard Skins+ > Window Skins > Third-Party Addons,
+  where you can switch this off. Without EllesmereUI nothing changes.
+
 ## 1.11.3
 
 - Fixed: in guilds of around 1000 members, the game could still freeze every 10 to 15 seconds while you

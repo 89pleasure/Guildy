@@ -32,7 +32,9 @@ function W.Box(parent, shade, border)
     box:SetBackdropColor(shade, shade * 0.85, shade * 0.6, 0.95)
     box:SetBackdropBorderColor(W.GOLD[1] * border, W.GOLD[2] * border, W.GOLD[3] * border)
   end
-  return box
+  -- (EllesmereUI's flat panel instead, painted before anything is drawn into the box: it fades the
+  -- textures the box holds when it is painted)
+  return ns.Skin.Apply("Panel", box)
 end
 
 -- The look of Guildy's floating panels (the activity score panel, the item tooltips): an opaque dark
@@ -104,7 +106,7 @@ function W.IconButton(parent, texture, size, onClick, title, tip)
   button.Icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
   button:SetScript("OnClick", onClick)
   if title then W.Tooltip(button, title, tip) end
-  return button
+  return ns.Skin.Apply("IconButton", button)
 end
 
 -- Heading in the quest book font with an ornamental divider below
@@ -190,7 +192,7 @@ function W.Button(parent, text, onClick, width, opts)
   if hooksecurefunc then hooksecurefunc(button, "SetText", Fit) end
   button:SetText(text)
   button:SetScript("OnClick", onClick)
-  return button
+  return ns.Skin.Apply("Button", button)
 end
 
 -- A handle over something that is changed while a tab is customized (a tile, a title card, the heading
@@ -337,7 +339,7 @@ function W.EditBox(parent, width, numeric)
   if numeric then box:SetNumeric(true) end
   box:SetScript("OnEscapePressed", box.ClearFocus)
   box:SetScript("OnEnterPressed", box.ClearFocus)
-  return box
+  return ns.Skin.Apply("EditBox", box)
 end
 
 -- Page scaffold --------------------------------------------------------------------------------------
@@ -430,6 +432,8 @@ function W.ScrollList(parent, rowHeight, createRow, updateRow)
     end
   end
   scroll.UpdateBar = UpdateBar
+  -- with EllesmereUI's look the slim bar in its colors (its own scroll bar skin is for another template)
+  if ns.Skin.Active() then W.SlimScrollBar(scroll, 8) end
   -- Builds and fills the rows in view that this round has not filled yet
   local function FillVisible()
     local items = scroll.items
@@ -495,11 +499,19 @@ function W.ScrollList(parent, rowHeight, createRow, updateRow)
 end
 
 -- Restyle a UIPanelScrollFrameTemplate's bar as a slim gold track without arrows (the chat timeline
--- look). Gives the bar the given right inset inside the scroll frame's parent; skips what a client's
--- template lacks.
+-- look; white like EllesmereUI's bars with its look). Gives the bar the given right inset inside the
+-- scroll frame's parent; skips what a client's template lacks. Called again it only places the bar.
+local SLIM_EUI = { track = { 1, 1, 1, 0.08 }, thumb = { 1, 1, 1, 0.3 }, width = 4 }
+local SLIM_GOLD = { track = { W.GOLD[1], W.GOLD[2], W.GOLD[3], 0.35 }, thumb = { W.GOLD[1], W.GOLD[2], W.GOLD[3], 1 }, width = 6 }
 function W.SlimScrollBar(scroll, right)
   local bar = scroll.ScrollBar
   if type(bar) ~= "table" then return end
+  bar:ClearAllPoints()
+  bar:SetPoint("TOPLEFT", scroll, "TOPRIGHT", (right or 6), 0)
+  bar:SetPoint("BOTTOMLEFT", scroll, "BOTTOMRIGHT", (right or 6), 0)
+  if rawget(bar, "guildySlim") then return end
+  rawset(bar, "guildySlim", true)
+  local look = ns.Skin.Active() and SLIM_EUI or SLIM_GOLD
   for _, key in ipairs({ "ScrollUpButton", "ScrollDownButton" }) do
     local button = bar[key]
     if type(button) == "table" then
@@ -513,19 +525,16 @@ function W.SlimScrollBar(scroll, right)
       region:SetAlpha(0) -- template track art
     end
   end
-  bar:ClearAllPoints()
-  bar:SetPoint("TOPLEFT", scroll, "TOPRIGHT", (right or 6), 0)
-  bar:SetPoint("BOTTOMLEFT", scroll, "BOTTOMRIGHT", (right or 6), 0)
   bar:SetWidth(8)
   local track = bar:CreateTexture(nil, "BACKGROUND")
   track:SetPoint("TOP", 0, 0)
   track:SetPoint("BOTTOM", 0, 0)
   track:SetWidth(2)
-  track:SetColorTexture(W.GOLD[1], W.GOLD[2], W.GOLD[3], 0.35)
+  track:SetColorTexture(look.track[1], look.track[2], look.track[3], look.track[4])
   local thumb = bar.GetThumbTexture and bar:GetThumbTexture()
   if thumb then
-    thumb:SetColorTexture(W.GOLD[1], W.GOLD[2], W.GOLD[3], 1)
-    thumb:SetSize(6, 24)
+    thumb:SetColorTexture(look.thumb[1], look.thumb[2], look.thumb[3], look.thumb[4])
+    thumb:SetSize(look.width, 24)
   end
 end
 
@@ -672,7 +681,7 @@ function W.Tab(frame, index, text, onClick)
   tab:SetText(text)
   tab:SetScript("OnClick", onClick)
   if PanelTemplates_TabResize then pcall(PanelTemplates_TabResize, tab, 0) else tab:SetSize(110, 24) end
-  return tab
+  return ns.Skin.Apply("Tab", tab)
 end
 
 

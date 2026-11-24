@@ -147,6 +147,7 @@ local function SideTab(parent, texture, tooltip, onClick)
         if button == "LeftButton" and upInside ~= false and onClick then onClick(self) end
       end)
     end
+    -- (Blizzard's tab art also with EllesmereUI's look: it leaves the side tabs of its own windows as they are)
     -- lit from the outside while the secure overlay covers it (UI/Commands.lua)
     function tab:SetHover(on)
       if not self.HighlightTexture then return end
@@ -287,6 +288,7 @@ end
 local function Build()
   frame = ns.CreateFrame("Frame", "GuildyFrame", Host() or UIParent, "ButtonFrameTemplate")
   frame:Hide()
+  ns.Skin.Apply("Window", frame) -- EllesmereUI's look (UI/Skin.lua), before Guildy draws into the frame
   local settings = ns.Settings()
   -- a saved size outside the bounds (older versions, a jumped resize) comes back inside them
   frame:SetSize(math.min(UI.MAX_W, math.max(UI.MIN_W, settings.width or 1000)),
@@ -334,6 +336,7 @@ local function Build()
   -- no UISpecialFrames entry: Escape closes Blizzard's window, and Guildy with it. The close button
   -- clicks Blizzard's own close button (secure click, UI/Commands.lua), so Blizzard's code closes it.
   frame.Close = frame.CloseButton or rawget(_G, "GuildyFrameCloseButton")
+  ns.Skin.Apply("CloseButton", frame.Close)
   if type(frame.Close) == "table" and frame.Close.SetScript and UI.SecureAction then
     UI.SecureAction(frame.Close, function()
       if bankMode then return nil end -- no Blizzard window to close: the click closes Guildy itself
@@ -373,6 +376,8 @@ local function Build()
     local portrait = frame.PortraitContainer and frame.PortraitContainer.portrait or frame.portrait
     if portrait then portrait:SetAlpha(0) end
   end
+  -- EllesmereUI's windows have no portrait: no emblem in its place either
+  if ns.Skin.Active() then frame.Emblem:SetAlpha(0) end
 
   -- side tabs outside the right edge, exactly like Blizzard's profession window: Guildy with the guild
   -- emblem, the communities.

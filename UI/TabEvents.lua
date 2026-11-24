@@ -130,7 +130,7 @@ local function OpenBlizzard(item)
 end
 
 local function Check(parent, label)
-  local check = ns.CreateFrame("CheckButton", nil, parent, "UICheckButtonTemplate")
+  local check = ns.Skin.Apply("Checkbox", ns.CreateFrame("CheckButton", nil, parent, "UICheckButtonTemplate"))
   check:SetSize(24, 24)
   check.Label = W.Text(parent, "GameFontHighlightSmall", label)
   check.Label:SetPoint("LEFT", check, "RIGHT", 0, 0)

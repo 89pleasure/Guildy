@@ -17,6 +17,11 @@ local GOLD = { 0.79, 0.64, 0.29 }
 local NEW = { 1, 0.55, 0.25 }
 local MUTED = { 0.56, 0.51, 0.41 }
 local TRACK_RIGHT = 7 -- the track is 2 px wide, ending this far from the rail's right edge
+-- the rail's colors: Guildy's gold, or white like EllesmereUI's scroll bars with its look (UI/Skin.lua)
+local RAIL_GOLD = { track = { GOLD[1], GOLD[2], GOLD[3], 0.35 }, thumb = { GOLD[1], GOLD[2], GOLD[3], 1 },
+  hover = { 1, 0.82, 0, 0.35 }, rule = { GOLD[1], GOLD[2], GOLD[3], 0.45 }, tick = GOLD, thumbWidth = 8 }
+local RAIL_EUI = { track = { 1, 1, 1, 0.08 }, thumb = { 1, 1, 1, 0.3 },
+  hover = { 1, 1, 1, 0.2 }, rule = { 1, 1, 1, 0.15 }, tick = { 1, 1, 1 }, thumbWidth = 4 }
 
 local function Offset(frame)
   return frame.GetScrollOffset and frame:GetScrollOffset() or 0
@@ -49,6 +54,7 @@ end
 --   onTop()               called when the view reaches the oldest loaded line
 function Timeline.Create(box, messages, opts)
   local tl = { days = {}, count = 0, marks = {} }
+  local look = ns.Skin.Active() and RAIL_EUI or RAIL_GOLD
 
   -- rail ---------------------------------------------------------------------------------------
   local rail = ns.CreateFrame("Button", nil, box)
@@ -60,10 +66,10 @@ function Timeline.Create(box, messages, opts)
   track:SetPoint("TOPRIGHT", -TRACK_RIGHT, 0)
   track:SetPoint("BOTTOMRIGHT", -TRACK_RIGHT, 0)
   track:SetWidth(2)
-  track:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.35)
+  track:SetColorTexture(unpack(look.track))
 
   local thumb = ns.CreateFrame("Button", nil, rail)
-  thumb:SetWidth(8) -- centered on the track
+  thumb:SetWidth(look.thumbWidth) -- centered on the track
   thumb:SetFrameLevel((rail:GetFrameLevel() or 0) + 3)
   local thumbEdge = thumb:CreateTexture(nil, "BACKGROUND")
   thumbEdge:SetPoint("TOPLEFT", -1, 1)
@@ -71,10 +77,10 @@ function Timeline.Create(box, messages, opts)
   thumbEdge:SetColorTexture(0, 0, 0, 1)
   local thumbTex = thumb:CreateTexture(nil, "ARTWORK")
   thumbTex:SetAllPoints()
-  thumbTex:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
+  thumbTex:SetColorTexture(unpack(look.thumb))
   local thumbHi = thumb:CreateTexture(nil, "HIGHLIGHT")
   thumbHi:SetAllPoints()
-  thumbHi:SetColorTexture(1, 0.82, 0, 0.35)
+  thumbHi:SetColorTexture(unpack(look.hover))
 
   -- pinned strip -------------------------------------------------------------------------------
   local header = ns.CreateFrame("Frame", nil, box)
@@ -88,7 +94,7 @@ function Timeline.Create(box, messages, opts)
   local function Rule(point, relative)
     local tex = header:CreateTexture(nil, "ARTWORK")
     tex:SetHeight(1)
-    tex:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.45)
+    tex:SetColorTexture(unpack(look.rule))
     tex:SetPoint(point, header, point, point == "LEFT" and 20 or -20, 0)
     tex:SetPoint(point == "LEFT" and "RIGHT" or "LEFT", headerText, relative, point == "LEFT" and -10 or 10, 0)
   end
@@ -247,7 +253,7 @@ function Timeline.Create(box, messages, opts)
         local color = entry.isNew and NEW or (entry == currentDay and { 1, 0.82, 0 } or MUTED)
         mark.Label:SetText(entry.isNew and opts.newShort or opts.short(entry.ts))
         mark.Label:SetTextColor(color[1], color[2], color[3])
-        local tick = entry.isNew and NEW or GOLD
+        local tick = entry.isNew and NEW or look.tick
         mark.Tick:SetColorTexture(tick[1], tick[2], tick[3], entry.isNew and 1 or 0.7)
         mark:Show()
       end

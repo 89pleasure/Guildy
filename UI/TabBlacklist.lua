@@ -99,7 +99,7 @@ local function Build(panel)
   end, 120, 170), 8)
 
   local function Check(label, anchor, onClick)
-    local check = ns.CreateFrame("CheckButton", nil, bar, "UICheckButtonTemplate")
+    local check = ns.Skin.Apply("Checkbox", ns.CreateFrame("CheckButton", nil, bar, "UICheckButtonTemplate"))
     check:SetSize(24, 24)
     check:SetPoint("LEFT", anchor, "RIGHT", 6, 0)
     check:SetScript("OnClick", onClick)

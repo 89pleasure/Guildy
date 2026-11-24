@@ -211,6 +211,7 @@ function UI.ChatInput(parent, onSend)
   input:SetHeight(22)
   input:SetAutoFocus(false)
   input:SetMaxLetters(255)
+  ns.Skin.Apply("EditBox", input)
   -- the channel the line goes to, left in the field, plus a placeholder while empty
   input.Channel = W.Text(input, "ChatFontNormal")
   input.Channel:SetPoint("LEFT", 2, 0)

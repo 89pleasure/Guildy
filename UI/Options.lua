@@ -37,7 +37,7 @@ local function Off(check)
 end
 
 local function Check(parent, label, onClick)
-  local check = ns.CreateFrame("CheckButton", nil, parent, "UICheckButtonTemplate")
+  local check = ns.Skin.Apply("Checkbox", ns.CreateFrame("CheckButton", nil, parent, "UICheckButtonTemplate"))
   check:SetSize(24, 24)
   check:SetScript("OnClick", onClick)
   check.Label = W.Text(parent, "GameFontHighlightSmall", label)
@@ -662,6 +662,7 @@ local function Build()
   -- Guildy (UI.HideOptions from the window's OnHide).
   options = ns.CreateFrame("Frame", "GuildyOptions", UIParent, "ButtonFrameTemplate")
   options:Hide()
+  ns.Skin.Apply("Window", options)
   options:SetSize(WIDTH, HEIGHT)
   if options.SetScale then options:SetScale(UI.Scale()) end
   options:SetFrameStrata("DIALOG")
@@ -705,6 +706,7 @@ local function Build()
   if options.Inset then options.Inset:Hide() end
   if options.SetTitle then options:SetTitle(L.OPTIONS_TITLE) elseif options.TitleText then options.TitleText:SetText(L.OPTIONS_TITLE) end
   local close = options.CloseButton or rawget(_G, "GuildyOptionsCloseButton")
+  ns.Skin.Apply("CloseButton", close)
   if type(close) == "table" and close.SetScript then close:SetScript("OnClick", function() options:Hide() end) end
 
   local body = ns.CreateFrame("Frame", nil, options)
