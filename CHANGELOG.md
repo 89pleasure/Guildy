@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.15.0
+
+- New: the Events tab shows event times in your own time zone, and you enter new events in it too. Where it
+  differs from the server's, the server time stands beside it. Guild chat announcements and reminders stay
+  in server time, since everyone reads those, and so does Blizzard's calendar.
+
 ## 1.14.0
 
 - New: "Not mine" under Options > Members > "Characters on this account". A WTF folder copied from
