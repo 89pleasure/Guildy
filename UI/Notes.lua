@@ -109,6 +109,12 @@ Notes.CanEdit = CanEdit
 Notes.TALL_MAX, Notes.SHORT_ROWS, Notes.GROW_STEP, Notes.GROW_WAIT = 200, 12, 40, 1
 local grown = 0 -- rows a big guild's list holds now
 local growing = false
+-- In the gamepad interface the game's cursor searches all of Blizzard's window again for every frame made
+-- in it (SmartNavigation's CreateFrame hook), Guildy's included: each new row of the list cost a search,
+-- and growing to 1000 rows froze the game for seconds (/guildy stress 2026-11-24). There the list only
+-- grows once a note is to be edited (the "Edit notes" button), then for the rest of the session: the
+-- rows stay in Blizzard's pool and come back without being made anew.
+local demanded = false
 local SizeList -- (below)
 
 local function MemberCount()
@@ -272,17 +278,21 @@ local function Step()
 end
 
 function Notes.Grow()
+  if ns.GamepadUI() and not demanded then return end
   if growing or waiting or MemberCount() <= Notes.TALL_MAX or grown >= MemberCount() then return end
   growing = true
   Step()
 end
 
 -- The mouse is on a member somewhere in Guildy: true while a big guild's list is still growing (the
--- member's row may come in a moment)
-function Notes.Wake()
+-- member's row may come in a moment), and in the gamepad interface while it is kept short (a missing row
+-- is no stale roster then: no rebuild is let through for it). demand: a note is to be edited (grows in
+-- the gamepad interface too)
+function Notes.Wake(demand)
   if MemberCount() <= Notes.TALL_MAX then return false end
+  if demand then demanded = true end
   Notes.Grow()
-  return growing
+  return growing or (ns.GamepadUI() and not demanded)
 end
 
 -- Blizzard's list ready before the first click: its rows appear a frame after it grows, so Guildy sizes
@@ -411,7 +421,7 @@ local function LayPick(owner, m, forward, hint)
   if InCombatLockdown() or not (m and m.guid) then return false end
   local host = Host()
   if not (host and host:IsShown() and GuildSelected()) then return false end
-  local grew = Notes.Wake() -- (a big guild's list grows now, its rows come a frame later)
+  local grew = Notes.Wake(not forward) -- (a big guild's list grows now, its rows come a frame later)
   local p = Pick()
   if p:IsShown() and p.owner == owner and p.member == m then return true end
   local row = Row(m.guid)
@@ -517,7 +527,7 @@ function Notes.Explain(m)
   elseif not GuildSelected() then
     ns.Print(L.NOTES_SELECT_GUILD)
   elseif not Row(m.guid) then
-    if not Notes.Wake() then
+    if not Notes.Wake(true) then
       SizeList()
       HearOnce()
     end

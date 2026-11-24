@@ -80,6 +80,30 @@ T.describe("Blizzard's member list", function()
     T.truthy(steps > 10, ("only %d steps"):format(steps))
   end)
 
+  -- In the gamepad interface the game's cursor searched the whole window again for every new row, and
+  -- growing to 1000 rows froze it for seconds (/guildy stress 2026-11-24): there the list grows only once
+  -- a note is to be edited, then for the rest of the session.
+  T.it("grows a big guild's list in the gamepad interface only for editing a note", function()
+    local w = World(958, true)
+    rawset(w.env, "InputUtil", { IsGamepadUIEnabled = function() return true end })
+    rawset(w.env.UIParent, "GetEffectiveScale", function() return 1 end)
+    local short = w.Height()
+    w.RunTimers(60)
+    T.eq(w.Height(), short) -- opened: stays short
+    local m = w.ns.Roster.Members()[700]
+    w.ns.UI.Notes.HoverMember(w.Owner(m), m)
+    w.RunTimers(60)
+    T.eq(w.Height(), short) -- the cursor passing over members: still short
+    w.ns.UI.Notes.HoverButton(w.Owner(m), m) -- the cursor on "Edit notes"
+    w.RunTimers(60)
+    T.eq(w.Height(), 958 * ROW + 80)
+    -- opened again later in the session: grows as with the mouse (Blizzard's rows are made already)
+    w.env.CommunitiesFrame:Hide()
+    w.env.CommunitiesFrame:Show()
+    w.RunTimers(60)
+    T.eq(w.Height(), 958 * ROW + 80)
+  end)
+
   T.it("lays the pick once the list has the member's row, stays grown, and starts short when the window opens again", function()
     local w = World(958)
     rawset(w.env.UIParent, "GetEffectiveScale", function() return 1 end)
