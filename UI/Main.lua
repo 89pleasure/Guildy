@@ -518,15 +518,15 @@ function UI.GrowWindow(delta)
   return to - was
 end
 
--- A page shown in the content area instead of a tab (the character page). It hides the current tab
--- and remembers it; selecting any tab hides the page again.
 -- Controller: left and right go along a view's toolbar (W.Page), its controls as they stand from left to
 -- right. The game's nearest button sideways was at times one in the row below.
 function UI.LinkToolbar(panel)
-  local page = panel and rawget(panel, "GuildyPage")
-  if page then ns.Pad.RowOf(page.Bar) end
+  local shell = panel and rawget(panel, "GuildyPage")
+  if shell then ns.Pad.RowOf(shell.Bar) end
 end
 
+-- A page shown in the content area instead of a tab (the character page). It hides the current tab
+-- and remembers it; selecting any tab hides the page again.
 function UI.ShowPage(newPage)
   if not frame then UI.Show() end
   if page and page ~= newPage then page:Hide() end
