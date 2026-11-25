@@ -62,6 +62,7 @@ local HANDLERS = {
     C_Timer.After(ns.GameGear.WARM_DELAY, function() ns.SafeCall(ns.GameGear.WarmUp) end)
     ns.UI.ResumeShots() -- /guildy shots all goes on after its reload
   end,
+  PLAYER_ENTERING_WORLD = function() ns.Creator.HookTooltip() end,
   PLAYER_LOGOUT = function()
     ns.Chat.OnLogout(ns.Settings(), ns.Now())
     ns.GameStats.UpdateOwn()

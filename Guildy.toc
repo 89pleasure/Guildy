@@ -79,6 +79,7 @@ Game\ModelPool.lua
 Game\CpuProbe.lua
 Game\Activity.lua
 Game\Ding.lua
+Game\Creator.lua
 UI\Skin.lua
 UI\Gamepad.lua
 UI\Widgets.lua
