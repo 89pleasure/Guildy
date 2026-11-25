@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.16.0
+
+- New: Guildy's creator has a "Guildy Creator" line in the tooltip.
+
 ## 1.15.0
 
 - New: the Events tab shows event times in your own time zone, and you enter new events in it too. Where it
